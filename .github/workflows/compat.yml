@@ -1,0 +1,128 @@
+name: compat
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            rust:
+              - 'Cargo.toml'
+              - 'crates/**'
+              - '.github/workflows/compat.yml'
+            docker:
+              - 'Dockerfile.fixture'
+              - '.github/workflows/docker.yml'
+
+  compat-github:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [app-a, app-b]
+    outputs:
+      lane: github
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: extractions/setup-just@v4
+      - uses: actions/cache@v5
+        with:
+          path: target
+          key: fixture-github-${{ runner.os }}-${{ matrix.package }}-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
+      - id: command-files
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "FIXTURE_PACKAGE=${{ matrix.package }}" >> "${GITHUB_ENV}"
+          echo "package=${{ matrix.package }}" >> "${GITHUB_OUTPUT}"
+          mkdir -p "${HOME}/.local/bin"
+          printf '%s\n' '#!/usr/bin/env bash' 'echo fixture-tool-ok' > "${HOME}/.local/bin/fixture-tool"
+          chmod +x "${HOME}/.local/bin/fixture-tool"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+          echo "### github ${{ matrix.package }}" >> "${GITHUB_STEP_SUMMARY}"
+      - shell: bash
+        run: just test "${{ matrix.package }}"
+      - uses: ./.github/actions/check-fixture-output
+        with:
+          package: ${{ steps.command-files.outputs.package }}
+      - shell: bash
+        run: python3 .github/scripts/write-result.py "${{ matrix.package }}" github "out/result.json"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: result-github-${{ matrix.package }}
+          path: out/result.json
+
+  compat-velnor:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true'
+    runs-on: [self-hosted, velnor-target-mvp]
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [app-a, app-b]
+    outputs:
+      lane: velnor
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: extractions/setup-just@v4
+      - uses: actions/cache@v5
+        with:
+          path: target
+          key: fixture-velnor-${{ runner.os }}-${{ matrix.package }}-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
+      - id: command-files
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "FIXTURE_PACKAGE=${{ matrix.package }}" >> "${GITHUB_ENV}"
+          echo "package=${{ matrix.package }}" >> "${GITHUB_OUTPUT}"
+          mkdir -p "${HOME}/.local/bin"
+          printf '%s\n' '#!/usr/bin/env bash' 'echo fixture-tool-ok' > "${HOME}/.local/bin/fixture-tool"
+          chmod +x "${HOME}/.local/bin/fixture-tool"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+          echo "### velnor ${{ matrix.package }}" >> "${GITHUB_STEP_SUMMARY}"
+      - shell: bash
+        run: just test "${{ matrix.package }}"
+      - uses: ./.github/actions/check-fixture-output
+        with:
+          package: ${{ steps.command-files.outputs.package }}
+      - shell: bash
+        run: python3 .github/scripts/write-result.py "${{ matrix.package }}" velnor "out/result.json"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: result-velnor-${{ matrix.package }}
+          path: out/result.json
+
+  compare-results:
+    needs: [compat-github, compat-velnor]
+    if: always() && needs.compat-github.result == 'success' && needs.compat-velnor.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+      - shell: bash
+        run: python3 .github/scripts/compare-results.py artifacts
+      - uses: ./.github/actions/aggregate-needs
+        with:
+          expected: success
+          actual: ${{ needs.compat-velnor.result }}

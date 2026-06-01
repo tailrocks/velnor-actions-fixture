@@ -1,0 +1,6 @@
+FROM alpine:3.20
+ARG PACKAGE=app-a
+LABEL org.opencontainers.image.title="velnor-actions-fixture"
+RUN echo "package=${PACKAGE}" > /fixture.txt
+CMD ["cat", "/fixture.txt"]
+

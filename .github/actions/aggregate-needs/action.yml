@@ -1,0 +1,18 @@
+name: Aggregate needs
+description: Minimal local action that mirrors the target repositories' aggregation pattern.
+inputs:
+  expected:
+    required: true
+    description: Expected result value.
+  actual:
+    required: true
+    description: Actual result value.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        test "${{ inputs.expected }}" = "${{ inputs.actual }}"
+        echo "aggregate=${{ inputs.actual }}" >> "${GITHUB_STEP_SUMMARY}"
+
