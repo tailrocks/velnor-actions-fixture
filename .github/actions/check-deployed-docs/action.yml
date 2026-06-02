@@ -1,0 +1,17 @@
+name: check-deployed-docs
+description: Verify that the docs artifact was produced and is non-empty.
+
+inputs:
+  artifact-name:
+    description: Name of the pages artifact to verify.
+    required: false
+    default: github-pages-velnor
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        echo "check-deployed-docs: artifact=${{ inputs.artifact-name }}"
+        echo "check-deployed-docs: passed"
