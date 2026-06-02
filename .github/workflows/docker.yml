@@ -12,102 +12,90 @@ defaults:
     shell: bash
 
 jobs:
-  docker-github:
+  docker:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - lane: github
+            runner: '"ubuntu-latest"'
+          - lane: velnor
+            runner: '["self-hosted","velnor-target-mvp"]'
+    runs-on: ${{ fromJSON(matrix.config.runner) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: crazy-max/ghaction-github-runtime@v3
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v4
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}/fixture
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.fixture
+          push: false
+          load: true
+          tags: velnor-actions-fixture:${{ matrix.config.lane }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PACKAGE=app-a
+          cache-from: type=gha,scope=fixture-build-${{ matrix.config.lane }}
+          cache-to: type=gha,scope=fixture-build-${{ matrix.config.lane }},mode=max
+      - id: run-output
+        run: |
+          output="$(docker run --rm velnor-actions-fixture:${{ matrix.config.lane }})"
+          echo "output=${output}" >> "${GITHUB_OUTPUT}"
+          echo "docker run output: ${output}"
+      - uses: docker/bake-action@v7
+        with:
+          files: docker-bake.hcl
+          push: false
+          set: |
+            fixture.cache-from=type=gha,scope=fixture-bake-${{ matrix.config.lane }}
+            fixture.cache-to=type=gha,scope=fixture-bake-${{ matrix.config.lane }},mode=max
+      - run: |
+          {
+            echo "### docker buildx cache (${{ matrix.config.lane }})"
+            echo '```'
+            docker buildx du 2>/dev/null || echo 'buildx cache info not available'
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+      - run: echo "${{ steps.run-output.outputs.output }}" > docker-result.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: docker-result-${{ matrix.config.lane }}
+          path: docker-result.txt
+
+  docker-compare:
+    needs: [docker]
+    if: always() && needs.docker.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      # Export ACTIONS_CACHE_URL and ACTIONS_RUNTIME_TOKEN so Docker Buildx
-      # can use the GitHub Actions cache backend (type=gha).
-      - uses: crazy-max/ghaction-github-runtime@v3
-      - uses: docker/login-action@v3
+      - uses: actions/download-artifact@v8
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v4
-      - id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}/fixture
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix=sha-
-      - uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile.fixture
-          push: false
-          load: true
-          tags: velnor-actions-fixture:github
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            PACKAGE=app-a
-          # Scoped GHA cache — scope prevents cross-job cache pollution
-          cache-from: type=gha,scope=fixture-build-github
-          cache-to: type=gha,scope=fixture-build-github,mode=max
-      - run: docker run --rm velnor-actions-fixture:github
-      # Bake target — separate cache scope for bake vs build-push
-      - uses: docker/bake-action@v6
-        with:
-          files: docker-bake.hcl
-          push: false
-          set: |
-            fixture.cache-from=type=gha,scope=fixture-bake-github
-            fixture.cache-to=type=gha,scope=fixture-bake-github,mode=max
+          path: artifacts
       - run: |
-          {
-            echo "### docker buildx cache (github)"
-            echo '```'
-            docker buildx du 2>/dev/null || echo 'buildx cache info not available'
-            echo '```'
-          } >> "${GITHUB_STEP_SUMMARY}"
-
-  docker-velnor:
-    runs-on: [self-hosted, velnor-target-mvp]
-    steps:
-      - uses: actions/checkout@v6
-      # Export ACTIONS_CACHE_URL and ACTIONS_RUNTIME_TOKEN so Docker Buildx
-      # can use the GitHub Actions cache backend (type=gha).
-      - uses: crazy-max/ghaction-github-runtime@v3
-      - uses: docker/login-action@v3
+          set -euo pipefail
+          github_out="$(cat artifacts/docker-result-github/docker-result.txt)"
+          velnor_out="$(cat artifacts/docker-result-velnor/docker-result.txt)"
+          echo "github: ${github_out}"
+          echo "velnor: ${velnor_out}"
+          if [[ "${github_out}" != "${velnor_out}" ]]; then
+            echo "MISMATCH: docker run output differs between lanes" >&2
+            exit 1
+          fi
+          echo "docker outputs match"
+      - uses: ./.github/actions/aggregate-needs
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v4
-      - id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}/fixture
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix=sha-
-      - uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile.fixture
-          push: false
-          load: true
-          tags: velnor-actions-fixture:velnor
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            PACKAGE=app-a
-          # Scoped GHA cache — scope prevents cross-job cache pollution
-          cache-from: type=gha,scope=fixture-build-velnor
-          cache-to: type=gha,scope=fixture-build-velnor,mode=max
-      - run: docker run --rm velnor-actions-fixture:velnor
-      # Bake target — separate cache scope for bake vs build-push
-      - uses: docker/bake-action@v6
-        with:
-          files: docker-bake.hcl
-          push: false
-          set: |
-            fixture.cache-from=type=gha,scope=fixture-bake-velnor
-            fixture.cache-to=type=gha,scope=fixture-bake-velnor,mode=max
-      - run: |
-          {
-            echo "### docker buildx cache (velnor)"
-            echo '```'
-            docker buildx du 2>/dev/null || echo 'buildx cache info not available'
-            echo '```'
-          } >> "${GITHUB_STEP_SUMMARY}"
+          expected: success
+          actual: ${{ needs.docker.result }}

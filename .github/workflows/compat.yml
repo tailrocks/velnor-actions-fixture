@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
-      docker: ${{ steps.filter.outputs.docker }}
     steps:
       - uses: actions/checkout@v6
       - id: filter
@@ -30,40 +29,38 @@ jobs:
               - 'crates/**'
               - 'mise.toml'
               - '.github/workflows/compat.yml'
-            docker:
-              - 'Dockerfile.fixture'
-              - '.github/workflows/docker.yml'
 
-  compat-github:
+  compat:
     needs: changes
     if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         package: [app-a, app-b]
-    outputs:
-      lane: github
+        config:
+          - lane: github
+            runner: '"ubuntu-latest"'
+          - lane: velnor
+            runner: '["self-hosted","velnor-target-mvp"]'
+    runs-on: ${{ fromJSON(matrix.config.runner) }}
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v0
+      - uses: jdx/mise-action@v4
       - uses: extractions/setup-just@v4
       - uses: rui314/setup-mold@v1
-      - uses: mozilla-actions/sccache-action@v0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
         continue-on-error: true
-      # Cargo registry/git/target cache — shared across packages, keyed by package for target/
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: fixture-github-${{ runner.os }}
+          shared-key: fixture-${{ matrix.config.lane }}-${{ runner.os }}
           key: ${{ matrix.package }}
-      # ~/.cargo/bin cache — persists installed cargo binaries between runs
       - uses: actions/cache@v5
         with:
           path: ~/.cargo/bin
-          key: fixture-cargo-bin-github-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
-          restore-keys: fixture-cargo-bin-github-${{ runner.os }}-
+          key: fixture-cargo-bin-${{ matrix.config.lane }}-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
+          restore-keys: fixture-cargo-bin-${{ matrix.config.lane }}-${{ runner.os }}-
       - id: command-files
         run: |
           set -euo pipefail
@@ -74,7 +71,7 @@ jobs:
           printf '%s\n' '#!/usr/bin/env bash' 'echo fixture-tool-ok' > "${HOME}/.local/bin/fixture-tool"
           chmod +x "${HOME}/.local/bin/fixture-tool"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
-          echo "### github ${{ matrix.package }}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "### ${{ matrix.config.lane }} ${{ matrix.package }}" >> "${GITHUB_STEP_SUMMARY}"
       - run: just fmt-check
       - run: just clippy "${{ matrix.package }}"
       - run: just test "${{ matrix.package }}"
@@ -82,7 +79,7 @@ jobs:
       - if: always()
         run: |
           {
-            echo "### sccache stats (github ${{ matrix.package }})"
+            echo "### sccache stats (${{ matrix.config.lane }} ${{ matrix.package }})"
             echo '```'
             sccache --show-stats 2>/dev/null || echo 'sccache not available'
             echo '```'
@@ -90,77 +87,15 @@ jobs:
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
-      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" github "out/result.json"
+      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" "${{ matrix.config.lane }}" "out/result.json"
       - uses: actions/upload-artifact@v7
         with:
-          name: result-github-${{ matrix.package }}
-          path: out/result.json
-
-  compat-velnor:
-    needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true'
-    runs-on: [self-hosted, velnor-target-mvp]
-    strategy:
-      fail-fast: false
-      matrix:
-        package: [app-a, app-b]
-    outputs:
-      lane: velnor
-    env:
-      SCCACHE_GHA_ENABLED: "true"
-    steps:
-      - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v0
-      - uses: extractions/setup-just@v4
-      - uses: rui314/setup-mold@v1
-      - uses: mozilla-actions/sccache-action@v0.9
-        continue-on-error: true
-      # Cargo registry/git/target cache — shared across packages, keyed by package for target/
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: fixture-velnor-${{ runner.os }}
-          key: ${{ matrix.package }}
-      # ~/.cargo/bin cache — persists installed cargo binaries between runs
-      - uses: actions/cache@v5
-        with:
-          path: ~/.cargo/bin
-          key: fixture-cargo-bin-velnor-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
-          restore-keys: fixture-cargo-bin-velnor-${{ runner.os }}-
-      - id: command-files
-        run: |
-          set -euo pipefail
-          echo "FIXTURE_PACKAGE=${{ matrix.package }}" >> "${GITHUB_ENV}"
-          echo "package=${{ matrix.package }}" >> "${GITHUB_OUTPUT}"
-          echo "setup-state=complete" >> "${GITHUB_STATE}"
-          mkdir -p "${HOME}/.local/bin"
-          printf '%s\n' '#!/usr/bin/env bash' 'echo fixture-tool-ok' > "${HOME}/.local/bin/fixture-tool"
-          chmod +x "${HOME}/.local/bin/fixture-tool"
-          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
-          echo "### velnor ${{ matrix.package }}" >> "${GITHUB_STEP_SUMMARY}"
-      - run: just fmt-check
-      - run: just clippy "${{ matrix.package }}"
-      - run: just test "${{ matrix.package }}"
-      - run: just nextest "${{ matrix.package }}"
-      - if: always()
-        run: |
-          {
-            echo "### sccache stats (velnor ${{ matrix.package }})"
-            echo '```'
-            sccache --show-stats 2>/dev/null || echo 'sccache not available'
-            echo '```'
-          } >> "${GITHUB_STEP_SUMMARY}"
-      - uses: ./.github/actions/check-fixture-output
-        with:
-          package: ${{ steps.command-files.outputs.package }}
-      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" velnor "out/result.json"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: result-velnor-${{ matrix.package }}
+          name: result-${{ matrix.config.lane }}-${{ matrix.package }}
           path: out/result.json
 
   compare-results:
-    needs: [compat-github, compat-velnor]
-    if: always() && needs.compat-github.result == 'success' && needs.compat-velnor.result == 'success'
+    needs: [compat]
+    if: always() && needs.compat.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -171,4 +106,4 @@ jobs:
       - uses: ./.github/actions/aggregate-needs
         with:
           expected: success
-          actual: ${{ needs.compat-velnor.result }}
+          actual: ${{ needs.compat.result }}

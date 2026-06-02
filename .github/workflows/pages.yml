@@ -17,44 +17,45 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
-jobs:
-  build-github:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v0
-      - uses: Swatinem/rust-cache@v2
-      - shell: bash
-        run: cargo doc --no-deps --workspace
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: target/doc
-          name: github-pages-github
+defaults:
+  run:
+    shell: bash
 
-  build-velnor:
-    runs-on: [self-hosted, velnor-target-mvp]
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - lane: github
+            runner: '"ubuntu-latest"'
+          - lane: velnor
+            runner: '["self-hosted","velnor-target-mvp"]'
+    runs-on: ${{ fromJSON(matrix.config.runner) }}
     steps:
       - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v0
+      - uses: jdx/mise-action@v4
       - uses: Swatinem/rust-cache@v2
-      - shell: bash
-        run: cargo doc --no-deps --workspace
-      - uses: actions/upload-pages-artifact@v3
+        with:
+          shared-key: fixture-pages-${{ matrix.config.lane }}-${{ runner.os }}
+      - run: cargo doc --no-deps --workspace
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: target/doc
-          name: github-pages-velnor
+          name: github-pages-${{ matrix.config.lane }}
       - uses: ./.github/actions/check-deployed-docs
         with:
-          artifact-name: github-pages-velnor
+          artifact-name: github-pages-${{ matrix.config.lane }}
 
   deploy:
-    needs: [build-github, build-velnor]
+    needs: [build]
+    if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         with:
           artifact_name: github-pages-github
