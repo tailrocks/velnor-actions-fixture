@@ -2,6 +2,12 @@ name: docker
 
 on:
   workflow_dispatch:
+    inputs:
+      lanes:
+        description: 'Lanes to run (all / github-only / velnor-only)'
+        type: choice
+        default: all
+        options: [all, github-only, velnor-only]
 
 permissions:
   contents: read
@@ -13,6 +19,10 @@ defaults:
 
 jobs:
   docker:
+    if: >-
+      inputs.lanes == '' || inputs.lanes == 'all' ||
+      (inputs.lanes == 'github-only' && matrix.config.lane == 'github') ||
+      (inputs.lanes == 'velnor-only' && matrix.config.lane == 'velnor')
     strategy:
       fail-fast: false
       matrix:
