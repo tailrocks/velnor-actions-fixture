@@ -7,11 +7,17 @@ permissions:
   contents: read
   packages: write
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   docker-github:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # Export ACTIONS_CACHE_URL and ACTIONS_RUNTIME_TOKEN so Docker Buildx
+      # can use the GitHub Actions cache backend (type=gha).
       - uses: crazy-max/ghaction-github-runtime@v3
       - uses: docker/login-action@v3
         with:
@@ -36,22 +42,32 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             PACKAGE=app-a
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - shell: bash
-        run: docker run --rm velnor-actions-fixture:github
+          # Scoped GHA cache — scope prevents cross-job cache pollution
+          cache-from: type=gha,scope=fixture-build-github
+          cache-to: type=gha,scope=fixture-build-github,mode=max
+      - run: docker run --rm velnor-actions-fixture:github
+      # Bake target — separate cache scope for bake vs build-push
       - uses: docker/bake-action@v6
         with:
           files: docker-bake.hcl
           push: false
           set: |
-            fixture.cache-from=type=gha
-            fixture.cache-to=type=gha,mode=max
+            fixture.cache-from=type=gha,scope=fixture-bake-github
+            fixture.cache-to=type=gha,scope=fixture-bake-github,mode=max
+      - run: |
+          {
+            echo "### docker buildx cache (github)"
+            echo '```'
+            docker buildx du 2>/dev/null || echo 'buildx cache info not available'
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
 
   docker-velnor:
     runs-on: [self-hosted, velnor-target-mvp]
     steps:
       - uses: actions/checkout@v6
+      # Export ACTIONS_CACHE_URL and ACTIONS_RUNTIME_TOKEN so Docker Buildx
+      # can use the GitHub Actions cache backend (type=gha).
       - uses: crazy-max/ghaction-github-runtime@v3
       - uses: docker/login-action@v3
         with:
@@ -76,14 +92,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             PACKAGE=app-a
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - shell: bash
-        run: docker run --rm velnor-actions-fixture:velnor
+          # Scoped GHA cache — scope prevents cross-job cache pollution
+          cache-from: type=gha,scope=fixture-build-velnor
+          cache-to: type=gha,scope=fixture-build-velnor,mode=max
+      - run: docker run --rm velnor-actions-fixture:velnor
+      # Bake target — separate cache scope for bake vs build-push
       - uses: docker/bake-action@v6
         with:
           files: docker-bake.hcl
           push: false
           set: |
-            fixture.cache-from=type=gha
-            fixture.cache-to=type=gha,mode=max
+            fixture.cache-from=type=gha,scope=fixture-bake-velnor
+            fixture.cache-to=type=gha,scope=fixture-bake-velnor,mode=max
+      - run: |
+          {
+            echo "### docker buildx cache (velnor)"
+            echo '```'
+            docker buildx du 2>/dev/null || echo 'buildx cache info not available'
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"

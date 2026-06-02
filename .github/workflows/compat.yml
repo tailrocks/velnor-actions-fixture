@@ -9,6 +9,10 @@ permissions:
   contents: read
   actions: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -40,6 +44,8 @@ jobs:
         package: [app-a, app-b]
     outputs:
       lane: github
+    env:
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v0
@@ -47,15 +53,18 @@ jobs:
       - uses: rui314/setup-mold@v1
       - uses: mozilla-actions/sccache-action@v0.9
         continue-on-error: true
+      # Cargo registry/git/target cache — shared across packages, keyed by package for target/
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: fixture-github-${{ runner.os }}
+          key: ${{ matrix.package }}
+      # ~/.cargo/bin cache — persists installed cargo binaries between runs
       - uses: actions/cache@v5
         with:
           path: ~/.cargo/bin
           key: fixture-cargo-bin-github-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.package }}
+          restore-keys: fixture-cargo-bin-github-${{ runner.os }}-
       - id: command-files
-        shell: bash
         run: |
           set -euo pipefail
           echo "FIXTURE_PACKAGE=${{ matrix.package }}" >> "${GITHUB_ENV}"
@@ -66,19 +75,22 @@ jobs:
           chmod +x "${HOME}/.local/bin/fixture-tool"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
           echo "### github ${{ matrix.package }}" >> "${GITHUB_STEP_SUMMARY}"
-      - shell: bash
-        run: just fmt-check
-      - shell: bash
-        run: just clippy "${{ matrix.package }}"
-      - shell: bash
-        run: just test "${{ matrix.package }}"
-      - shell: bash
-        run: just nextest "${{ matrix.package }}"
+      - run: just fmt-check
+      - run: just clippy "${{ matrix.package }}"
+      - run: just test "${{ matrix.package }}"
+      - run: just nextest "${{ matrix.package }}"
+      - if: always()
+        run: |
+          {
+            echo "### sccache stats (github ${{ matrix.package }})"
+            echo '```'
+            sccache --show-stats 2>/dev/null || echo 'sccache not available'
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
-      - shell: bash
-        run: python3 .github/scripts/write-result.py "${{ matrix.package }}" github "out/result.json"
+      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" github "out/result.json"
       - uses: actions/upload-artifact@v7
         with:
           name: result-github-${{ matrix.package }}
@@ -94,6 +106,8 @@ jobs:
         package: [app-a, app-b]
     outputs:
       lane: velnor
+    env:
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v0
@@ -101,15 +115,18 @@ jobs:
       - uses: rui314/setup-mold@v1
       - uses: mozilla-actions/sccache-action@v0.9
         continue-on-error: true
+      # Cargo registry/git/target cache — shared across packages, keyed by package for target/
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: fixture-velnor-${{ runner.os }}
+          key: ${{ matrix.package }}
+      # ~/.cargo/bin cache — persists installed cargo binaries between runs
       - uses: actions/cache@v5
         with:
           path: ~/.cargo/bin
           key: fixture-cargo-bin-velnor-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.package }}
+          restore-keys: fixture-cargo-bin-velnor-${{ runner.os }}-
       - id: command-files
-        shell: bash
         run: |
           set -euo pipefail
           echo "FIXTURE_PACKAGE=${{ matrix.package }}" >> "${GITHUB_ENV}"
@@ -120,19 +137,22 @@ jobs:
           chmod +x "${HOME}/.local/bin/fixture-tool"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
           echo "### velnor ${{ matrix.package }}" >> "${GITHUB_STEP_SUMMARY}"
-      - shell: bash
-        run: just fmt-check
-      - shell: bash
-        run: just clippy "${{ matrix.package }}"
-      - shell: bash
-        run: just test "${{ matrix.package }}"
-      - shell: bash
-        run: just nextest "${{ matrix.package }}"
+      - run: just fmt-check
+      - run: just clippy "${{ matrix.package }}"
+      - run: just test "${{ matrix.package }}"
+      - run: just nextest "${{ matrix.package }}"
+      - if: always()
+        run: |
+          {
+            echo "### sccache stats (velnor ${{ matrix.package }})"
+            echo '```'
+            sccache --show-stats 2>/dev/null || echo 'sccache not available'
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
-      - shell: bash
-        run: python3 .github/scripts/write-result.py "${{ matrix.package }}" velnor "out/result.json"
+      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" velnor "out/result.json"
       - uses: actions/upload-artifact@v7
         with:
           name: result-velnor-${{ matrix.package }}
@@ -147,8 +167,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
-      - shell: bash
-        run: python3 .github/scripts/compare-results.py artifacts
+      - run: python3 .github/scripts/compare-results.py artifacts
       - uses: ./.github/actions/aggregate-needs
         with:
           expected: success
