@@ -97,6 +97,11 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v6
+      # Package filter: skip if packages input set and this package not listed
+      - if: inputs.packages != '' && !contains(inputs.packages, matrix.package)
+        run: |
+          echo "Skipping ${{ matrix.package }} (packages filter: ${{ inputs.packages }})"
+          exit 0
       - uses: jdx/mise-action@v4
       - uses: extractions/setup-just@v4
       - uses: rui314/setup-mold@v1
