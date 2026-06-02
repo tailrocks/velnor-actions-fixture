@@ -1,18 +1,48 @@
 name: Aggregate needs
-description: Minimal local action that mirrors the target repositories' aggregation pattern.
+description: >
+  Mirrors the target repositories' aggregation pattern.
+  Scalar mode: compares expected vs actual result values.
+  Bulk mode: receives toJSON(needs) and verifies all jobs succeeded or were skipped.
+
 inputs:
   expected:
-    required: true
-    description: Expected result value.
+    required: false
+    description: Expected result value (scalar comparison mode).
   actual:
-    required: true
-    description: Actual result value.
+    required: false
+    description: Actual result value (scalar comparison mode).
+  needs-json:
+    required: false
+    description: toJSON(needs) output for bulk needs aggregation (Jackin pattern).
+    default: ''
+  workflow-label:
+    required: false
+    description: Human label for the workflow (bulk mode).
+    default: ''
+
 runs:
   using: composite
   steps:
     - shell: bash
       run: |
         set -euo pipefail
-        test "${{ inputs.expected }}" = "${{ inputs.actual }}"
-        echo "aggregate=${{ inputs.actual }}" >> "${GITHUB_STEP_SUMMARY}"
 
+        needs_json='${{ inputs.needs-json }}'
+
+        if [[ -n "$needs_json" && "$needs_json" != "null" ]]; then
+          label="${{ inputs.workflow-label }}"
+          failed="$(python3 -c "
+        import json, sys
+        needs = json.loads('''${needs_json}''')
+        failed = [k for k, v in needs.items() if v.get('result') not in ('success','skipped')]
+        print(' '.join(failed))
+        " 2>/dev/null || echo 'parse-error')"
+          if [[ -n "$failed" ]]; then
+            echo "::error::${label} aggregate-needs failed: $failed"
+            exit 1
+          fi
+          echo "aggregate-needs: ${label} all passed" >> "${GITHUB_STEP_SUMMARY}"
+        else
+          test "${{ inputs.expected }}" = "${{ inputs.actual }}"
+          echo "aggregate-needs: ${{ inputs.actual }}" >> "${GITHUB_STEP_SUMMARY}"
+        fi

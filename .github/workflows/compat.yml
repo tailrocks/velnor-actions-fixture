@@ -3,6 +3,9 @@ name: compat
 on:
   push:
   pull_request:
+  merge_group:
+  schedule:
+    - cron: '0 4 * * 0'
   workflow_dispatch:
     inputs:
       lanes:
@@ -10,10 +13,19 @@ on:
         type: choice
         default: all
         options: [all, github-only, velnor-only]
+      packages:
+        description: 'Packages filter (comma-separated, empty = all)'
+        type: string
+        default: ''
 
 permissions:
   contents: read
   actions: read
+
+# Matches ChainArgos/Jackin: cancel in-progress on PR, keep on push/schedule
+concurrency:
+  group: compat-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 defaults:
   run:
@@ -24,6 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
+      docker: ${{ steps.filter.outputs.docker }}
+      tools: ${{ steps.filter.outputs.tools }}
     steps:
       - uses: actions/checkout@v6
       - id: filter
@@ -32,9 +46,17 @@ jobs:
           filters: |
             rust:
               - 'Cargo.toml'
+              - 'Cargo.lock'
               - 'crates/**'
               - 'mise.toml'
               - '.github/workflows/compat.yml'
+            docker:
+              - 'Dockerfile.fixture'
+              - 'docker-bake.hcl'
+              - '.github/workflows/docker.yml'
+            tools:
+              - 'justfile'
+              - 'mise.toml'
 
   matrix-setup:
     runs-on: ubuntu-latest
@@ -57,13 +79,21 @@ jobs:
 
   compat:
     needs: [changes, matrix-setup]
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'merge_group' ||
+      (needs.changes.outputs.rust == 'true' &&
+       (inputs.packages == '' || contains(inputs.packages, matrix.package)))
     strategy:
       fail-fast: false
       matrix:
         package: [app-a, app-b]
         config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
     runs-on: ${{ fromJSON(matrix.config.runner) }}
+    permissions:
+      contents: read
+      actions: read
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
@@ -82,21 +112,38 @@ jobs:
           path: ~/.cargo/bin
           key: fixture-cargo-bin-${{ matrix.config.lane }}-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
           restore-keys: fixture-cargo-bin-${{ matrix.config.lane }}-${{ runner.os }}-
-      - id: command-files
+      # Compute MSRV from Cargo.toml — mirrors Jackin MSRV toolchain pattern
+      - id: msrv
         run: |
           set -euo pipefail
-          echo "FIXTURE_PACKAGE=${{ matrix.package }}" >> "${GITHUB_ENV}"
-          echo "package=${{ matrix.package }}" >> "${GITHUB_OUTPUT}"
+          version="$(grep '^rust-version' "crates/${{ matrix.package }}/Cargo.toml" | sed 's/.*= *"\(.*\)"/\1/' || echo 'stable')"
+          echo "version=${version:-stable}" >> "${GITHUB_OUTPUT}"
+      - id: command-files
+        env:
+          PACKAGE: ${{ matrix.package }}
+          LANE: ${{ matrix.config.lane }}
+        run: |
+          set -euo pipefail
+          echo "FIXTURE_PACKAGE=${PACKAGE}" >> "${GITHUB_ENV}"
+          echo "package=${PACKAGE}" >> "${GITHUB_OUTPUT}"
+          echo "lane=${LANE}" >> "${GITHUB_OUTPUT}"
           echo "setup-state=complete" >> "${GITHUB_STATE}"
+          # Multiline heredoc output — matches ChainArgos bake-targets pattern
+          printf 'packages<<EOF\n%s\n%s\nEOF\n' "app-a" "app-b" >> "${GITHUB_OUTPUT}"
           mkdir -p "${HOME}/.local/bin"
           printf '%s\n' '#!/usr/bin/env bash' 'echo fixture-tool-ok' > "${HOME}/.local/bin/fixture-tool"
           chmod +x "${HOME}/.local/bin/fixture-tool"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
-          echo "### ${{ matrix.config.lane }} ${{ matrix.package }}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "### ${LANE} ${PACKAGE}" >> "${GITHUB_STEP_SUMMARY}"
       - run: just fmt-check
       - run: just clippy "${{ matrix.package }}"
       - run: just test "${{ matrix.package }}"
       - run: just nextest "${{ matrix.package }}"
+      # Verify MSRV step with env injection — mirrors Jackin MSRV pattern
+      - name: Check MSRV
+        env:
+          RUSTUP_TOOLCHAIN: ${{ steps.msrv.outputs.version }}
+        run: cargo check -p "${{ matrix.package }}" --locked
       - if: always()
         run: |
           {
@@ -114,6 +161,18 @@ jobs:
           name: result-${{ matrix.config.lane }}-${{ matrix.package }}
           path: out/result.json
 
+  # Required aggregate job — mirrors ChainArgos rust-required / Jackin ci-required
+  compat-required:
+    if: always()
+    needs: [changes, compat]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/aggregate-needs
+        with:
+          needs-json: ${{ toJSON(needs) }}
+          workflow-label: compat
+
   compare-results:
     needs: [compat]
     if: always() && needs.compat.result == 'success'
@@ -123,6 +182,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
+          merge-multiple: false
       - run: python3 .github/scripts/compare-results.py artifacts
       - uses: ./.github/actions/aggregate-needs
         with:

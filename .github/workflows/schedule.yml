@@ -1,0 +1,62 @@
+name: schedule
+
+on:
+  schedule:
+    - cron: '0 4 * * 0'
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: schedule-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  matrix-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      configs: ${{ steps.set.outputs.configs }}
+    steps:
+      - id: set
+        run: |
+          echo 'configs=[{"lane":"github","runner":"\"ubuntu-latest\""},{"lane":"velnor","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
+
+  scheduled-check:
+    needs: [matrix-setup]
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
+    runs-on: ${{ fromJSON(matrix.config.runner) }}
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: fixture-schedule-${{ matrix.config.lane }}-${{ runner.os }}
+      - run: cargo check --workspace --locked
+      - run: |
+          {
+            echo "### scheduled-check (${{ matrix.config.lane }})"
+            echo "- event: ${EVENT_NAME}"
+            echo "- ref: ${{ github.ref }}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  schedule-required:
+    if: always()
+    needs: [scheduled-check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/aggregate-needs
+        with:
+          needs-json: ${{ toJSON(needs) }}
+          workflow-label: schedule

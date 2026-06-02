@@ -1,0 +1,79 @@
+name: reuse-caller
+
+on:
+  workflow_dispatch:
+    inputs:
+      lanes:
+        description: 'Lanes to run (all / github-only / velnor-only)'
+        type: choice
+        default: all
+        options: [all, github-only, velnor-only]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: reuse-caller-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  matrix-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      configs: ${{ steps.set.outputs.configs }}
+    steps:
+      - id: set
+        run: |
+          case "${{ inputs.lanes }}" in
+            github-only)
+              echo 'configs=[{"lane":"github","runner":"\"ubuntu-latest\""}]' >> "$GITHUB_OUTPUT"
+              ;;
+            velnor-only)
+              echo 'configs=[{"lane":"velnor","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo 'configs=[{"lane":"github","runner":"\"ubuntu-latest\""},{"lane":"velnor","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+  # Call the reusable workflow — mirrors ChainArgos kestra and Jackin composite patterns.
+  # Each lane calls the same reusable workflow with secrets: inherit.
+  call-app-a:
+    needs: [matrix-setup]
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
+    uses: ./.github/workflows/fixture-rust-check.yml
+    secrets: inherit
+    with:
+      package: app-a
+      runner: ${{ matrix.config.runner }}
+
+  call-app-b:
+    needs: [matrix-setup]
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
+    uses: ./.github/workflows/fixture-rust-check.yml
+    secrets: inherit
+    with:
+      package: app-b
+      runner: ${{ matrix.config.runner }}
+
+  reuse-required:
+    if: always()
+    needs: [call-app-a, call-app-b]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/aggregate-needs
+        with:
+          needs-json: ${{ toJSON(needs) }}
+          workflow-label: reuse-caller

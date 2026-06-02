@@ -1,0 +1,130 @@
+name: multi-arch
+
+on:
+  workflow_dispatch:
+    inputs:
+      lanes:
+        description: 'Lanes to run (all / github-only / velnor-only)'
+        type: choice
+        default: all
+        options: [all, github-only, velnor-only]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: multi-arch-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  DIGEST_DIR: /tmp/fixture-digests
+
+jobs:
+  matrix-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      configs: ${{ steps.set.outputs.configs }}
+    steps:
+      - id: set
+        run: |
+          case "${{ inputs.lanes }}" in
+            github-only)
+              # x64 GitHub-hosted only
+              echo 'configs=[{"lane":"github","platform":"linux/amd64","runner":"\"ubuntu-latest\""}]' >> "$GITHUB_OUTPUT"
+              ;;
+            velnor-only)
+              # x64 Velnor only
+              echo 'configs=[{"lane":"velnor","platform":"linux/amd64","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              # Both lanes x64 — ARM64 added when ubuntu-24.04-arm is available
+              echo 'configs=[{"lane":"github","platform":"linux/amd64","runner":"\"ubuntu-latest\""},{"lane":"velnor","platform":"linux/amd64","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+  # Per-platform build — mirrors Jackin construct.yml multi-arch matrix pattern.
+  # Each lane builds for its platform, uploads a digest artifact.
+  build:
+    needs: [matrix-setup]
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
+    runs-on: ${{ fromJSON(matrix.config.runner) }}
+    env:
+      PLATFORM: ${{ matrix.config.platform }}
+      LANE: ${{ matrix.config.lane }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: crazy-max/ghaction-github-runtime@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v4
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}/fixture-multi
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+      - uses: docker/build-push-action@v7
+        id: build
+        with:
+          context: .
+          file: Dockerfile.fixture
+          platforms: ${{ matrix.config.platform }}
+          push: false
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PACKAGE=app-a
+          cache-from: type=gha,scope=fixture-multi-${{ matrix.config.lane }}-${{ matrix.config.platform }}
+          cache-to: type=gha,scope=fixture-multi-${{ matrix.config.lane }}-${{ matrix.config.platform }},mode=max
+          outputs: type=image,push-by-digest=false,name-canonical=true
+      - run: |
+          mkdir -p "${DIGEST_DIR}"
+          echo "${{ steps.build.outputs.digest }}" > "${DIGEST_DIR}/${LANE}-${PLATFORM//\//-}.digest"
+          echo "### build digest (${LANE} ${PLATFORM})" >> "${GITHUB_STEP_SUMMARY}"
+          echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          cat "${DIGEST_DIR}/${LANE}-${PLATFORM//\//-}.digest" >> "${GITHUB_STEP_SUMMARY}"
+          echo '```' >> "${GITHUB_STEP_SUMMARY}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digest-${{ matrix.config.lane }}-${{ matrix.config.platform }}
+          path: ${{ env.DIGEST_DIR }}
+          if-no-files-found: error
+
+  # Manifest merge — mirrors Jackin construct.yml publish-manifest pattern.
+  # Downloads all platform digests and merges using merge-multiple: true.
+  merge-manifests:
+    needs: [build]
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      DIGEST_DIR: /tmp/fixture-digests
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: digest-*
+          path: ${{ env.DIGEST_DIR }}
+          merge-multiple: true
+      - run: |
+          echo "### merged digests" >> "${GITHUB_STEP_SUMMARY}"
+          echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          find "${DIGEST_DIR}" -name '*.digest' | sort | while read -r f; do
+            echo "$(basename "$f"): $(cat "$f")"
+          done >> "${GITHUB_STEP_SUMMARY}"
+          echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          echo "merge-manifests passed"
+      - uses: ./.github/actions/aggregate-needs
+        with:
+          expected: success
+          actual: ${{ needs.build.result }}

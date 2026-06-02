@@ -1,0 +1,42 @@
+name: fixture-rust-check
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        required: true
+        type: string
+        description: Cargo package name to check.
+      runner:
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
+        description: Runner label as JSON string (e.g. '"ubuntu-latest"' or '["self-hosted","velnor-target-mvp"]').
+    secrets:
+      github-token:
+        required: false
+        description: Optional GitHub token override.
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  rust-check:
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    env:
+      FIXTURE_PACKAGE: ${{ inputs.package }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: fixture-reusable-${{ runner.os }}
+          key: ${{ inputs.package }}
+      - run: cargo check -p "${FIXTURE_PACKAGE}" --locked
+      - run: |
+          echo "### reusable rust-check: ${FIXTURE_PACKAGE}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "reusable-check-passed=true" >> "${GITHUB_OUTPUT}"
