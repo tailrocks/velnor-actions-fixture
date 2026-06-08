@@ -35,4 +35,4 @@ jobs:
         with:
           configurationFile: .github/renovate.json5
         env:
-          RENOVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_RENOVATE_TOKEN: ${{ secrets.GH_RENOVATE_TOKEN }}
