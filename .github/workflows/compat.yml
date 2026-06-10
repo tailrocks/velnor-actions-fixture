@@ -110,6 +110,9 @@ jobs:
         continue-on-error: true
       - uses: rui314/setup-mold@v1
       - uses: jdx/mise-action@v4
+      # rustup syncs the pinned toolchain with a minimal profile; rustfmt and
+      # clippy are not guaranteed even though the just recipes need them.
+      - run: rustup component add rustfmt clippy
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: fixture-${{ matrix.config.lane }}-${{ runner.os }}
