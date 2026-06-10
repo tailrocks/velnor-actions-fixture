@@ -29,8 +29,12 @@ jobs:
     runs-on: ${{ fromJSON(inputs.runner) }}
     env:
       FIXTURE_PACKAGE: ${{ inputs.package }}
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
     steps:
       - uses: actions/checkout@v6
+      - uses: mozilla-actions/sccache-action@v0.0.10
+        continue-on-error: true
       - uses: jdx/mise-action@v4
       - uses: Swatinem/rust-cache@v2
         with:

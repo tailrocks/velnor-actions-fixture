@@ -95,6 +95,7 @@ jobs:
       actions: read
     env:
       SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
     steps:
       - uses: actions/checkout@v6
       # Package filter: skip if packages input set and this package not listed
@@ -102,20 +103,20 @@ jobs:
         run: |
           echo "Skipping ${{ matrix.package }} (packages filter: ${{ inputs.packages }})"
           exit 0
-      - uses: jdx/mise-action@v4
-      - uses: extractions/setup-just@v4
-      - uses: rui314/setup-mold@v1
+      # sccache + mold must precede mise-action: installing cargo:cargo-nextest
+      # triggers a cargo compile that inherits the job-level RUSTC_WRAPPER, so
+      # the sccache binary must already be on PATH (jackin's documented lesson).
       - uses: mozilla-actions/sccache-action@v0.0.10
         continue-on-error: true
+      - uses: rui314/setup-mold@v1
+      - uses: jdx/mise-action@v4
+      # rustup syncs the pinned toolchain with a minimal profile; rustfmt and
+      # clippy are not guaranteed even though the just recipes need them.
+      - run: rustup component add rustfmt clippy
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: fixture-${{ matrix.config.lane }}-${{ runner.os }}
           key: ${{ matrix.package }}
-      - uses: actions/cache@v5
-        with:
-          path: ~/.cargo/bin
-          key: fixture-cargo-bin-${{ matrix.config.lane }}-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
-          restore-keys: fixture-cargo-bin-${{ matrix.config.lane }}-${{ runner.os }}-
       # Compute MSRV from Cargo.toml — mirrors Jackin MSRV toolchain pattern
       - id: msrv
         run: |
