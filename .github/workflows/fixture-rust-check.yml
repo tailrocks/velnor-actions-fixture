@@ -12,6 +12,11 @@ on:
         type: string
         default: '"ubuntu-latest"'
         description: Runner label as JSON string (e.g. '"ubuntu-latest"' or '["self-hosted","velnor-target-mvp"]').
+      cache-key-suffix:
+        required: false
+        type: string
+        default: 'github'
+        description: Lane component for the rust-cache shared-key (e.g. 'github' or 'velnor') so lanes do not share one cache.
     secrets:
       github-token:
         required: false
@@ -38,7 +43,7 @@ jobs:
       - uses: jdx/mise-action@v4
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: fixture-reusable-${{ runner.os }}
+          shared-key: fixture-reusable-${{ inputs.cache-key-suffix }}-${{ runner.os }}
           key: ${{ inputs.package }}
       - run: cargo check -p "${FIXTURE_PACKAGE}" --locked
       - run: |
