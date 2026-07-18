@@ -181,6 +181,10 @@ jobs:
 
   cache-kache:
     name: Cache Kache (${{ matrix.config.lane }})
+    # The pinned upstream action deliberately disables local-only operation on
+    # ephemeral GitHub runners. Keep the cross-lane canary visible but skipped;
+    # GitHub-cache and S3 backends are outside the approved capability surface.
+    if: ${{ github.repository == 'tailrocks/velnor-kache-canary-disabled' }}
     strategy:
       fail-fast: false
       matrix:
