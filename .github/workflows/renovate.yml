@@ -13,30 +13,21 @@ defaults:
     shell: bash
 
 jobs:
-  matrix-setup:
-    runs-on: ubuntu-latest
-    outputs:
-      configs: ${{ steps.set.outputs.configs }}
-    steps:
-      - id: set
-        run: |
-          echo 'configs=[{"lane":"github","runner":"\"ubuntu-latest\""},{"lane":"velnor","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
-
   renovate:
-    needs: [matrix-setup]
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
-    runs-on: ${{ fromJSON(matrix.config.runner) }}
+        config: ${{ fromJSON('[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]') }}
+    runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/renovate/cache
           key: renovate-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.run_id }}
           restore-keys: renovate-${{ matrix.config.lane }}-${{ runner.os }}-
-      - uses: renovatebot/github-action@693b9ef15eec82123529a37c782242f091365961 # v46.1.14
+      - if: matrix.config.writer
+        uses: renovatebot/github-action@693b9ef15eec82123529a37c782242f091365961 # v46.1.14
         with:
           configurationFile: renovate.json
         env:
@@ -44,6 +35,8 @@ jobs:
           # stored in the repo secret GH_RENOVATE_TOKEN.
           GH_RENOVATE_TOKEN: ${{ secrets.GH_RENOVATE_TOKEN }}
           RENOVATE_REPOSITORY_CACHE: enabled
+      - if: ${{ !matrix.config.writer }}
+        run: echo 'Read-only comparison lane; Renovate mutation skipped.'
       # Renovate container writes cache files as a different uid; restore ownership
       # so the actions/cache post step can save them.
       - if: always()

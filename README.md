@@ -6,8 +6,9 @@ This repository intentionally keeps normal GitHub Actions YAML. It is not a Pkl/
 
 ## Runner Lanes
 
-- `compat-github`: runs on `ubuntu-latest`.
-- `compat-velnor`: runs on `[self-hosted, velnor-target-mvp]`.
+- `lanes=velnor` (default): runs on `[self-hosted, velnor-target-mvp]`.
+- `lanes=github`: runs on pinned `ubuntu-26.04`.
+- `lanes=both`: expands the same jobs on both runners from one inline matrix.
 - `compare-results`: downloads artifacts from both lanes and verifies the normalized outputs match.
 
 ## Covered Features
@@ -16,14 +17,14 @@ This repository intentionally keeps normal GitHub Actions YAML. It is not a Pkl/
 - `actions/cache`
 - `actions/upload-artifact`
 - `actions/download-artifact`
-- `dtolnay/rust-toolchain`
-- `extractions/setup-just`
+- local-only sccache, Kache, and compiler-cache-off selection
 - `dorny/paths-filter`
 - local composite actions
 - job outputs and `needs`
 - matrix jobs
 - command files: `GITHUB_ENV`, `GITHUB_OUTPUT`, `GITHUB_PATH`, `GITHUB_STEP_SUMMARY`
 - Docker Buildx setup and local image build
+- Postgres service health, alias reachability, and mapped-port context
 
 The fixture is deliberately small. It exists to verify execution semantics before running Velnor against larger repositories.
 
