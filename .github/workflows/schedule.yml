@@ -18,34 +18,31 @@ defaults:
     shell: bash
 
 jobs:
-  matrix-setup:
-    runs-on: ubuntu-latest
-    outputs:
-      configs: ${{ steps.set.outputs.configs }}
-    steps:
-      - id: set
-        run: |
-          echo 'configs=[{"lane":"github","runner":"\"ubuntu-latest\""},{"lane":"velnor","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
-
   scheduled-check:
-    needs: [matrix-setup]
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
-    runs-on: ${{ fromJSON(matrix.config.runner) }}
+        config: ${{ fromJSON('[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]') }}
+    runs-on: ${{ matrix.config.runner }}
     env:
       EVENT_NAME: ${{ github.event_name }}
-      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_GHA_ENABLED: "false"
+      SCCACHE_CACHE_SIZE: 20G
       RUSTC_WRAPPER: sccache
     steps:
       - uses: actions/checkout@v6
-      - uses: mozilla-actions/sccache-action@v0.0.10
-        continue-on-error: true
-      - uses: jdx/mise-action@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: mozilla-actions/sccache-action@1583d6b38d7be47f593cb472781bbb21cab4321e # v0.0.10
         with:
-          shared-key: fixture-schedule-${{ matrix.config.lane }}-${{ runner.os }}
+          version: v0.16.0
+          disable_annotations: "false"
+      - uses: jdx/mise-action@v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: fixture-schedule-${{ matrix.config.lane }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: fixture-schedule-${{ matrix.config.lane }}-${{ runner.os }}-
       - run: cargo check --workspace --locked
       - run: |
           {
@@ -57,7 +54,7 @@ jobs:
   schedule-required:
     if: always()
     needs: [scheduled-check]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/aggregate-needs

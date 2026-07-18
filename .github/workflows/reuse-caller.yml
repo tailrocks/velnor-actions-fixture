@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: 'Lanes to run (all / github-only / velnor-only)'
+        description: 'Runner lane(s): velnor / github / both'
         type: choice
-        default: all
-        options: [all, github-only, velnor-only]
+        default: velnor
+        options: [velnor, github, both]
 
 permissions:
   contents: read
@@ -22,57 +22,36 @@ defaults:
     shell: bash
 
 jobs:
-  matrix-setup:
-    runs-on: ubuntu-latest
-    outputs:
-      configs: ${{ steps.set.outputs.configs }}
-    steps:
-      - id: set
-        run: |
-          case "${{ inputs.lanes }}" in
-            github-only)
-              echo 'configs=[{"lane":"github","runner":"\"ubuntu-latest\""}]' >> "$GITHUB_OUTPUT"
-              ;;
-            velnor-only)
-              echo 'configs=[{"lane":"velnor","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo 'configs=[{"lane":"github","runner":"\"ubuntu-latest\""},{"lane":"velnor","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
-              ;;
-          esac
-
   # Call the reusable workflow — mirrors ChainArgos kestra and Jackin composite patterns.
   # Each lane calls the same reusable workflow with secrets: inherit.
   call-app-a:
-    needs: [matrix-setup]
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true}]') }}
     uses: ./.github/workflows/fixture-rust-check.yml
     secrets: inherit
     with:
       package: app-a
-      runner: ${{ matrix.config.runner }}
+      runner: ${{ toJSON(matrix.config.runner) }}
       cache-key-suffix: ${{ matrix.config.lane }}
 
   call-app-b:
-    needs: [matrix-setup]
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true}]') }}
     uses: ./.github/workflows/fixture-rust-check.yml
     secrets: inherit
     with:
       package: app-b
-      runner: ${{ matrix.config.runner }}
+      runner: ${{ toJSON(matrix.config.runner) }}
       cache-key-suffix: ${{ matrix.config.lane }}
 
   reuse-required:
     if: always()
     needs: [call-app-a, call-app-b]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/aggregate-needs

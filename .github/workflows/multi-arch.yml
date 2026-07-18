@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: 'Lanes to run (all / github-only / velnor-only)'
+        description: 'Runner lane(s): velnor / github / both'
         type: choice
-        default: all
-        options: [all, github-only, velnor-only]
+        default: velnor
+        options: [velnor, github, both]
 
 permissions:
   contents: read
@@ -25,37 +25,14 @@ env:
   DIGEST_DIR: /tmp/fixture-digests
 
 jobs:
-  matrix-setup:
-    runs-on: ubuntu-latest
-    outputs:
-      configs: ${{ steps.set.outputs.configs }}
-    steps:
-      - id: set
-        run: |
-          case "${{ inputs.lanes }}" in
-            github-only)
-              # x64 GitHub-hosted only
-              echo 'configs=[{"lane":"github","platform":"linux/amd64","runner":"\"ubuntu-latest\""}]' >> "$GITHUB_OUTPUT"
-              ;;
-            velnor-only)
-              # x64 Velnor only
-              echo 'configs=[{"lane":"velnor","platform":"linux/amd64","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              # Both lanes x64 — ARM64 added when ubuntu-24.04-arm is available
-              echo 'configs=[{"lane":"github","platform":"linux/amd64","runner":"\"ubuntu-latest\""},{"lane":"velnor","platform":"linux/amd64","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
-              ;;
-          esac
-
   # Per-platform build — mirrors Jackin construct.yml multi-arch matrix pattern.
   # Each lane builds for its platform, uploads a digest artifact.
   build:
-    needs: [matrix-setup]
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
-    runs-on: ${{ fromJSON(matrix.config.runner) }}
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","platform":"linux/amd64","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","platform":"linux/amd64","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","platform":"linux/amd64","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","platform":"linux/amd64","runner":["self-hosted","velnor-target-mvp"],"writer":true}]') }}
+    runs-on: ${{ matrix.config.runner }}
     env:
       PLATFORM: ${{ matrix.config.platform }}
       LANE: ${{ matrix.config.lane }}
@@ -106,7 +83,7 @@ jobs:
   merge-manifests:
     needs: [build]
     if: always() && needs.build.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       DIGEST_DIR: /tmp/fixture-digests
     steps:

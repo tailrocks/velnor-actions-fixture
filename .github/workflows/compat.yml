@@ -9,10 +9,10 @@ on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: 'Lanes to run (all / github-only / velnor-only)'
+        description: 'Runner lane(s): velnor / github / both'
         type: choice
-        default: all
-        options: [all, github-only, velnor-only]
+        default: velnor
+        options: [velnor, github, both]
       packages:
         description: 'Packages filter (comma-separated, empty = all)'
         type: string
@@ -33,7 +33,7 @@ defaults:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
       docker: ${{ steps.filter.outputs.docker }}
@@ -58,27 +58,8 @@ jobs:
               - 'justfile'
               - 'mise.toml'
 
-  matrix-setup:
-    runs-on: ubuntu-latest
-    outputs:
-      configs: ${{ steps.set.outputs.configs }}
-    steps:
-      - id: set
-        run: |
-          case "${{ inputs.lanes }}" in
-            github-only)
-              echo 'configs=[{"lane":"github","runner":"\"ubuntu-latest\""}]' >> "$GITHUB_OUTPUT"
-              ;;
-            velnor-only)
-              echo 'configs=[{"lane":"velnor","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo 'configs=[{"lane":"github","runner":"\"ubuntu-latest\""},{"lane":"velnor","runner":"[\"self-hosted\",\"velnor-target-mvp\"]"}]' >> "$GITHUB_OUTPUT"
-              ;;
-          esac
-
   compat:
-    needs: [changes, matrix-setup]
+    needs: [changes]
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
@@ -88,13 +69,14 @@ jobs:
       fail-fast: false
       matrix:
         package: [app-a, app-b]
-        config: ${{ fromJSON(needs.matrix-setup.outputs.configs) }}
-    runs-on: ${{ fromJSON(matrix.config.runner) }}
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true}]') }}
+    runs-on: ${{ matrix.config.runner }}
     permissions:
       contents: read
       actions: read
     env:
-      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_GHA_ENABLED: "false"
+      SCCACHE_CACHE_SIZE: 20G
       RUSTC_WRAPPER: sccache
     steps:
       - uses: actions/checkout@v6
@@ -106,17 +88,22 @@ jobs:
       # sccache + mold must precede mise-action: installing cargo:cargo-nextest
       # triggers a cargo compile that inherits the job-level RUSTC_WRAPPER, so
       # the sccache binary must already be on PATH (jackin's documented lesson).
-      - uses: mozilla-actions/sccache-action@v0.0.10
-        continue-on-error: true
+      - uses: mozilla-actions/sccache-action@1583d6b38d7be47f593cb472781bbb21cab4321e # v0.0.10
+        with:
+          version: v0.16.0
+          disable_annotations: "false"
       - uses: rui314/setup-mold@v1
       - uses: jdx/mise-action@v4
       # rustup syncs the pinned toolchain with a minimal profile; rustfmt and
       # clippy are not guaranteed even though the just recipes need them.
       - run: rustup component add rustfmt clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          shared-key: fixture-${{ matrix.config.lane }}-${{ runner.os }}
-          key: ${{ matrix.package }}
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: fixture-${{ matrix.config.lane }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: fixture-${{ matrix.config.lane }}-${{ runner.os }}-
       # Compute MSRV from Cargo.toml — mirrors Jackin MSRV toolchain pattern
       - id: msrv
         run: |
@@ -149,14 +136,6 @@ jobs:
         env:
           RUSTUP_TOOLCHAIN: ${{ steps.msrv.outputs.version }}
         run: cargo check -p "${{ matrix.package }}" --locked
-      - if: always()
-        run: |
-          {
-            echo "### sccache stats (${{ matrix.config.lane }} ${{ matrix.package }})"
-            echo '```'
-            sccache --show-stats 2>/dev/null || echo 'sccache not available'
-            echo '```'
-          } >> "${GITHUB_STEP_SUMMARY}"
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
@@ -166,11 +145,93 @@ jobs:
           name: result-${{ matrix.config.lane }}-${{ matrix.package }}
           path: out/result.json
 
+  cache-off:
+    name: Cache off (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true}]') }}
+    runs-on: ${{ matrix.config.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v4
+      - run: test -z "${RUSTC_WRAPPER:-}"
+      - run: cargo check -p app-a --locked
+
+  cache-sccache:
+    name: Cache sccache (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true}]') }}
+    runs-on: ${{ matrix.config.runner }}
+    env:
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "false"
+      SCCACHE_CACHE_SIZE: 20G
+    steps:
+      - uses: actions/checkout@v6
+      - uses: mozilla-actions/sccache-action@1583d6b38d7be47f593cb472781bbb21cab4321e # v0.0.10
+        with:
+          version: v0.16.0
+          disable_annotations: "false"
+      - uses: jdx/mise-action@v4
+      - run: test "${RUSTC_WRAPPER:-}" = sccache
+      - run: cargo check -p app-a --locked
+
+  cache-kache:
+    name: Cache Kache (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true}]') }}
+    runs-on: ${{ matrix.config.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: kunobi-ninja/kache-action@49398d37113c616fdb61be434cb497e3c2c8f3e6 # v1
+        with:
+          version: v0.10.0
+          github-cache: "false"
+          cache-executables: "false"
+          pr-comment: "false"
+          max-size: 20GiB
+      - uses: jdx/mise-action@v4
+      - run: test "${RUSTC_WRAPPER:-}" = kache
+      - run: cargo check -p app-a --locked
+
+  services-postgres:
+    name: Postgres service (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":["self-hosted","velnor-target-mvp"],"writer":true}]') }}
+    runs-on: ${{ matrix.config.runner }}
+    container: ubuntu:26.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - run: apt-get update && apt-get install -y --no-install-recommends postgresql-client
+      - env:
+          PGPASSWORD: postgres
+        run: test "$(psql -h postgres -U postgres -d fixture -Atc 'SELECT 41 + 1')" = 42
+
   # Required aggregate job — mirrors ChainArgos rust-required / Jackin ci-required
   compat-required:
     if: always()
     needs: [changes, compat]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/aggregate-needs
@@ -181,7 +242,7 @@ jobs:
   compare-results:
     needs: [compat]
     if: always() && needs.compat.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v8
