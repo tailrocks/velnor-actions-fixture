@@ -88,7 +88,7 @@ jobs:
       # sccache + mold must precede mise-action: installing cargo:cargo-nextest
       # triggers a cargo compile that inherits the job-level RUSTC_WRAPPER, so
       # the sccache binary must already be on PATH (jackin's documented lesson).
-      - uses: mozilla-actions/sccache-action@1583d6b38d7be47f593cb472781bbb21cab4321e # v0.0.10
+      - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
         with:
           version: v0.16.0
           disable_annotations: "false"
@@ -170,7 +170,7 @@ jobs:
       SCCACHE_CACHE_SIZE: 20G
     steps:
       - uses: actions/checkout@v6
-      - uses: mozilla-actions/sccache-action@1583d6b38d7be47f593cb472781bbb21cab4321e # v0.0.10
+      - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
         with:
           version: v0.16.0
           disable_annotations: "false"
@@ -230,10 +230,59 @@ jobs:
           PGPASSWORD: postgres
         run: test "$(psql -h postgres -U postgres -d fixture -Atc 'SELECT 41 + 1')" = 42
 
+  attestation:
+    name: Provenance attestation (${{ matrix.config.lane }})
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'merge_group' ||
+      needs.changes.outputs.rust == 'true'
+    needs: [changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+    runs-on: ${{ matrix.config.runner }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Create deterministic subjects
+        run: |
+          set -euo pipefail
+          mkdir -p dist subject-a subject-b
+          printf 'fixture subject a\n' > subject-a/payload.txt
+          printf 'fixture subject b\n' > subject-b/payload.txt
+          tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf dist/fixture-a.tar.gz -C subject-a .
+          tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf dist/fixture-b.tar.gz -C subject-b .
+      - id: attest
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: dist/*.tar.gz
+      - name: Verify bundle outputs and repository attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        run: |
+          set -euo pipefail
+          test -s "${BUNDLE_PATH}"
+          test -n "${ATTESTATION_ID}"
+          test "${ATTESTATION_URL}" = "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/attestations/${ATTESTATION_ID}"
+          jq -er '.dsseEnvelope.payload' "${BUNDLE_PATH}" | base64 --decode > "${RUNNER_TEMP}/statement.json"
+          jq -e '.subject | length == 2' "${RUNNER_TEMP}/statement.json"
+          jq -e '.subject[] | select(.name == "fixture-a.tar.gz") | .digest.sha256' "${RUNNER_TEMP}/statement.json"
+          jq -e '.subject[] | select(.name == "fixture-b.tar.gz") | .digest.sha256' "${RUNNER_TEMP}/statement.json"
+          gh attestation verify dist/fixture-a.tar.gz --repo "${GITHUB_REPOSITORY}"
+          gh attestation verify dist/fixture-b.tar.gz --repo "${GITHUB_REPOSITORY}"
+
   # Required aggregate job — mirrors ChainArgos rust-required / Jackin ci-required
   compat-required:
     if: always()
-    needs: [changes, compat]
+    needs: [changes, compat, attestation]
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
