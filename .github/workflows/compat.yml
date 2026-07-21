@@ -129,7 +129,6 @@ jobs:
           echo "### ${LANE} ${PACKAGE}" >> "${GITHUB_STEP_SUMMARY}"
       - run: just fmt-check
       - run: just clippy "${{ matrix.package }}"
-      - run: just test "${{ matrix.package }}"
       - run: just nextest "${{ matrix.package }}"
       # Verify MSRV step with env injection — mirrors Jackin MSRV pattern
       - name: Check MSRV
