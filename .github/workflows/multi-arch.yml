@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","platform":"linux/amd64","runner":["self-hosted","velnor-target-mvp"],"writer":true},{"lane":"GitHub","platform":"linux/amd64","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","platform":"linux/amd64","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","platform":"linux/amd64","runner":["self-hosted","velnor-target-mvp"],"writer":true}]') }}
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","platform":"linux/amd64","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","platform":"linux/amd64","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","platform":"linux/amd64","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","platform":"linux/amd64","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     env:
       PLATFORM: ${{ matrix.config.platform }}
