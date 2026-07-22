@@ -2,7 +2,7 @@
 actionlint = "1.7.12"
 rust = "1.97.1"
 cargo-binstall = "1.21.0"
-"cargo:cargo-nextest" = "0.9.140"
+"aqua:nextest-rs/nextest/cargo-nextest" = "0.9.140"
 just = "1.52.0"
 
 [settings]
