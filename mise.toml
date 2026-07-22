@@ -1,9 +1,14 @@
 [tools]
+actionlint = "1.7.12"
 rust = "1.97.1"
 cargo-binstall = "1.21.0"
-"cargo:cargo-nextest" = "0.9.137"
+"cargo:cargo-nextest" = "0.9.140"
 just = "1.52.0"
 
 [settings]
 cargo.binstall_only = true
 cargo.binstall_quickinstall = true
+lockfile = true
+
+[tasks.actionlint]
+run = "actionlint"

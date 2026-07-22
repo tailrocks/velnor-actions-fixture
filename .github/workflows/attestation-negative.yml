@@ -17,6 +17,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: attestation-negative-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   missing-permission:
     if: inputs.case == 'missing-permission'
@@ -26,7 +30,7 @@ jobs:
       contents: read
       attestations: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: mkdir -p dist && tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf dist/fixture.tar.gz Cargo.toml
       - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
@@ -41,7 +45,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: dist/*.tar.gz
@@ -55,7 +59,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: mkdir -p dist && tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf dist/fixture.tar.gz Cargo.toml
       - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
