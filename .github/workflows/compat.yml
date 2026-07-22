@@ -111,12 +111,20 @@ jobs:
           path: target
           key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
           restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
-      # Compute MSRV from Cargo.toml — mirrors Jackin MSRV toolchain pattern
+      # Compute MSRV from package/workspace Cargo.toml. Bare `stable` forces
+      # rustup channel sync and collides with image-bundled clippy bits.
       - id: msrv
         run: |
           set -euo pipefail
-          version="$(grep '^rust-version' "crates/${{ matrix.package }}/Cargo.toml" | sed 's/.*= *"\(.*\)"/\1/' || echo 'stable')"
-          echo "version=${version:-stable}" >> "${GITHUB_OUTPUT}"
+          pkg="crates/${{ matrix.package }}/Cargo.toml"
+          version="$(grep -E '^rust-version\s*=' "$pkg" | head -1 | sed 's/.*= *"\(.*\)"/\1/' || true)"
+          if [[ -z "${version}" ]]; then
+            version="$(grep -E '^rust-version\s*=' Cargo.toml | head -1 | sed 's/.*= *"\(.*\)"/\1/' || true)"
+          fi
+          if [[ -z "${version}" ]]; then
+            version="$(rustc -vV | sed -n 's/^release: \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p')"
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
       - id: command-files
         env:
           PACKAGE: ${{ matrix.package }}
@@ -140,8 +148,12 @@ jobs:
       # Verify MSRV step with env injection — mirrors Jackin MSRV pattern
       - name: Check MSRV
         env:
-          RUSTUP_TOOLCHAIN: ${{ steps.msrv.outputs.version }}
-        run: cargo check -p "${{ matrix.package }}" --locked
+          MSRV: ${{ steps.msrv.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Install only the requested toolchain without clobbering image defaults.
+          rustup toolchain install "${MSRV}" --profile minimal --no-self-update
+          rustup run "${MSRV}" cargo check -p "${{ matrix.package }}" --locked
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
