@@ -16,4 +16,4 @@ Rust compile jobs use mold and local-only sccache v0.16.0 with a 20 GiB bound.
 Use `cargo nextest run`, never `cargo test`. Every remote action is pinned to a
 full commit SHA. Every job has measured `timeout-minutes`; every executable
 workflow has intentional concurrency. Fix fixture failures in Velnor.
-
+Keep cache state workspace-owned; never repair ownership with `sudo`.

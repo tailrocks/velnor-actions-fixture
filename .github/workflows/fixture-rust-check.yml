@@ -56,6 +56,12 @@ jobs:
             ~/.cargo/git
           key: fixture-reusable-${{ inputs.cache-key-suffix }}-${{ runner.os }}-${{ inputs.package }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: fixture-reusable-${{ inputs.cache-key-suffix }}-${{ runner.os }}-
+      - name: Cache Cargo target
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target
+          key: fixture-target-${{ inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
+          restore-keys: fixture-target-${{ inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: cargo check -p "${FIXTURE_PACKAGE}" --locked
       - run: |
           echo "### reusable rust-check: ${FIXTURE_PACKAGE}" >> "${GITHUB_STEP_SUMMARY}"

@@ -28,9 +28,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: /tmp/renovate/cache
+          path: .renovate/cache
           key: renovate-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.run_id }}
           restore-keys: renovate-${{ matrix.config.lane }}-${{ runner.os }}-
+      - name: Prepare workspace-owned Renovate cache
+        run: |
+          install -d -m 0777 .renovate .renovate/cache .renovate/repos
+          chmod -R a+rwX .renovate
       - if: matrix.config.writer
         uses: renovatebot/github-action@3064367f740a1a91cca218698a63902689cce200 # v46.1.20
         with:
@@ -40,9 +44,6 @@ jobs:
           # stored in the repo secret GH_RENOVATE_TOKEN.
           GH_RENOVATE_TOKEN: ${{ secrets.GH_RENOVATE_TOKEN }}
           RENOVATE_REPOSITORY_CACHE: enabled
+          RENOVATE_BASE_DIR: /github/workspace/.renovate
       - if: ${{ !matrix.config.writer }}
         run: echo 'Read-only comparison lane; Renovate mutation skipped.'
-      # Renovate container writes cache files as a different uid; restore ownership
-      # so the actions/cache post step can save them.
-      - if: always()
-        run: sudo chown -R "$(whoami)" /tmp/renovate 2>/dev/null || true
