@@ -6,8 +6,5 @@ fmt-check:
 clippy package:
     cargo clippy -p "{{package}}" -- -D warnings
 
-test package:
-    cargo test -p "{{package}}"
-
 nextest package:
-    cargo nextest run -p "{{package}}"
+    cargo nextest run --locked -p "{{package}}"

@@ -1,0 +1,67 @@
+name: attestation-negative
+
+on:
+  workflow_dispatch:
+    inputs:
+      case:
+        description: Expected failing capability case
+        type: choice
+        required: true
+        options: [missing-permission, no-match, unapproved-input]
+      lane:
+        description: Runner lane
+        type: choice
+        required: true
+        options: [velnor, github]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: attestation-negative-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  missing-permission:
+    if: inputs.case == 'missing-permission'
+    runs-on: ${{ inputs.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: mkdir -p dist && tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf dist/fixture.tar.gz Cargo.toml
+      - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: dist/*.tar.gz
+
+  no-match:
+    if: inputs.case == 'no-match'
+    runs-on: ${{ inputs.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: dist/*.tar.gz
+
+  unapproved-input:
+    if: inputs.case == 'unapproved-input'
+    runs-on: ${{ inputs.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: mkdir -p dist && tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf dist/fixture.tar.gz Cargo.toml
+      - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: dist/*.tar.gz
+          push-to-registry: false
