@@ -261,11 +261,15 @@ jobs:
 
   attestation:
     name: Provenance attestation (${{ matrix.config.lane }})
+    # Native attest-build-provenance currently kills the Velnor job process
+    # mid-step (null step conclusion, no logs) on PR runners. Keep proving the
+    # action on workflow_dispatch / schedule / merge_group; do not block PR
+    # merge on that infrastructure defect. Re-enable PR coverage after the
+    # runner emits a controlled step failure or success.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
-      github.event_name == 'merge_group' ||
-      needs.changes.outputs.rust == 'true'
+      github.event_name == 'merge_group'
     needs: [changes]
     strategy:
       fail-fast: false
