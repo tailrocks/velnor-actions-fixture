@@ -7,6 +7,23 @@
   "prConcurrentLimit": 20,
   "commitBody": "Signed-off-by: Renovate Bot <renovate@whitesourcesoftware.com>",
   "recreateWhen": "always",
+  "github-actions": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "jackin-project/velnor-actions",
+        "tailrocks/velnor-actions",
+        "ChainArgos/velnor-actions"
+      ],
+      "groupName": "velnor-actions fleet",
+      "automerge": false
+    }
+  ],
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["at any time"]
