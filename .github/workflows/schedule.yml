@@ -3,7 +3,6 @@ name: schedule
 on:
   schedule:
     - cron: '0 4 * * 0'
-  merge_group:
   workflow_dispatch:
 
 permissions:
