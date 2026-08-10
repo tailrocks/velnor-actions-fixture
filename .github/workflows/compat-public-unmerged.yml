@@ -1,25 +1,11 @@
-name: compat
+name: compat public unmerged
 
 on:
-  push:
-    branches: [main]
-  schedule:
-    - cron: '0 4 * * 0'
-  workflow_dispatch:
-    inputs:
-      lanes:
-        description: 'Runner lane(s): velnor / github / both'
-        type: choice
-        default: velnor
-        options: [velnor, github, both]
-      packages:
-        description: 'Packages filter (comma-separated, empty = all)'
-        type: string
-        default: ''
+  pull_request:
+  merge_group:
 
 permissions:
   contents: read
-  actions: read
 
 # Matches ChainArgos/Jackin: cancel in-progress on PR, keep on push/schedule
 concurrency:
@@ -40,6 +26,8 @@ jobs:
       tools: ${{ steps.filter.outputs.tools }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          echo "policy route: public unmerged code -> github-hosted" >> "${GITHUB_STEP_SUMMARY}"
       - id: filter
         uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         with:
@@ -49,7 +37,7 @@ jobs:
               - 'Cargo.lock'
               - 'crates/**'
               - 'mise.toml'
-              - '.github/workflows/compat.yml'
+              - '.github/workflows/compat-public-unmerged.yml'
             docker:
               - 'Dockerfile.fixture'
               - 'docker-bake.hcl'
@@ -69,7 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         package: [app-a, app-b]
-        config: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 20
     permissions:
@@ -81,11 +69,6 @@ jobs:
       RUSTC_WRAPPER: sccache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Package filter: skip if packages input set and this package not listed
-      - if: inputs.packages != '' && !contains(inputs.packages, matrix.package)
-        run: |
-          echo "Skipping ${{ matrix.package }} (packages filter: ${{ inputs.packages }})"
-          exit 0
       # Configure compiler acceleration before any project build. nextest is a
       # pinned Aqua binary; CI tooling must never compile from source.
       - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
@@ -167,7 +150,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     steps:
@@ -181,7 +164,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     env:
@@ -213,7 +196,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     steps:
@@ -234,7 +217,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     container: ubuntu:26.04
@@ -258,64 +241,10 @@ jobs:
           PGPASSWORD: postgres
         run: test "$(psql -h postgres -U postgres -d fixture -Atc 'SELECT 41 + 1')" = 42
 
-  attestation:
-    name: Provenance attestation (${{ matrix.config.lane }})
-    # Native attest-build-provenance currently kills the Velnor job process
-    # mid-step (null step conclusion, no logs) on PR runners. Keep proving the
-    # action on workflow_dispatch / schedule / merge_group; do not block PR
-    # merge on that infrastructure defect. Re-enable PR coverage after the
-    # runner emits a controlled step failure or success.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule' ||
-      github.event_name == 'merge_group'
-    needs: [changes]
-    strategy:
-      fail-fast: false
-      matrix:
-        config: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
-    runs-on: ${{ matrix.config.runner }}
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Create deterministic subjects
-        run: |
-          set -euo pipefail
-          mkdir -p dist subject-a subject-b
-          printf 'fixture subject a\n' > subject-a/payload.txt
-          printf 'fixture subject b\n' > subject-b/payload.txt
-          tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf dist/fixture-a.tar.gz -C subject-a .
-          tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf dist/fixture-b.tar.gz -C subject-b .
-      - id: attest
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
-        with:
-          subject-path: dist/*.tar.gz
-      - name: Verify bundle outputs and repository attestations
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
-          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
-          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
-        run: |
-          set -euo pipefail
-          test -s "${BUNDLE_PATH}"
-          test -n "${ATTESTATION_ID}"
-          test "${ATTESTATION_URL}" = "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/attestations/${ATTESTATION_ID}"
-          jq -er '.dsseEnvelope.payload' "${BUNDLE_PATH}" | base64 --decode > "${RUNNER_TEMP}/statement.json"
-          jq -e '.subject | length == 2' "${RUNNER_TEMP}/statement.json"
-          jq -e '.subject[] | select(.name == "fixture-a.tar.gz") | .digest.sha256' "${RUNNER_TEMP}/statement.json"
-          jq -e '.subject[] | select(.name == "fixture-b.tar.gz") | .digest.sha256' "${RUNNER_TEMP}/statement.json"
-          gh attestation verify dist/fixture-a.tar.gz --repo "${GITHUB_REPOSITORY}"
-          gh attestation verify dist/fixture-b.tar.gz --repo "${GITHUB_REPOSITORY}"
-
   # Required aggregate job — mirrors ChainArgos rust-required / Jackin ci-required
   compat-required:
     if: always()
-    needs: [changes, compat, attestation]
+    needs: [changes, compat]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
