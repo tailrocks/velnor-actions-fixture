@@ -1,0 +1,47 @@
+name: l2-negative
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: Runner lane.
+        required: true
+        type: choice
+        options: [velnor, github]
+      case:
+        description: Fail-before-effect case.
+        required: true
+        type: choice
+        options: [mutable-ref]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: l2-negative-${{ github.ref }}-${{ inputs.lane }}-${{ inputs.case }}
+  cancel-in-progress: false
+
+jobs:
+  reject:
+    runs-on: ${{ inputs.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: "false"
+      - id: scan
+        name: Reject before marker
+        continue-on-error: true
+        run: cargo run --locked -p l2-contract -- validate-file .github/fixtures/l2/mutable-ref.json
+      - name: Assert normalized rejection and no side effect
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: |
+          test "${OUTCOME}" = failure
+          test ! -e .l2-negative-marker
+      - name: Unreachable mutable action
+        if: steps.scan.outcome == 'success'
+        uses: actions/checkout@main
+      - name: Forbidden marker
+        if: steps.scan.outcome == 'success'
+        run: touch .l2-negative-marker && exit 1

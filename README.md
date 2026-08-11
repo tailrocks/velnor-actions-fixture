@@ -26,6 +26,21 @@ This repository intentionally keeps normal GitHub Actions YAML. It is not a Pkl/
 - Docker Buildx setup and local image build
 - Postgres service health, alias reachability, and mapped-port context
 
+## Build L2 proof corpus
+
+Plan 013 adds three explicit, manually dispatched workflows:
+
+- `l2-runtime.yml` executes the same locked Rust, recursive closure, mise, and
+  cache corpus on GitHub-hosted and Velnor lanes.
+- `l2-negative.yml` proves mutable action references are classified before its
+  marker can run.
+- `l2-provenance.yml` creates a deterministic subject on both lanes, compares
+  checksums first, then verifies exact source and signer attestations on a
+  hosted consumer.
+
+The checked-in closure is validated by the dependency-free `l2-contract`
+crate. Run the complete local gate with `mise run check`.
+
 The fixture is deliberately small. It exists to verify execution semantics before running Velnor against larger repositories.
 
 ## License
