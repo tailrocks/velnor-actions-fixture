@@ -187,31 +187,6 @@ jobs:
       - run: test "${RUSTC_WRAPPER:-}" = sccache
       - run: cargo check -p app-a --locked
 
-  cache-kache:
-    name: Cache Kache (${{ matrix.config.lane }})
-    # The pinned upstream action deliberately disables local-only operation on
-    # ephemeral GitHub runners. Keep the cross-lane canary visible but skipped;
-    # GitHub-cache and S3 backends are outside the approved capability surface.
-    if: ${{ github.repository == 'tailrocks/velnor-kache-canary-disabled' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
-    runs-on: ${{ matrix.config.runner }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: kunobi-ninja/kache-action@49398d37113c616fdb61be434cb497e3c2c8f3e6 # v1
-        with:
-          version: v0.10.0
-          github-cache: "false"
-          cache-executables: "false"
-          pr-comment: "false"
-          max-size: 20GiB
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-      - run: test "${RUSTC_WRAPPER:-}" = kache
-      - run: cargo check -p app-a --locked
-
   services-postgres:
     name: Postgres service (${{ matrix.config.lane }})
     strategy:
