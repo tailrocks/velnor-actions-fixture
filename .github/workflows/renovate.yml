@@ -43,6 +43,7 @@ jobs:
           # The PAT named "tailrocks-renovate" (fine-grained, not classic) must be
           # stored in the repo secret GH_RENOVATE_TOKEN.
           RENOVATE_TOKEN: ${{ secrets.GH_RENOVATE_TOKEN }}
+          RENOVATE_REPOSITORIES: '["tailrocks/velnor-actions-fixture"]'
           RENOVATE_REPOSITORY_CACHE: enabled
           RENOVATE_BASE_DIR: /tmp/renovate
       - if: ${{ !matrix.config.writer }}
