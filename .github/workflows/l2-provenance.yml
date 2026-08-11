@@ -1,0 +1,88 @@
+name: l2-provenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: Producer lane selection.
+        required: true
+        type: choice
+        default: both
+        options: [velnor, github, both]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: l2-provenance-${{ github.ref }}-${{ inputs.lane }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  produce:
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON(inputs.lane == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lane)) }}
+    runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: "false"
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      - name: Build and test exact subject
+        run: |
+          cargo nextest run --workspace --locked
+          mkdir -p dist
+          cargo run --locked -p l2-contract -- subject "${GITHUB_SHA}" > dist/l2-subject.json
+          sha256sum dist/l2-subject.json > dist/l2-subject.json.sha256
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/l2-subject.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: l2-${{ matrix.lane }}
+          path: dist
+          if-no-files-found: error
+
+  consume:
+    if: always() && needs.produce.result == 'success'
+    needs: produce
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: l2-*
+          path: evidence
+      - name: Compare independent subjects before attestation
+        run: |
+          find evidence -name l2-subject.json.sha256 -execdir sha256sum --check --strict l2-subject.json.sha256 \;
+          mapfile -t subjects < <(find evidence -name l2-subject.json -type f | sort)
+          test "${#subjects[@]}" -ge 1
+          first="${subjects[0]}"
+          for subject in "${subjects[@]}"; do cmp -- "${first}" "${subject}"; done
+      - name: Verify exact source and signer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          while IFS= read -r subject; do
+            gh attestation verify "${subject}" \
+              --repo tailrocks/velnor-actions-fixture \
+              --source-ref refs/heads/main \
+              --source-digest "${GITHUB_SHA}" \
+              --signer-workflow github.com/tailrocks/velnor-actions-fixture/.github/workflows/l2-provenance.yml \
+              --signer-digest "${GITHUB_SHA}" \
+              --predicate-type https://slsa.dev/provenance/v1
+          done < <(find evidence -name l2-subject.json -type f | sort)

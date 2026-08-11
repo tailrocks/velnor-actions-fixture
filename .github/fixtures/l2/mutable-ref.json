@@ -1,0 +1,9 @@
+{
+  "schema": "velnor.fixture.l2-closure.v1",
+  "entries": [
+    {
+      "identity": "negative-mutable-ref",
+      "uses": "actions/checkout@main"
+    }
+  ]
+}

@@ -17,5 +17,9 @@ dependencies = [
 ]
 
 [[package]]
+name = "l2-contract"
+version = "0.1.0"
+
+[[package]]
 name = "shared"
 version = "0.1.0"

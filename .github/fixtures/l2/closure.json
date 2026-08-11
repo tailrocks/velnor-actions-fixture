@@ -1,0 +1,17 @@
+{
+  "schema": "velnor.fixture.l2-closure.v1",
+  "entries": [
+    {
+      "identity": "local-root",
+      "uses": "./.github/actions/l2-root"
+    },
+    {
+      "identity": "local-nested",
+      "uses": "./.github/actions/l2-nested"
+    },
+    {
+      "identity": "remote-checkout",
+      "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+    }
+  ]
+}
