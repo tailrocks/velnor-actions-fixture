@@ -91,7 +91,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-    uses: jackin-project/velnor-actions/.github/workflows/ci-fixture.yml@b3c89a842f1e26f5cba3724afb74410ae29e54c9 # 2026.8.1
+    uses: jackin-project/velnor-actions/.github/workflows/ci-fixture.yml@e4faaca28d67630853cf19f241bfde50075750ba # 2026.8.2
     with:
       lane: ${{ (github.event_name == 'workflow_dispatch' && inputs.lane != '' && inputs.lane) || (github.repository_owner == 'jackin-project' && 'github') || ((github.repository_owner == 'tailrocks' || github.repository_owner == 'ChainArgos') && 'velnor') || 'invalid' }}
       recovery_proof_id: ${{ inputs.recovery_proof_id || '' }}
@@ -112,7 +112,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-    uses: tailrocks/velnor-actions/.github/workflows/ci-fixture.yml@b3c89a842f1e26f5cba3724afb74410ae29e54c9 # 2026.8.1
+    uses: tailrocks/velnor-actions/.github/workflows/ci-fixture.yml@66793ff380b7f5c549e41f8ba9d4160c62d982bb # 2026.8.2
     with:
       lane: ${{ (github.event_name == 'workflow_dispatch' && inputs.lane != '' && inputs.lane) || (github.repository_owner == 'jackin-project' && 'github') || ((github.repository_owner == 'tailrocks' || github.repository_owner == 'ChainArgos') && 'velnor') || 'invalid' }}
       recovery_proof_id: ${{ inputs.recovery_proof_id || '' }}
@@ -133,7 +133,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-    uses: ChainArgos/velnor-actions/.github/workflows/ci-fixture.yml@b3c89a842f1e26f5cba3724afb74410ae29e54c9 # 2026.8.1
+    uses: ChainArgos/velnor-actions/.github/workflows/ci-fixture.yml@66793ff380b7f5c549e41f8ba9d4160c62d982bb # 2026.8.2
     with:
       lane: ${{ (github.event_name == 'workflow_dispatch' && inputs.lane != '' && inputs.lane) || (github.repository_owner == 'jackin-project' && 'github') || ((github.repository_owner == 'tailrocks' || github.repository_owner == 'ChainArgos') && 'velnor') || 'invalid' }}
       recovery_proof_id: ${{ inputs.recovery_proof_id || '' }}
