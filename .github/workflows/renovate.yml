@@ -42,7 +42,7 @@ jobs:
         env:
           # The PAT named "tailrocks-renovate" (fine-grained, not classic) must be
           # stored in the repo secret GH_RENOVATE_TOKEN.
-          GH_RENOVATE_TOKEN: ${{ secrets.GH_RENOVATE_TOKEN }}
+          RENOVATE_TOKEN: ${{ secrets.GH_RENOVATE_TOKEN }}
           RENOVATE_REPOSITORY_CACHE: enabled
           RENOVATE_BASE_DIR: /github/workspace/.renovate
       - if: ${{ !matrix.config.writer }}
