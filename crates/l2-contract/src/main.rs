@@ -1,6 +1,6 @@
 use std::{env, fs, process::ExitCode};
 
-use l2_contract::{deterministic_subject, validate_closure, CLOSURE};
+use l2_contract::{deterministic_subject, validate_closure, validate_disposable_lock, CLOSURE};
 
 fn main() -> ExitCode {
     match run() {
@@ -27,9 +27,14 @@ fn run() -> Result<String, String> {
             validate_closure(&input)?;
             Ok("closure-valid=true\n".to_owned())
         }
+        (Some("validate-lock"), Some(path), None) => {
+            let input = fs::read_to_string(&path).map_err(|error| format!("{path}: {error}"))?;
+            validate_disposable_lock(&input)?;
+            Ok("disposable-lock-valid=true\n".to_owned())
+        }
         (Some("subject"), Some(source_sha), None) => deterministic_subject(&source_sha),
         _ => {
-            Err("usage: l2-contract validate | validate-file PATH | subject SOURCE_SHA".to_owned())
+            Err("usage: l2-contract validate | validate-file PATH | validate-lock PATH | subject SOURCE_SHA".to_owned())
         }
     }
 }

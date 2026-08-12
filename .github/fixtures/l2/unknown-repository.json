@@ -1,0 +1,9 @@
+{
+  "schema": "velnor.fixture.l2-closure.v1",
+  "entries": [
+    {
+      "identity": "negative-unknown-repository",
+      "uses": "untrusted/unknown@0123456789abcdef0123456789abcdef01234567"
+    }
+  ]
+}
