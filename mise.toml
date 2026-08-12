@@ -20,10 +20,10 @@ run = "cargo build --workspace --locked"
 run = "cargo nextest run --workspace --locked"
 
 [tasks.lint]
-run = "cargo clippy --workspace --all-targets --locked -- -D warnings"
+run = "rustup component add clippy && cargo clippy --workspace --all-targets --locked -- -D warnings"
 
 [tasks.fmt]
-run = "cargo fmt --all --check"
+run = "rustup component add rustfmt && cargo fmt --all --check"
 
 [tasks.l2-closure]
 run = "cargo run --locked -p l2-contract -- validate"
