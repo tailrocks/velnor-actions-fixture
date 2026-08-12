@@ -86,6 +86,16 @@ jobs:
           else
             printf '%s\n' hosted > l2-report/bootstrap-sha256
           fi
+      - name: Install explicit different mise version
+        uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: 2026.8.2
+          install: "false"
+      - name: Prove explicit version differs from omitted resolution
+        run: |
+          mise --version | tee l2-report/mise-explicit-version
+          test "$(cut -d' ' -f1 l2-report/mise-explicit-version)" = 2026.8.2
+          test "$(cut -d' ' -f1 l2-report/mise-explicit-version)" != "$(cut -d' ' -f1 l2-report/mise-version)"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mise-seed-${{ matrix.lane }}
@@ -110,6 +120,23 @@ jobs:
         with:
           path: .l2-cache/contention
           key: ${{ env.CACHE_NAMESPACE }}-contention
+      - id: contention-proof
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache/contention-proof
+          key: ${{ env.CACHE_NAMESPACE }}-contention
+          lookup-only: "true"
+      - name: Record explicit writer result
+        run: |
+          test '${{ steps.contention-proof.outputs.cache-hit }}' = true
+          mkdir -p contention-report
+          printf '%s\n' persisted-or-already-exists > contention-report/outcome
+          printf '%s\n' '${{ matrix.writer }}' > contention-report/writer
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: contention-${{ matrix.lane }}-${{ matrix.writer }}
+          path: contention-report
+          if-no-files-found: error
 
   verify:
     needs: [seed, contend]
@@ -168,6 +195,7 @@ jobs:
           test "$(mise --version)" = "$(cat .l2-seed/mise-version)"
           test "$(command -v mise)" = "$(cat .l2-seed/mise-path)"
           test "$(sha256sum "$(command -v mise)" | awk '{print $1}')" = "$(cat .l2-seed/mise-sha256)"
+          test "$(cut -d' ' -f1 .l2-seed/mise-version)" != "$(cut -d' ' -f1 .l2-seed/mise-explicit-version)"
           if [ '${{ matrix.lane }}' = velnor ]; then
             test "$(sha256sum /opt/mise/bin/mise | awk '{print $1}')" = "$(cat .l2-seed/bootstrap-sha256)"
           fi
