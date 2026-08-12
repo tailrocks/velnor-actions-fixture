@@ -1,0 +1,10 @@
+{
+  "schema": "velnor.fixture.l2-closure.v1",
+  "entries": [
+    {
+      "identity": "negative-unresolved-expression",
+      "input": "persist-credentials=${{ runtime.value }}",
+      "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+    }
+  ]
+}

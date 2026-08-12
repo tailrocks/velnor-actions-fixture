@@ -12,7 +12,7 @@ on:
         description: Fail-before-effect case.
         required: true
         type: choice
-        options: [mutable-ref]
+        options: [mutable-ref, unknown-repository, unknown-subpath-input, unresolved-expression, invalid-lock]
 
 permissions:
   contents: read
@@ -32,13 +32,37 @@ jobs:
       - id: scan
         name: Reject before marker
         continue-on-error: true
-        run: cargo run --locked -p l2-contract -- validate-file .github/fixtures/l2/mutable-ref.json
+        env:
+          CASE: ${{ inputs.case }}
+        run: |
+          set -euo pipefail
+          case "${CASE}" in
+            mutable-ref|unknown-repository|unresolved-expression)
+              cargo run --locked -p l2-contract -- validate-file ".github/fixtures/l2/${CASE}.json"
+              ;;
+            unknown-subpath-input)
+              cargo run --locked -p l2-contract -- validate-file .github/fixtures/l2/unknown-subpath.json
+              cargo run --locked -p l2-contract -- validate-file .github/fixtures/l2/unknown-input.json
+              ;;
+            invalid-lock)
+              cargo run --locked -p l2-contract -- validate-lock .github/fixtures/l2/invalid-mise.lock
+              ;;
+            *)
+              echo "unknown negative case" >&2
+              exit 2
+              ;;
+          esac
       - name: Assert normalized rejection and no side effect
         env:
           OUTCOME: ${{ steps.scan.outcome }}
         run: |
           test "${OUTCOME}" = failure
           test ! -e .l2-negative-marker
+          test ! -e .l2-negative-checkout
+          test ! -e .l2-negative-container
+          test ! -e .l2-negative-cache
+          test ! -e .l2-negative-credential
+          test ! -e .l2-negative-project
       - name: Unreachable mutable action
         if: steps.scan.outcome == 'success'
         uses: actions/checkout@main

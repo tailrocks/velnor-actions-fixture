@@ -6,21 +6,30 @@ pub const CLOSURE: &str = include_str!("../../../.github/fixtures/l2/closure.jso
 pub struct ClosureEntry {
     pub identity: String,
     pub uses: String,
+    pub input: Option<String>,
 }
 
-pub fn closure_entries(input: &str) -> Result<Vec<ClosureEntry>, String> {
+pub fn closure_entries(source: &str) -> Result<Vec<ClosureEntry>, String> {
     let mut entries = Vec::new();
     let mut identity = None;
-    for raw in input.lines() {
+    let mut input = None;
+    for raw in source.lines() {
         let line = raw.trim().trim_end_matches(',');
         if let Some(value) = json_string(line, "identity")? {
             identity = Some(value);
+        }
+        if let Some(value) = json_string(line, "input")? {
+            input = Some(value);
         }
         if let Some(uses) = json_string(line, "uses")? {
             let identity = identity
                 .take()
                 .ok_or_else(|| "closure entry uses appears before identity".to_owned())?;
-            entries.push(ClosureEntry { identity, uses });
+            entries.push(ClosureEntry {
+                identity,
+                uses,
+                input: input.take(),
+            });
         }
     }
     if identity.is_some() || entries.is_empty() {
@@ -50,6 +59,14 @@ pub fn validate_closure(input: &str) -> Result<Vec<ClosureEntry>, String> {
         if !identities.insert(&entry.identity) {
             return Err(format!("duplicate identity: {}", entry.identity));
         }
+        if let Some(input) = &entry.input {
+            if input.contains("${{") {
+                return Err(format!("admission/unresolved-expression: {input}"));
+            }
+            if input != "persist-credentials=false" {
+                return Err(format!("admission/unknown-input: {input}"));
+            }
+        }
         if entry.uses.starts_with("./") {
             if !matches!(
                 entry.uses.as_str(),
@@ -72,6 +89,19 @@ pub fn validate_closure(input: &str) -> Result<Vec<ClosureEntry>, String> {
     Ok(entries)
 }
 
+pub fn validate_disposable_lock(input: &str) -> Result<(), String> {
+    if input.lines().any(|line| line.trim() == "invalid = true") {
+        return Err("mise/invalid-disposable-lock".to_owned());
+    }
+    if !input
+        .lines()
+        .any(|line| line.trim_start().starts_with("version = "))
+    {
+        return Err("mise/disposable-lock-missing-version".to_owned());
+    }
+    Ok(())
+}
+
 pub fn deterministic_subject(source_sha: &str) -> Result<String, String> {
     if source_sha.len() != 40 || !source_sha.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err("source SHA must be exactly 40 hexadecimal characters".to_owned());
@@ -84,7 +114,7 @@ pub fn deterministic_subject(source_sha: &str) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{deterministic_subject, validate_closure, CLOSURE};
+    use super::{deterministic_subject, validate_closure, validate_disposable_lock, CLOSURE};
 
     #[test]
     fn checked_in_closure_is_complete_and_immutable() {
@@ -114,5 +144,38 @@ mod tests {
             deterministic_subject(sha).unwrap(),
             deterministic_subject(sha).unwrap()
         );
+    }
+
+    #[test]
+    fn every_negative_class_fails_closed() {
+        for (fixture, class) in [
+            (
+                include_str!("../../../.github/fixtures/l2/mutable-ref.json"),
+                "mutable-ref",
+            ),
+            (
+                include_str!("../../../.github/fixtures/l2/unknown-repository.json"),
+                "unknown repository",
+            ),
+            (
+                include_str!("../../../.github/fixtures/l2/unknown-input.json"),
+                "unknown-input",
+            ),
+            (
+                include_str!("../../../.github/fixtures/l2/unknown-subpath.json"),
+                "unknown local action",
+            ),
+            (
+                include_str!("../../../.github/fixtures/l2/unresolved-expression.json"),
+                "unresolved-expression",
+            ),
+        ] {
+            assert!(validate_closure(fixture).unwrap_err().contains(class));
+        }
+        assert!(validate_disposable_lock(include_str!(
+            "../../../.github/fixtures/l2/invalid-mise.lock"
+        ))
+        .unwrap_err()
+        .contains("invalid-disposable-lock"));
     }
 }
