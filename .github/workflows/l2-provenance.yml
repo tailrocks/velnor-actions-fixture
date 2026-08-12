@@ -101,7 +101,9 @@ jobs:
           else
             expected_lanes='["${{ inputs.lane }}"]'
           fi
-          observed_lanes="$(printf '%s\n' "${subjects[@]}" | sed -E 's#^.*/l2-([^/]+)/l2-subject.json$#\1#' | jq -Rsc 'split("\n")[:-1] | sort')"
+          mapfile -t producers < <(find evidence -name 'l2-*.producer.json' -type f | sort)
+          test "${#producers[@]}" -eq "${#subjects[@]}"
+          observed_lanes="$(jq -sc 'map(.lane) | sort' "${producers[@]}")"
           test "${observed_lanes}" = "$(jq -cS . <<< "${expected_lanes}")"
           expected="$(mktemp)"
           trap 'rm -f "${expected}"' EXIT
@@ -113,11 +115,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          while IFS= read -r subject; do
-            lane="$(basename "$(dirname "${subject}")")"
-            lane="${lane#l2-}"
-            bundle="$(dirname "${subject}")/l2-${lane}.bundle.jsonl"
-            producer="$(dirname "${subject}")/l2-${lane}.producer.json"
+          while IFS= read -r producer; do
+            lane="$(jq -er .lane "${producer}")"
+            artifact_root="$(dirname "${producer}")"
+            subject="${artifact_root}/l2-subject.json"
+            bundle="${artifact_root}/l2-${lane}.bundle.jsonl"
             test -s "${bundle}"
             test -s "${producer}"
             args=()
@@ -150,7 +152,7 @@ jobs:
               --arg environment "${expected_environment}" \
               '.schema == "velnor.fixture.l2-producer.v1" and .lane == $lane and .run_id == $run_id and .run_attempt == $run_attempt and .job == "produce" and .runner_environment == $environment and (.attestation_id | length > 0)' \
               "${producer}" >/dev/null
-          done < <(find evidence -name l2-subject.json -type f | sort)
+          done < <(find evidence -name 'l2-*.producer.json' -type f | sort)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: l2-verification-${{ inputs.lane }}
