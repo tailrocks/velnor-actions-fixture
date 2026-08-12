@@ -76,20 +76,20 @@ jobs:
           key: ${{ env.CACHE_NAMESPACE }}-save-only
       - name: Record mise identity and immutable bootstrap
         run: |
-          mkdir -p .l2-report
-          mise --version | tee .l2-report/mise-version
-          command -v mise | tee .l2-report/mise-path
-          sha256sum "$(command -v mise)" | awk '{print $1}' | tee .l2-report/mise-sha256
+          mkdir -p l2-report
+          mise --version | tee l2-report/mise-version
+          command -v mise | tee l2-report/mise-path
+          sha256sum "$(command -v mise)" | awk '{print $1}' | tee l2-report/mise-sha256
           if [ '${{ matrix.lane }}' = velnor ]; then
             test -x /opt/mise/bin/mise
-            sha256sum /opt/mise/bin/mise | awk '{print $1}' | tee .l2-report/bootstrap-sha256
+            sha256sum /opt/mise/bin/mise | awk '{print $1}' | tee l2-report/bootstrap-sha256
           else
-            printf '%s\n' hosted > .l2-report/bootstrap-sha256
+            printf '%s\n' hosted > l2-report/bootstrap-sha256
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mise-seed-${{ matrix.lane }}
-          path: .l2-report
+          path: l2-report
           if-no-files-found: error
 
   contend:
