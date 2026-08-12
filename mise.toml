@@ -13,6 +13,18 @@ lockfile = true
 [tasks.actionlint]
 run = "actionlint"
 
+[tasks.build]
+run = "cargo build --workspace --locked"
+
+[tasks.test]
+run = "cargo nextest run --workspace --locked"
+
+[tasks.lint]
+run = "rustup component add clippy && cargo clippy --workspace --all-targets --locked -- -D warnings"
+
+[tasks.fmt]
+run = "rustup component add rustfmt && cargo fmt --all --check"
+
 [tasks.l2-closure]
 run = "cargo run --locked -p l2-contract -- validate"
 
