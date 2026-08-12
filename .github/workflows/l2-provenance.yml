@@ -126,6 +126,8 @@ jobs:
           expected_sha="$(sha256sum "${expected}" | awk '{print $1}')"
           printf '%s  l2-subject.json\n' "${expected_sha}" > "${expected_checksum}"
           for subject in "${subjects[@]}"; do
+            lane="$(jq -er .lane "$(find "$(dirname "${subject}")" -maxdepth 1 -name 'l2-*.producer.json' -type f)")"
+            cp -- "${expected_checksum}" "consumer-l2-${lane}-subject.json.sha256"
             cp -- "${expected_checksum}" "$(dirname "${subject}")/consumer-l2-subject.json.sha256"
             (cd "$(dirname "${subject}")" && sha256sum --check --strict consumer-l2-subject.json.sha256)
             cmp -- "${expected}" "${subject}"
@@ -178,5 +180,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: l2-verification-${{ inputs.lane }}
-          path: verification-*.json
+          path: |
+            verification-*.json
+            consumer-l2-*-subject.json.sha256
           if-no-files-found: error
