@@ -38,6 +38,13 @@ jobs:
         with:
           persist-credentials: "false"
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      - name: Prove log masking
+        run: |
+          sentinel="velnor-l2-mask-${GITHUB_RUN_ID}-${{ matrix.lane }}"
+          echo "::add-mask::${sentinel}"
+          echo "masking-marker-${{ matrix.lane }}-begin"
+          printf 'masked-sentinel=%s\n' "${sentinel}"
+          echo "masking-marker-${{ matrix.lane }}-end"
       - name: Build and test exact subject
         run: |
           cargo nextest run --workspace --locked
