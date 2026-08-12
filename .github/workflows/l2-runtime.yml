@@ -120,17 +120,10 @@ jobs:
         with:
           path: .l2-cache/contention
           key: ${{ env.CACHE_NAMESPACE }}-contention
-      - id: contention-proof
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .l2-cache/contention-proof
-          key: ${{ env.CACHE_NAMESPACE }}-contention
-          lookup-only: "true"
       - name: Record explicit writer result
         run: |
-          test '${{ steps.contention-proof.outputs.cache-hit }}' = true
           mkdir -p contention-report
-          printf '%s\n' persisted-or-already-exists > contention-report/outcome
+          printf '%s\n' save-attempt-completed > contention-report/outcome
           printf '%s\n' '${{ matrix.writer }}' > contention-report/writer
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -157,6 +150,10 @@ jobs:
         with:
           name: mise-seed-${{ matrix.lane }}
           path: .l2-seed
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: contention-${{ matrix.lane }}-*
+          path: contention-reports
       - id: root-hit
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -183,6 +180,8 @@ jobs:
           fail-on-cache-miss: "true"
       - name: Verify cache semantics and exact bytes
         run: |
+          test "$(find contention-reports -name outcome -type f | wc -l)" -eq 2
+          test "$(find contention-reports -name outcome -type f -exec cat {} + | grep -xc save-attempt-completed)" -eq 2
           test '${{ steps.root-hit.outputs.cache-hit }}' = true
           test '${{ steps.restore-only-later.outputs.cache-hit }}' != true
           test '${{ steps.save-only-hit.outputs.cache-hit }}' = true
