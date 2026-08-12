@@ -107,7 +107,6 @@ jobs:
           path: evidence
       - name: Reconstruct and compare exact subjects before attestation
         run: |
-          find evidence -name l2-subject.json.sha256 -execdir sha256sum --check --strict l2-subject.json.sha256 \;
           mapfile -t subjects < <(find evidence -name l2-subject.json -type f | sort)
           if [ "${{ inputs.lane }}" = both ]; then
             expected_lanes='["github","velnor"]'
@@ -119,11 +118,18 @@ jobs:
           observed_lanes="$(jq -sc 'map(.lane) | sort' "${producers[@]}")"
           test "${observed_lanes}" = "$(jq -cS . <<< "${expected_lanes}")"
           expected="$(mktemp)"
-          trap 'rm -f "${expected}"' EXIT
+          expected_checksum="$(mktemp)"
+          trap 'rm -f "${expected}" "${expected_checksum}"' EXIT
           jq -cn --arg source_sha "${GITHUB_SHA}" \
             '{schema:"velnor.fixture.l2-subject.v1",source_sha:($source_sha|ascii_downcase),workload:"cargo-nextest-workspace-locked"}' \
             > "${expected}"
-          for subject in "${subjects[@]}"; do cmp -- "${expected}" "${subject}"; done
+          expected_sha="$(sha256sum "${expected}" | awk '{print $1}')"
+          printf '%s  l2-subject.json\n' "${expected_sha}" > "${expected_checksum}"
+          for subject in "${subjects[@]}"; do
+            cp -- "${expected_checksum}" "$(dirname "${subject}")/consumer-l2-subject.json.sha256"
+            (cd "$(dirname "${subject}")" && sha256sum --check --strict consumer-l2-subject.json.sha256)
+            cmp -- "${expected}" "${subject}"
+          done
       - name: Verify exact source and signer
         env:
           GH_TOKEN: ${{ github.token }}
