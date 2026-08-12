@@ -150,7 +150,7 @@ jobs:
               --arg run_id "${GITHUB_RUN_ID}" \
               --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
               --arg environment "${expected_environment}" \
-              '.schema == "velnor.fixture.l2-producer.v1" and .lane == $lane and .run_id == $run_id and .run_attempt == $run_attempt and .job == "produce" and .runner_environment == $environment and (.attestation_id | length > 0)' \
+              '.schema == "velnor.fixture.l2-producer.v1" and .lane == $lane and .run_id == $run_id and .run_attempt == $run_attempt and .job == $lane and .runner_environment == $environment and (.attestation_id | length > 0)' \
               "${producer}" >/dev/null
           done < <(find evidence -name 'l2-*.producer.json' -type f | sort)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
