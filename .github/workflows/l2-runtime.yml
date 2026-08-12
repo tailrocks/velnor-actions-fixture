@@ -22,7 +22,7 @@ defaults:
     shell: bash
 
 jobs:
-  runtime:
+  seed:
     strategy:
       fail-fast: false
       matrix:
@@ -35,54 +35,152 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: "false"
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-      - name: Validate complete recursive closure
-        run: cargo run --locked -p l2-contract -- validate
+      - id: mise
+        uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      - name: Validate recursive closure and non-empty corpus
+        run: |
+          cargo run --locked -p l2-contract -- validate
+          cargo nextest run --workspace --locked
       - id: closure
         uses: ./.github/actions/l2-root
       - name: Assert closure output
         run: test '${{ steps.closure.outputs.closure }}' = 'root,nested,remote'
-      - name: Create root-cache bytes
-        run: mkdir -p .l2-cache/root && printf '%s\n' root-cache > .l2-cache/root/value
-      - name: Save root cache
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .l2-cache/root
-          key: ${{ env.CACHE_NAMESPACE }}-root
-      - name: Clear root-cache bytes
-        run: rm -rf .l2-cache/root
-      - id: restore-root
-        name: Restore root cache exactly
+      - id: root-miss
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .l2-cache/root
           key: ${{ env.CACHE_NAMESPACE }}-root
-          fail-on-cache-miss: "true"
-      - name: Verify root-cache bytes
-        run: test "$(cat .l2-cache/root/value)" = root-cache
+          lookup-only: "true"
+      - name: Require initial root miss and create bytes
+        run: |
+          test '${{ steps.root-miss.outputs.cache-hit }}' != true
+          mkdir -p .l2-cache/root
+          printf '%s\n' root-cache > .l2-cache/root/value
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache/root
+          key: ${{ env.CACHE_NAMESPACE }}-root
       - id: restore-only
-        name: Restore-only miss
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .l2-cache/restore-only
           key: ${{ env.CACHE_NAMESPACE }}-restore-only
           lookup-only: "true"
-      - name: Assert restore-only did not save
-        run: test '${{ steps.restore-only.outputs.cache-hit }}' != 'true'
-      - name: Run non-empty locked corpus
-        run: cargo nextest run --workspace --locked
-      - name: Record exact mise version
+      - name: Require restore-only miss
+        run: test '${{ steps.restore-only.outputs.cache-hit }}' != true
+      - name: Pre-create save-only bytes
+        run: mkdir -p .l2-cache/save-only && printf '%s\n' save-only > .l2-cache/save-only/value
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache/save-only
+          key: ${{ env.CACHE_NAMESPACE }}-save-only
+      - name: Record mise identity and immutable bootstrap
         run: |
-          mise --version
-          rustc --version --verbose
+          mkdir -p .l2-report
+          mise --version | tee .l2-report/mise-version
+          command -v mise | tee .l2-report/mise-path
+          sha256sum "$(command -v mise)" | awk '{print $1}' | tee .l2-report/mise-sha256
+          if [ '${{ matrix.lane }}' = velnor ]; then
+            test -x /opt/mise/bin/mise
+            sha256sum /opt/mise/bin/mise | awk '{print $1}' | tee .l2-report/bootstrap-sha256
+          else
+            printf '%s\n' hosted > .l2-report/bootstrap-sha256
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mise-seed-${{ matrix.lane }}
+          path: .l2-report
+          if-no-files-found: error
+
+  contend:
+    needs: seed
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON(inputs.lane == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lane)) }}
+        writer: [1, 2]
+    runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    timeout-minutes: 15
+    env:
+      CACHE_NAMESPACE: l2-${{ github.run_id }}-${{ matrix.lane }}
+    steps:
+      - name: Create identical contention bytes
+        run: mkdir -p .l2-cache/contention && printf '%s\n' contention > .l2-cache/contention/value
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache/contention
+          key: ${{ env.CACHE_NAMESPACE }}-contention
+
+  verify:
+    needs: [seed, contend]
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON(inputs.lane == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lane)) }}
+    runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    timeout-minutes: 20
+    env:
+      CACHE_NAMESPACE: l2-${{ github.run_id }}-${{ matrix.lane }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: "false"
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: mise-seed-${{ matrix.lane }}
+          path: .l2-seed
+      - id: root-hit
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache/root
+          key: ${{ env.CACHE_NAMESPACE }}-root
+          fail-on-cache-miss: "true"
+      - id: restore-only-later
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache/restore-only
+          key: ${{ env.CACHE_NAMESPACE }}-restore-only
+          lookup-only: "true"
+      - id: save-only-hit
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache/save-only
+          key: ${{ env.CACHE_NAMESPACE }}-save-only
+          fail-on-cache-miss: "true"
+      - id: contention-hit
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache/contention
+          key: ${{ env.CACHE_NAMESPACE }}-contention
+          fail-on-cache-miss: "true"
+      - name: Verify cache semantics and exact bytes
+        run: |
+          test '${{ steps.root-hit.outputs.cache-hit }}' = true
+          test '${{ steps.restore-only-later.outputs.cache-hit }}' != true
+          test '${{ steps.save-only-hit.outputs.cache-hit }}' = true
+          test '${{ steps.contention-hit.outputs.cache-hit }}' = true
+          test "$(cat .l2-cache/root/value)" = root-cache
+          test "$(cat .l2-cache/save-only/value)" = save-only
+          test "$(cat .l2-cache/contention/value)" = contention
+      - name: Verify sequential mise identity and Velnor persistence
+        run: |
+          test "$(mise --version)" = "$(cat .l2-seed/mise-version)"
+          test "$(command -v mise)" = "$(cat .l2-seed/mise-path)"
+          test "$(sha256sum "$(command -v mise)" | awk '{print $1}')" = "$(cat .l2-seed/mise-sha256)"
+          if [ '${{ matrix.lane }}' = velnor ]; then
+            test "$(sha256sum /opt/mise/bin/mise | awk '{print $1}')" = "$(cat .l2-seed/bootstrap-sha256)"
+          fi
 
   runtime-required:
     if: always()
-    needs: runtime
+    needs: [seed, contend, verify]
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - name: Require every applicable matrix row
+      - name: Require all jobs
         env:
-          RESULT: ${{ needs.runtime.result }}
-        run: test "${RESULT}" = success
+          SEED: ${{ needs.seed.result }}
+          CONTEND: ${{ needs.contend.result }}
+          VERIFY: ${{ needs.verify.result }}
+        run: test "${SEED}/${CONTEND}/${VERIFY}" = success/success/success
