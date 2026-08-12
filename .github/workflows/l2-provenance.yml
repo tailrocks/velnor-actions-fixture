@@ -22,7 +22,20 @@ defaults:
     shell: bash
 
 jobs:
+  admit-default-head:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Require current default-branch head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "${GITHUB_REF}" = refs/heads/main
+          default_head="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          test "${GITHUB_SHA}" = "${default_head}"
+
   produce:
+    needs: admit-default-head
     permissions:
       contents: read
       id-token: write
