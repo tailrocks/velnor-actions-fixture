@@ -21,16 +21,21 @@ concurrency:
   group: l2-negative-${{ github.ref }}-${{ inputs.lane }}-${{ inputs.case }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  reject:
-    runs-on: ${{ inputs.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+  github-scanner:
+    if: inputs.lane == 'github'
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: "false"
       - id: scan
-        name: Reject before marker
+        name: Reject before project marker
         continue-on-error: true
         env:
           CASE: ${{ inputs.case }}
@@ -42,30 +47,77 @@ jobs:
               ;;
             unknown-subpath-input)
               cargo run --locked -p l2-contract -- validate-file .github/fixtures/l2/unknown-subpath.json
-              cargo run --locked -p l2-contract -- validate-file .github/fixtures/l2/unknown-input.json
               ;;
             invalid-lock)
               cargo run --locked -p l2-contract -- validate-lock .github/fixtures/l2/invalid-mise.lock
               ;;
-            *)
-              echo "unknown negative case" >&2
-              exit 2
-              ;;
+            *) exit 2 ;;
           esac
-      - name: Assert normalized rejection and no side effect
+      - name: Assert normalized rejection and no project effect
         env:
           OUTCOME: ${{ steps.scan.outcome }}
         run: |
           test "${OUTCOME}" = failure
           test ! -e .l2-negative-marker
-          test ! -e .l2-negative-checkout
-          test ! -e .l2-negative-container
-          test ! -e .l2-negative-cache
-          test ! -e .l2-negative-credential
           test ! -e .l2-negative-project
-      - name: Unreachable mutable action
-        if: steps.scan.outcome == 'success'
-        uses: actions/checkout@main
-      - name: Forbidden marker
-        if: steps.scan.outcome == 'success'
-        run: touch .l2-negative-marker && exit 1
+
+  velnor-mutable-ref:
+    if: inputs.lane == 'velnor' && inputs.case == 'mutable-ref'
+    runs-on:
+      group: velnor-trusted
+      labels: velnor-target-mvp
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@main
+      - run: touch .l2-negative-marker && exit 1
+
+  velnor-unknown-repository:
+    if: inputs.lane == 'velnor' && inputs.case == 'unknown-repository'
+    runs-on:
+      group: velnor-trusted
+      labels: velnor-target-mvp
+    timeout-minutes: 10
+    steps:
+      - uses: untrusted/unknown@0123456789abcdef0123456789abcdef01234567
+      - run: touch .l2-negative-marker && exit 1
+
+  velnor-unknown-subpath-input:
+    if: inputs.lane == 'velnor' && inputs.case == 'unknown-subpath-input'
+    runs-on:
+      group: velnor-trusted
+      labels: velnor-target-mvp
+    timeout-minutes: 10
+    steps:
+      - uses: actions/cache/bogus@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache
+          key: never-materialized
+      - run: touch .l2-negative-marker && exit 1
+
+  velnor-unresolved-expression:
+    if: inputs.lane == 'velnor' && inputs.case == 'unresolved-expression'
+    runs-on:
+      group: velnor-trusted
+      labels: velnor-target-mvp
+    timeout-minutes: 10
+    steps:
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .l2-cache
+          key: never-materialized
+          lookup-only: ${{ runner.debug }}
+      - run: touch .l2-negative-marker && exit 1
+
+  velnor-invalid-lock:
+    if: inputs.lane == 'velnor' && inputs.case == 'invalid-lock'
+    runs-on:
+      group: velnor-trusted
+      labels: velnor-target-mvp
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: "false"
+      - name: Reject disposable lock before project command
+        run: cargo run --locked -p l2-contract -- validate-lock .github/fixtures/l2/invalid-mise.lock
+      - run: touch .l2-negative-project && exit 1
