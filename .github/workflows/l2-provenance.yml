@@ -66,23 +66,36 @@ jobs:
         with:
           pattern: l2-*
           path: evidence
-      - name: Compare independent subjects before attestation
+      - name: Reconstruct and compare exact subjects before attestation
         run: |
           find evidence -name l2-subject.json.sha256 -execdir sha256sum --check --strict l2-subject.json.sha256 \;
           mapfile -t subjects < <(find evidence -name l2-subject.json -type f | sort)
-          test "${#subjects[@]}" -ge 1
-          first="${subjects[0]}"
-          for subject in "${subjects[@]}"; do cmp -- "${first}" "${subject}"; done
+          test "${#subjects[@]}" -eq 2
+          expected="$(mktemp)"
+          trap 'rm -f "${expected}"' EXIT
+          jq -cn --arg source_sha "${GITHUB_SHA}" \
+            '{schema:"velnor.fixture.l2-subject.v1",source_sha:($source_sha|ascii_downcase),workload:"cargo-nextest-workspace-locked"}' \
+            > "${expected}"
+          for subject in "${subjects[@]}"; do cmp -- "${expected}" "${subject}"; done
       - name: Verify exact source and signer
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           while IFS= read -r subject; do
-            gh attestation verify "${subject}" \
+            lane="$(basename "$(dirname "${subject}")")"
+            args=()
+            if [ "${lane}" = l2-github ]; then
+              args+=(--deny-self-hosted-runners)
+            elif [ "${lane}" != l2-velnor ]; then
+              echo "unexpected producer artifact ${lane}" >&2
+              exit 1
+            fi
+            gh attestation verify "${subject}" "${args[@]}" \
               --repo tailrocks/velnor-actions-fixture \
               --source-ref refs/heads/main \
               --source-digest "${GITHUB_SHA}" \
               --signer-workflow github.com/tailrocks/velnor-actions-fixture/.github/workflows/l2-provenance.yml \
               --signer-digest "${GITHUB_SHA}" \
-              --predicate-type https://slsa.dev/provenance/v1
+              --predicate-type https://slsa.dev/provenance/v1 \
+              --format json > "verification-${lane}.json"
           done < <(find evidence -name l2-subject.json -type f | sort)
