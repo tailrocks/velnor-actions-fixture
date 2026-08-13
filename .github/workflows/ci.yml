@@ -93,7 +93,7 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
-    uses: jackin-project/velnor-actions/.github/workflows/ci-fixture.yml@acbe7ed48e3f436e093c706b26cb9c8fbf6920f3 # 2026.8.4
+    uses: jackin-project/velnor-actions/.github/workflows/ci-fixture.yml@f8ee1a328e97e430035633d723fcd8558684ea02 # 2026.8.13
     with:
       lane: ${{ (github.event_name == 'workflow_dispatch' && inputs.lane != '' && inputs.lane) || (github.repository_owner == 'jackin-project' && 'github') || ((github.repository_owner == 'tailrocks' || github.repository_owner == 'ChainArgos') && 'velnor') || 'invalid' }}
       recovery_proof_id: ${{ inputs.recovery_proof_id || '' }}
@@ -115,7 +115,7 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
-    uses: tailrocks/velnor-actions/.github/workflows/ci-fixture.yml@acbe7ed48e3f436e093c706b26cb9c8fbf6920f3 # 2026.8.4
+    uses: tailrocks/velnor-actions/.github/workflows/ci-fixture.yml@f8ee1a328e97e430035633d723fcd8558684ea02 # 2026.8.13
     with:
       lane: ${{ (github.event_name == 'workflow_dispatch' && inputs.lane != '' && inputs.lane) || (github.repository_owner == 'jackin-project' && 'github') || ((github.repository_owner == 'tailrocks' || github.repository_owner == 'ChainArgos') && 'velnor') || 'invalid' }}
       recovery_proof_id: ${{ inputs.recovery_proof_id || '' }}
@@ -137,7 +137,7 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
-    uses: ChainArgos/velnor-actions/.github/workflows/ci-fixture.yml@acbe7ed48e3f436e093c706b26cb9c8fbf6920f3 # 2026.8.4
+    uses: ChainArgos/velnor-actions/.github/workflows/ci-fixture.yml@f8ee1a328e97e430035633d723fcd8558684ea02 # 2026.8.13
     with:
       lane: ${{ (github.event_name == 'workflow_dispatch' && inputs.lane != '' && inputs.lane) || (github.repository_owner == 'jackin-project' && 'github') || ((github.repository_owner == 'tailrocks' || github.repository_owner == 'ChainArgos') && 'velnor') || 'invalid' }}
       recovery_proof_id: ${{ inputs.recovery_proof_id || '' }}
