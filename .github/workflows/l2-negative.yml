@@ -82,7 +82,7 @@ jobs:
       labels: velnor-target-mvp
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # main
       - run: touch .l2-negative-marker && exit 1
 
   velnor-unknown-repository:
