@@ -12,6 +12,7 @@ on:
         description: Runner lane
         type: choice
         required: true
+        default: velnor
         options: [velnor, github]
 
 permissions:
