@@ -69,10 +69,12 @@ jobs:
       - run: |
           mkdir -p "${DIGEST_DIR}"
           echo "${{ steps.build.outputs.digest }}" > "${DIGEST_DIR}/${LANE}-${PLATFORM//\//-}.digest"
-          echo "### build digest (${LANE} ${PLATFORM})" >> "${GITHUB_STEP_SUMMARY}"
-          echo '```' >> "${GITHUB_STEP_SUMMARY}"
-          cat "${DIGEST_DIR}/${LANE}-${PLATFORM//\//-}.digest" >> "${GITHUB_STEP_SUMMARY}"
-          echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          {
+            echo "### build digest (${LANE} ${PLATFORM})"
+            echo '```'
+            cat "${DIGEST_DIR}/${LANE}-${PLATFORM//\//-}.digest"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: digest-${{ matrix.config.lane }}-${{ matrix.config.platform == 'linux/amd64' && 'amd64' || matrix.config.platform == 'linux/arm64' && 'arm64' || 'unknown' }}
@@ -96,12 +98,14 @@ jobs:
           path: ${{ env.DIGEST_DIR }}
           merge-multiple: true
       - run: |
-          echo "### merged digests" >> "${GITHUB_STEP_SUMMARY}"
-          echo '```' >> "${GITHUB_STEP_SUMMARY}"
-          find "${DIGEST_DIR}" -name '*.digest' | sort | while read -r f; do
-            echo "$(basename "$f"): $(cat "$f")"
-          done >> "${GITHUB_STEP_SUMMARY}"
-          echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          {
+            echo "### merged digests"
+            echo '```'
+            find "${DIGEST_DIR}" -name '*.digest' | sort | while read -r f; do
+              echo "$(basename "$f"): $(cat "$f")"
+            done
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
           echo "merge-manifests passed"
       - uses: ./.github/actions/aggregate-needs
         with:
