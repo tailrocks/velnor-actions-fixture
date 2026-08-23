@@ -8,12 +8,11 @@ on:
         type: choice
         required: true
         options: [missing-permission, no-match, unapproved-input]
-      lane:
-        description: Runner lane
+      lanes:
+        description: velnor (default) | github | both
         type: choice
-        required: true
         default: velnor
-        options: [velnor, github]
+        options: [velnor, github, both]
 
 permissions:
   contents: read
@@ -25,7 +24,11 @@ concurrency:
 jobs:
   missing-permission:
     if: inputs.case == 'missing-permission'
-    runs-on: ${{ inputs.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
+    runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -39,7 +42,11 @@ jobs:
 
   no-match:
     if: inputs.case == 'no-match'
-    runs-on: ${{ inputs.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
+    runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -53,7 +60,11 @@ jobs:
 
   unapproved-input:
     if: inputs.case == 'unapproved-input'
-    runs-on: ${{ inputs.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
+    runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 10
     permissions:
       contents: read

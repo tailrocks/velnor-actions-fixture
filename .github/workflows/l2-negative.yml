@@ -3,12 +3,11 @@ name: l2-negative
 on:
   workflow_dispatch:
     inputs:
-      lane:
-        description: Runner lane.
-        required: true
+      lanes:
+        description: velnor (default) | github | both
         type: choice
         default: velnor
-        options: [velnor, github]
+        options: [velnor, github, both]
       case:
         description: Fail-before-effect case.
         required: true
@@ -19,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: l2-negative-${{ github.ref }}-${{ inputs.lane }}-${{ inputs.case }}
+  group: l2-negative-${{ github.ref }}-${{ inputs.lanes }}-${{ inputs.case }}
   cancel-in-progress: false
 
 defaults:
@@ -41,7 +40,7 @@ jobs:
 
   github-scanner:
     needs: admit-default-head
-    if: inputs.lane == 'github'
+    if: inputs.lanes != 'velnor'
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     env:
@@ -92,7 +91,7 @@ jobs:
 
   velnor-mutable-ref:
     needs: admit-default-head
-    if: inputs.lane == 'velnor' && inputs.case == 'mutable-ref'
+    if: inputs.lanes != 'github' && inputs.case == 'mutable-ref'
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
@@ -103,7 +102,7 @@ jobs:
 
   velnor-unknown-repository:
     needs: admit-default-head
-    if: inputs.lane == 'velnor' && inputs.case == 'unknown-repository'
+    if: inputs.lanes != 'github' && inputs.case == 'unknown-repository'
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
@@ -114,7 +113,7 @@ jobs:
 
   velnor-unknown-subpath-input:
     needs: admit-default-head
-    if: inputs.lane == 'velnor' && inputs.case == 'unknown-subpath-input'
+    if: inputs.lanes != 'github' && inputs.case == 'unknown-subpath-input'
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
@@ -128,7 +127,7 @@ jobs:
 
   velnor-unresolved-expression:
     needs: admit-default-head
-    if: inputs.lane == 'velnor' && inputs.case == 'unresolved-expression'
+    if: inputs.lanes != 'github' && inputs.case == 'unresolved-expression'
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
@@ -143,7 +142,7 @@ jobs:
 
   velnor-invalid-lock:
     needs: admit-default-head
-    if: inputs.lane == 'velnor' && inputs.case == 'invalid-lock'
+    if: inputs.lanes != 'github' && inputs.case == 'invalid-lock'
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp

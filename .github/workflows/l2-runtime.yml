@@ -3,9 +3,8 @@ name: l2-runtime
 on:
   workflow_dispatch:
     inputs:
-      lane:
-        description: Runner lane.
-        required: true
+      lanes:
+        description: velnor (default) | github | both
         type: choice
         default: velnor
         options: [velnor, github, both]
@@ -19,7 +18,7 @@ env:
   EXPLICIT_MISE_VERSION: 2026.8.2
 
 concurrency:
-  group: l2-runtime-${{ github.ref }}-${{ inputs.lane }}
+  group: l2-runtime-${{ github.ref }}-${{ inputs.lanes }}
   cancel-in-progress: false
 
 defaults:
@@ -44,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON(inputs.lane == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lane)) }}
+        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 25
     env:
@@ -140,7 +139,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON(inputs.lane == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lane)) }}
+        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
         writer: [1, 2]
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 15
@@ -169,7 +168,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON(inputs.lane == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lane)) }}
+        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 20
     env:
