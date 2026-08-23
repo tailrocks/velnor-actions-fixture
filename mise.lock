@@ -171,5 +171,5 @@ url = "https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-x86_64
 url_api = "https://api.github.com/repos/casey/just/releases/assets/500511374"
 
 [[tools.rust]]
-version = "1.97.1"
+version = "1.98.0"
 backend = "core:rust"
