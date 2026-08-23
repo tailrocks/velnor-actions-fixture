@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: 'Runner lane(s): velnor / github / both'
+        description: velnor (default) | github | both
         type: choice
         default: velnor
         options: [velnor, github, both]
