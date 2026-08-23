@@ -1,6 +1,7 @@
 [tools]
 actionlint = "1.7.12"
-rust = "1.97.1"
+<<<<<<< HEAD
+rust = "1.98.0"
 cargo-binstall = "1.22.0"
 "aqua:nextest-rs/nextest/cargo-nextest" = "0.9.140"
 just = "1.58.0"
