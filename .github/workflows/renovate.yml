@@ -43,8 +43,6 @@ jobs:
           chmod -R a+rwX /tmp/renovate
       - if: matrix.config.writer
         uses: renovatebot/github-action@e09d604f8f803bb527bd8321ed5be06c460b8682 # v46.2.2
-        with:
-          configurationFile: renovate.json
         env:
           # The PAT named "tailrocks-renovate" (fine-grained, not classic) must be
           # stored in the repo secret GH_RENOVATE_TOKEN.
@@ -52,5 +50,9 @@ jobs:
           RENOVATE_REPOSITORIES: '["tailrocks/velnor-actions-fixture"]'
           RENOVATE_REPOSITORY_CACHE: enabled
           RENOVATE_BASE_DIR: /tmp/renovate
+          # Velnor capability validation accepts only token/renovate-version/
+          # renovate-image as action inputs; the config file is passed as the
+          # standard Renovate env var instead (identical behavior on GitHub lane).
+          RENOVATE_CONFIG_FILE: renovate.json
       - if: ${{ !matrix.config.writer }}
         run: echo 'Read-only comparison lane; Renovate mutation skipped.'
