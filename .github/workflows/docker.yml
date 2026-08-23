@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: 'Runner lane(s): velnor / github / both'
+        description: velnor (default) | github | both
         type: choice
         default: velnor
         options: [velnor, github, both]
@@ -46,6 +46,10 @@ jobs:
             type=ref,event=branch
             type=sha,prefix=sha-
       - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        env:
+          # Velnor daemon chokes on .dockerbuild build-record artifacts
+          DOCKER_BUILD_SUMMARY: "false"
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         with:
           context: .
           file: Dockerfile.fixture
