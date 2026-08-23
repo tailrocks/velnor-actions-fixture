@@ -3,9 +3,8 @@ name: l2-provenance
 on:
   workflow_dispatch:
     inputs:
-      lane:
-        description: Producer lane selection.
-        required: true
+      lanes:
+        description: velnor (default) | github | both
         type: choice
         default: velnor
         options: [velnor, github, both]
@@ -14,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: l2-provenance-${{ github.ref }}-${{ inputs.lane }}
+  group: l2-provenance-${{ github.ref }}-${{ inputs.lanes }}
   cancel-in-progress: false
 
 defaults:
@@ -43,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON(inputs.lane == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lane)) }}
+        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 25
     env:
@@ -122,10 +121,10 @@ jobs:
       - name: Reconstruct and compare exact subjects before attestation
         run: |
           mapfile -t subjects < <(find evidence -name l2-subject.json -type f | sort)
-          if [ "${{ inputs.lane }}" = both ]; then
+          if [ "${{ inputs.lanes }}" = both ]; then
             expected_lanes='["github","velnor"]'
           else
-            expected_lanes='["${{ inputs.lane }}"]'
+            expected_lanes='["${{ inputs.lanes }}"]'
           fi
           mapfile -t producers < <(find evidence -name 'l2-*.producer.json' -type f | sort)
           test "${#producers[@]}" -eq "${#subjects[@]}"
@@ -193,7 +192,7 @@ jobs:
           done < <(find evidence -name 'l2-*.producer.json' -type f | sort)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: l2-verification-${{ inputs.lane }}
+          name: l2-verification-${{ inputs.lanes }}
           path: |
             verification-*.json
             consumer-l2-*-subject.json.sha256
