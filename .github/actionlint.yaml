@@ -1,6 +1,6 @@
 self-hosted-runner:
   # Labels of self-hosted runner in array of strings.
-  labels: [ubuntu-26.04, velnor-target-mvp]
+  labels: [ubuntu-26.04, velnor-target-mvp, velnor-cp-queue-validation]
 
 # Configuration variables in array of strings defined in your repository or
 # organization. `null` means disabling configuration variables check.
