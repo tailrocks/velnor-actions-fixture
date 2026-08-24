@@ -18,12 +18,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: attestation-negative-${{ github.ref }}
+  # Include case and lanes so sequential case dispatches cannot cancel each other.
+  group: attestation-negative-${{ github.ref }}-${{ inputs.case }}-${{ inputs.lanes }}
   cancel-in-progress: true
 
 jobs:
   missing-permission:
     if: inputs.case == 'missing-permission'
+    # The negative outcome is the expectation; assert-negative turns it green.
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -42,6 +45,8 @@ jobs:
 
   no-match:
     if: inputs.case == 'no-match'
+    # The negative outcome is the expectation; assert-negative turns it green.
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -60,6 +65,8 @@ jobs:
 
   unapproved-input:
     if: inputs.case == 'unapproved-input'
+    # The negative outcome is the expectation; assert-negative turns it green.
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -77,3 +84,58 @@ jobs:
         with:
           subject-path: dist/*.tar.gz
           push-to-registry: false
+
+  assert-negative:
+    needs: [missing-permission, no-match, unapproved-input]
+    if: ${{ always() && inputs.case != '' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    env:
+      CASE: ${{ inputs.case }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Assert the expected negative outcome per lane
+        run: |
+          set -euo pipefail
+          jobs_json="$(curl -fsSL             -H "Authorization: Bearer ${GH_TOKEN}"             -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100")"
+          conclusion_for() {
+            python3 -c "import json,sys; jobs=json.load(sys.stdin)['jobs']; print(next((j['conclusion'] for j in jobs if j['name']=='$1'), 'absent'))" <<<"${jobs_json}"
+          }
+          expected() {
+            case "${CASE}:${1}" in
+              # The fleet rejects the unapproved action input before execution;
+              # the GitHub lane has no such policy and runs it successfully.
+              unapproved-input:velnor) echo failure ;;
+              unapproved-input:github) echo success ;;
+              # No id-token: the attestation action cannot run on either lane.
+              missing-permission:velnor) echo failure ;;
+              missing-permission:github) echo failure ;;
+              # No subject files: the attestation action fails on either lane.
+              no-match:velnor) echo failure ;;
+              no-match:github) echo failure ;;
+              *) echo unknown ;;
+            esac
+          }
+          if [[ "${{ inputs.lanes }}" == "both" ]]; then
+            selected_lanes="velnor github"
+          else
+            selected_lanes="${{ inputs.lanes }}"
+          fi
+          rc=0
+          for lane in ${selected_lanes}; do
+            actual="$(conclusion_for "${CASE} (${lane})")"
+            want="$(expected "${CASE}:${lane}")"
+            if [[ "${actual}" == "absent" ]]; then
+              echo "::error::ATTN case=${CASE} lane=${lane} phase=mismatch reason=job-absent"
+              rc=1; continue
+            fi
+            if [[ "${actual}" != "${want}" ]]; then
+              echo "::error::ATTN case=${CASE} lane=${lane} phase=mismatch reason=unexpected-conclusion want=${want} got=${actual}"
+              rc=1; continue
+            fi
+            echo "::notice::ATTN case=${CASE} lane=${lane} phase=negative-asserted conclusion=${actual}"
+          done
+          exit "${rc}"
