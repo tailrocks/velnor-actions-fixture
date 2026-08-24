@@ -89,31 +89,51 @@ jobs:
           test ! -e .l2-negative-marker
           test ! -e .l2-negative-project
 
+  # The velnor capability probes below are EXPECTED to be rejected by the
+  # fleet at capability_validation, fail-before-effect: the fleet aborts the
+  # whole job before any step runs, so the rejection cannot be asserted from
+  # inside the probe. Each probe therefore carries job-level
+  # continue-on-error and the sibling assert-velnor-rejection job proves the
+  # rejection from the fleet-emitted "Velnor rejected job (capability_
+  # validation)" step recorded in the run's jobs API. If the fleet ever
+  # ADMITS a probe, its "Admit-effect" step executes, the assert detects it,
+  # and the workflow run goes red (fleet regression).
   velnor-mutable-ref:
     needs: admit-default-head
     if: inputs.lanes != 'github' && inputs.case == 'mutable-ref'
+    continue-on-error: true
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # main
-      - run: touch .l2-negative-marker && exit 1
+      - name: Admit-effect marker
+        run: |
+          echo "::notice::L2N_MARKER case=mutable-ref phase=admit-effect fleet-admitted=true"
+          touch .l2-negative-marker
+          exit 1
 
   velnor-unknown-repository:
     needs: admit-default-head
     if: inputs.lanes != 'github' && inputs.case == 'unknown-repository'
+    continue-on-error: true
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
     timeout-minutes: 10
     steps:
       - uses: untrusted/unknown@0123456789abcdef0123456789abcdef01234567
-      - run: touch .l2-negative-marker && exit 1
+      - name: Admit-effect marker
+        run: |
+          echo "::notice::L2N_MARKER case=unknown-repository phase=admit-effect fleet-admitted=true"
+          touch .l2-negative-marker
+          exit 1
 
   velnor-unknown-subpath-input:
     needs: admit-default-head
     if: inputs.lanes != 'github' && inputs.case == 'unknown-subpath-input'
+    continue-on-error: true
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
@@ -123,11 +143,16 @@ jobs:
         with:
           path: .l2-cache
           key: never-materialized
-      - run: touch .l2-negative-marker && exit 1
+      - name: Admit-effect marker
+        run: |
+          echo "::notice::L2N_MARKER case=unknown-subpath-input phase=admit-effect fleet-admitted=true"
+          touch .l2-negative-marker
+          exit 1
 
   velnor-unresolved-expression:
     needs: admit-default-head
     if: inputs.lanes != 'github' && inputs.case == 'unresolved-expression'
+    continue-on-error: true
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
@@ -138,8 +163,16 @@ jobs:
           path: .l2-cache
           key: never-materialized
           lookup-only: ${{ runner.debug }}
-      - run: touch .l2-negative-marker && exit 1
+      - name: Admit-effect marker
+        run: |
+          echo "::notice::L2N_MARKER case=unresolved-expression phase=admit-effect fleet-admitted=true"
+          touch .l2-negative-marker
+          exit 1
 
+  # invalid-lock rejects inside a run step (the job itself is admitted:
+  # checkout is allowlisted), so the rejection is asserted in-job exactly
+  # like github-scanner does: probe with continue-on-error, then require
+  # failure and no project effect.
   velnor-invalid-lock:
     needs: admit-default-head
     if: inputs.lanes != 'github' && inputs.case == 'invalid-lock'
@@ -152,5 +185,65 @@ jobs:
         with:
           persist-credentials: "false"
       - name: Reject disposable lock before project command
+        id: probe
+        continue-on-error: true
         run: cargo run --locked -p l2-contract -- validate-lock .github/fixtures/l2/invalid-mise.lock
-      - run: touch .l2-negative-project && exit 1
+      - name: Assert normalized rejection and no project effect
+        env:
+          OUTCOME: ${{ steps.probe.outcome }}
+        run: |
+          test "${OUTCOME}" = failure
+          test ! -e .l2-negative-project
+
+  assert-velnor-rejection:
+    needs:
+      - admit-default-head
+      - velnor-mutable-ref
+      - velnor-unknown-repository
+      - velnor-unknown-subpath-input
+      - velnor-unresolved-expression
+    if: ${{ always() && inputs.lanes != 'github' && inputs.case != 'invalid-lock' }}
+    runs-on:
+      group: velnor-trusted
+      labels: velnor-target-mvp
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    env:
+      CASE: ${{ inputs.case }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Assert fleet rejected the probe before effect
+        run: |
+          set -euo pipefail
+          case "${CASE}" in
+            mutable-ref) probe="velnor-mutable-ref" ;;
+            unknown-repository) probe="velnor-unknown-repository" ;;
+            unknown-subpath-input) probe="velnor-unknown-subpath-input" ;;
+            unresolved-expression) probe="velnor-unresolved-expression" ;;
+            *)
+              echo "::error::L2N_MARKER case=${CASE} phase=mismatch reason=unexpected-case"
+              exit 2
+              ;;
+          esac
+          jobs_json="$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100")"
+          probe_present="$(grep -c "\"name\": *\"${probe}\"" <<<"${jobs_json}" || true)"
+          if [[ "${probe_present}" -eq 0 ]]; then
+            echo "::error::L2N_MARKER case=${CASE} phase=mismatch reason=probe-job-absent probe=${probe}"
+            exit 1
+          fi
+          if grep -q "\"name\": *\"Admit-effect marker\"" <<<"${jobs_json}"; then
+            echo "::error::L2N_MARKER case=${CASE} phase=mismatch reason=fleet-admitted-probe probe=${probe}"
+            exit 1
+          fi
+          if grep -q "\"name\": *\"Velnor rejected job (capability_validation)\"" <<<"${jobs_json}"; then
+            echo "::notice::L2N_MARKER case=${CASE} phase=rejection-asserted probe=${probe} validation=capability_validation fail-before-effect=true"
+            echo "L2N_REJECTION_ASSERTED case=${CASE} probe=${probe}"
+            exit 0
+          fi
+          echo "::error::L2N_MARKER case=${CASE} phase=mismatch reason=no-fleet-rejection-evidence probe=${probe}"
+          exit 1
