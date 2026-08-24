@@ -121,7 +121,7 @@ jobs:
         with:
           # Admission requires a literal: env expressions are runtime data
           # and cannot be proven before a trusted runner is leased.
-          version: 2026.8.10
+          version: 2026.8.2
           install: "false"
       - name: Prove explicit version differs from omitted resolution
         run: |
