@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Static workflow-surface audit for the fixture repository.
 
-Asserts the canonical sole ``lane`` selector, full-SHA action pins, timeout and
-concurrency coverage, the exact control-plane scenario enumeration, and the
-absence of plural ``lanes`` selectors outside the documented legacy allowlist.
+Asserts the canonical plural ``lanes`` selector, full-SHA action pins, timeout
+and concurrency coverage, and the exact control-plane scenario enumeration.
 Stdlib-only, mirroring the other scripts in this directory.
 """
 
@@ -13,25 +12,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
-
-# Fixture-specialized workflows still carrying the plural selector, pending the
-# estate-wide unified-CI propagation phase tracked in the migration plans. The
-# canonical class template lives in ci.yml; compat.yml and control-plane.yml
-# must always stay singular.
-LEGACY_LANES_ALLOWLIST = frozenset(
-    {
-        "pages.yml",
-        "multi-arch.yml",
-        "reuse-caller.yml",
-        "docker.yml",
-        "l2-runtime.yml",
-        "l2-provenance.yml",
-        "l2-negative.yml",
-        "attestation-negative.yml",
-        "renovate.yml",
-        "schedule.yml",
-    }
-)
 
 CONTROL_PLANE_SCENARIOS = {
     "success",
@@ -138,16 +118,11 @@ def audit():
                     f"{name}:{i}: remote action not full-SHA-pinned: {ref}"
                 )
 
-    # 2. No plural `lanes` input outside the documented legacy allowlist.
-    for name, text in texts.items():
-        if name in LEGACY_LANES_ALLOWLIST:
-            continue
-        if input_block(text, "lanes") is not None:
-            failures.append(f"{name}: plural `lanes` dispatch input is forbidden")
-
-    # 3. Sole `lane` selector wherever it is declared. Negative fixtures may
-    # intentionally restrict to a subset of lanes (no `both`, since a negative
-    # proof runs on one lane); they must still stay within the canonical set.
+    # 2. Sole `lane` selector wherever it is declared (callable reusable
+    # workflows keep the singular input; callers derive it from `lanes`).
+    # Negative fixtures may intentionally restrict to a subset of lanes
+    # (no `both`, since a negative proof runs on one lane); they must still
+    # stay within the canonical set.
     for name, text in texts.items():
         block = input_block(text, "lane")
         if block is None:
@@ -161,16 +136,19 @@ def audit():
         if default != "velnor":
             failures.append(f"{name}: lane default must be velnor, got {default!r}")
 
-    # 4. compat.yml and control-plane.yml must declare the full canonical selector.
+    # 3. compat.yml and control-plane.yml must declare the full canonical
+    # plural `lanes` selector.
     for name in ("compat.yml", "control-plane.yml"):
-        block = input_block(texts[name], "lane")
+        block = input_block(texts[name], "lanes")
         if block is None:
-            failures.append(f"{name}: missing sole `lane` dispatch input")
+            failures.append(f"{name}: missing plural `lanes` dispatch input")
             continue
         if set(block_option_values(block, "options")) != LANE_OPTIONS:
             failures.append(
-                f"{name}: lane options must be exactly {sorted(LANE_OPTIONS)}"
+                f"{name}: lanes options must be exactly {sorted(LANE_OPTIONS)}"
             )
+        if scalar_field(block, "default") != "velnor":
+            failures.append(f"{name}: lanes default must be velnor")
 
     # 5. control-plane enumerates exactly the eight scenarios.
     cp_text = texts["control-plane.yml"]
@@ -209,7 +187,7 @@ def main():
             print(f"FAIL {failure}")
         print(f"workflow-surface audit: {len(failures)} failure(s)")
         return 1
-    print("workflow-surface audit: ok (sole lane selector, SHA pins, timeouts, concurrency, eight scenarios)")
+    print("workflow-surface audit: ok (plural lanes selector, SHA pins, timeouts, concurrency, eight scenarios)")
     return 0
 
 
