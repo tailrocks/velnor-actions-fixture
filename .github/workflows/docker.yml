@@ -98,8 +98,13 @@ jobs:
           path: artifacts
       - run: |
           set -euo pipefail
-          github_out="$(cat artifacts/docker-result-github/docker-result.txt)"
-          velnor_out="$(cat artifacts/docker-result-velnor/docker-result.txt)"
+          # Artifact names use the capitalized matrix lane labels (Velnor/GitHub).
+          if [[ ! -f "artifacts/docker-result-GitHub/docker-result.txt" || ! -f "artifacts/docker-result-Velnor/docker-result.txt" ]]; then
+            echo "single-lane run: only one lane artifact present, nothing to compare"
+            exit 0
+          fi
+          github_out="$(cat "artifacts/docker-result-GitHub/docker-result.txt")"
+          velnor_out="$(cat "artifacts/docker-result-Velnor/docker-result.txt")"
           echo "github: ${github_out}"
           echo "velnor: ${velnor_out}"
           if [[ "${github_out}" != "${velnor_out}" ]]; then
