@@ -105,7 +105,7 @@ jobs:
             python3 -c "import json,sys; jobs=json.load(sys.stdin)['jobs']; print(next((j['conclusion'] for j in jobs if j['name']=='$1'), 'absent'))" <<<"${jobs_json}"
           }
           expected() {
-            case "${CASE}:${1}" in
+            case "${1}" in
               # The fleet rejects the unapproved action input before execution;
               # the GitHub lane has no such policy and runs it successfully.
               unapproved-input:velnor) echo failure ;;
