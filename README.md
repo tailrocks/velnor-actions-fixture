@@ -6,9 +6,9 @@ This repository intentionally keeps normal GitHub Actions YAML. It is not a Pkl/
 
 ## Runner Lanes
 
-- `lane=velnor` (default): runs on `[self-hosted, velnor-target-mvp]`.
-- `lane=github`: runs on pinned `ubuntu-26.04`.
-- `lane=both`: expands the same jobs on both runners from one inline matrix.
+- `lanes=velnor` (default): runs on `[self-hosted, velnor-target-mvp]`.
+- `lanes=github`: runs on pinned `ubuntu-26.04`.
+- `lanes=both`: expands the same jobs on both runners from one inline matrix.
 - `compare-results`: downloads artifacts from both lanes and verifies the normalized outputs match.
 
 ## Control Plane
@@ -32,7 +32,7 @@ unexpected mismatch; for `scenario=failure` the controlled failure at the named
 | `scenario` | choice | `success` | `success`, `failure`, `hold`, `queue`, `concurrent`, `artifacts`, `cache`, `load` | Exactly one scenario per dispatch |
 | `hold_seconds` | number | `30` | `0..300` | Validated in-step; out-of-range fails fast |
 | `artifact_count` | number | `3` | `1..8` | Validated in-step; distinct bounded sanitized text artifacts |
-| `lane` | choice | `velnor` | `github`, `velnor`, `both` | Sole lane selector |
+| `lanes` | choice | `velnor` | `github`, `velnor`, `both` | Canonical plural lanes selector |
 
 Scenario notes:
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Static workflow-surface audit for the fixture repository.
 
-Asserts the canonical sole ``lane`` selector, full-SHA action pins, timeout and
-concurrency coverage, the exact control-plane scenario enumeration, and the
-absence of plural ``lanes`` selectors outside the documented legacy allowlist.
+Asserts the canonical plural ``lanes`` dispatch selector, full-SHA action pins,
+timeout and concurrency coverage, and the exact control-plane scenario
+enumeration. Callable reusable workflows keep their singular ``lane`` input;
+workflow_dispatch callers derive the selector from ``inputs.lanes``.
 Stdlib-only, mirroring the other scripts in this directory.
 """
 
@@ -14,24 +15,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
-# Fixture-specialized workflows still carrying the plural selector, pending the
-# estate-wide unified-CI propagation phase tracked in the migration plans. The
-# canonical class template lives in ci.yml; compat.yml and control-plane.yml
-# must always stay singular.
-LEGACY_LANES_ALLOWLIST = frozenset(
-    {
-        "pages.yml",
-        "multi-arch.yml",
-        "reuse-caller.yml",
-        "docker.yml",
-        "l2-runtime.yml",
-        "l2-provenance.yml",
-        "l2-negative.yml",
-        "attestation-negative.yml",
-        "renovate.yml",
-        "schedule.yml",
-    }
-)
+# ci.yml is rendered by velnor-actions-generator ("DO NOT EDIT") and still
+# carries the superseded sole-lane dispatch input pinned to mirrored release
+# 2026.8.30. The generator's plural-`lanes` render has not been propagated to
+# that file yet; until it is re-rendered upstream, ci.yml is the only permitted
+# dispatch-level sole-`lane` exception. Never hand-edit ci.yml here.
+GENERATOR_PENDING_SOLE_LANE = frozenset({"ci.yml"})
 
 CONTROL_PLANE_SCENARIOS = {
     "success",
@@ -50,6 +39,46 @@ SHA_RE = re.compile(r"@[0-9a-f]{40}(\s|$|#)")
 
 def workflow_texts():
     return {p.name: p.read_text() for p in sorted(WORKFLOWS.glob("*.yml"))}
+
+
+def indent_of(line):
+    return len(line) - len(line.lstrip())
+
+
+def dispatch_inputs(text):
+    """Map each ``on.workflow_dispatch.inputs`` name to its body lines."""
+    lines = text.splitlines()
+    try:
+        start = next(
+            i for i, line in enumerate(lines) if line.rstrip() == "  workflow_dispatch:"
+        )
+    except StopIteration:
+        return {}
+    inputs = {}
+    in_inputs = False
+    current_name = None
+    current_body = []
+    for line in lines[start + 1 :]:
+        if line.strip() and indent_of(line) <= 1:
+            break
+        if not line.strip():
+            continue
+        stripped = line.strip()
+        if indent_of(line) == 4 and stripped == "inputs:":
+            in_inputs = True
+            continue
+        if not in_inputs:
+            continue
+        if indent_of(line) == 6 and stripped.endswith(":") and ":" not in stripped[:-1]:
+            if current_name is not None:
+                inputs[current_name] = current_body
+            current_name = stripped[:-1]
+            current_body = []
+        elif current_name is not None:
+            current_body.append(line)
+    if current_name is not None:
+        inputs[current_name] = current_body
+    return inputs
 
 
 def input_block(text, name):
@@ -120,6 +149,20 @@ def top_level_jobs(text):
             yield match.group(1), body
 
 
+def check_lanes_block(name, block, failures):
+    """Validate one plural ``lanes`` dispatch input block."""
+    if scalar_field(block, "type") != "choice":
+        failures.append(f"{name}: lanes input must be type choice")
+    options = set(block_option_values(block, "options"))
+    if options != LANE_OPTIONS:
+        failures.append(
+            f"{name}: lanes options must be exactly {sorted(LANE_OPTIONS)}, got {sorted(options)}"
+        )
+    default = scalar_field(block, "default")
+    if default != "velnor":
+        failures.append(f"{name}: lanes default must be velnor, got {default!r}")
+
+
 def audit():
     failures = []
     texts = workflow_texts()
@@ -138,16 +181,28 @@ def audit():
                     f"{name}:{i}: remote action not full-SHA-pinned: {ref}"
                 )
 
-    # 2. No plural `lanes` input outside the documented legacy allowlist.
+    # 2. Dispatch callers use exactly the canonical plural `lanes` selector.
+    # Callable reusable workflows keep their singular `lane` input; callers
+    # derive it from `inputs.lanes`. ci.yml stays exempt only until the
+    # generator propagates its plural-`lanes` render (see
+    # GENERATOR_PENDING_SOLE_LANE).
     for name, text in texts.items():
-        if name in LEGACY_LANES_ALLOWLIST:
+        inputs = dispatch_inputs(text)
+        if not inputs:
             continue
-        if input_block(text, "lanes") is not None:
-            failures.append(f"{name}: plural `lanes` dispatch input is forbidden")
+        if "lane" in inputs:
+            is_reusable = re.search(r"^  workflow_call:", text, re.MULTILINE)
+            if not is_reusable and name not in GENERATOR_PENDING_SOLE_LANE:
+                failures.append(
+                    f"{name}: dispatch selector must be plural `lanes`, found sole `lane`"
+                )
+        if "lanes" in inputs:
+            check_lanes_block(name, inputs["lanes"], failures)
 
-    # 3. Sole `lane` selector wherever it is declared. Negative fixtures may
-    # intentionally restrict to a subset of lanes (no `both`, since a negative
-    # proof runs on one lane); they must still stay within the canonical set.
+    # 3. Sole `lane` selector wherever it is declared (reusables and any
+    # pending generator output). Negative fixtures may intentionally restrict
+    # to a subset of lanes (no `both`, since a negative proof runs on one
+    # lane); they must still stay within the canonical set.
     for name, text in texts.items():
         block = input_block(text, "lane")
         if block is None:
@@ -161,16 +216,14 @@ def audit():
         if default != "velnor":
             failures.append(f"{name}: lane default must be velnor, got {default!r}")
 
-    # 4. compat.yml and control-plane.yml must declare the full canonical selector.
+    # 4. compat.yml and control-plane.yml are workflow_dispatch callers and
+    # must declare the full canonical plural `lanes` selector.
     for name in ("compat.yml", "control-plane.yml"):
-        block = input_block(texts[name], "lane")
-        if block is None:
-            failures.append(f"{name}: missing sole `lane` dispatch input")
+        inputs = dispatch_inputs(texts[name])
+        if "lanes" not in inputs:
+            failures.append(f"{name}: missing plural `lanes` dispatch input")
             continue
-        if set(block_option_values(block, "options")) != LANE_OPTIONS:
-            failures.append(
-                f"{name}: lane options must be exactly {sorted(LANE_OPTIONS)}"
-            )
+        check_lanes_block(name, inputs["lanes"], failures)
 
     # 5. control-plane enumerates exactly the eight scenarios.
     cp_text = texts["control-plane.yml"]
@@ -209,7 +262,7 @@ def main():
             print(f"FAIL {failure}")
         print(f"workflow-surface audit: {len(failures)} failure(s)")
         return 1
-    print("workflow-surface audit: ok (sole lane selector, SHA pins, timeouts, concurrency, eight scenarios)")
+    print("workflow-surface audit: ok (plural lanes selector, SHA pins, timeouts, concurrency, eight scenarios)")
     return 0
 
 
