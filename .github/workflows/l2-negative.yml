@@ -170,12 +170,16 @@ jobs:
           exit 1
 
   # invalid-lock rejects inside a run step (the job itself is admitted:
-  # checkout is allowlisted), so the rejection is asserted in-job exactly
-  # like github-scanner does: probe with continue-on-error, then require
-  # failure and no project effect.
+  # checkout is allowlisted). The Velnor daemon terminates the job at the
+  # failed lock-validation step, so an in-job assert-after-probe can never
+  # run on the Velnor lane (the GitHub lane covers that shape via
+  # github-scanner). Assert from the sibling assert-velnor-rejection job
+  # instead: the probe job must conclude failure at exactly the lock
+  # rejection step and must never reach a project-effect step.
   velnor-invalid-lock:
     needs: admit-default-head
     if: inputs.lanes != 'github' && inputs.case == 'invalid-lock'
+    continue-on-error: true
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
@@ -185,15 +189,11 @@ jobs:
         with:
           persist-credentials: "false"
       - name: Reject disposable lock before project command
-        id: probe
-        continue-on-error: true
         run: cargo run --locked -p l2-contract -- validate-lock .github/fixtures/l2/invalid-mise.lock
-      - name: Assert normalized rejection and no project effect
-        env:
-          OUTCOME: ${{ steps.probe.outcome }}
+      - name: Unreachable project effect
         run: |
-          test "${OUTCOME}" = failure
-          test ! -e .l2-negative-project
+          touch .l2-negative-project
+          exit 1
 
   assert-velnor-rejection:
     needs:
@@ -202,7 +202,8 @@ jobs:
       - velnor-unknown-repository
       - velnor-unknown-subpath-input
       - velnor-unresolved-expression
-    if: ${{ always() && inputs.lanes != 'github' && inputs.case != 'invalid-lock' }}
+      - velnor-invalid-lock
+    if: ${{ always() && inputs.lanes != 'github' }}
     runs-on:
       group: velnor-trusted
       labels: velnor-target-mvp
@@ -222,6 +223,7 @@ jobs:
             unknown-repository) probe="velnor-unknown-repository" ;;
             unknown-subpath-input) probe="velnor-unknown-subpath-input" ;;
             unresolved-expression) probe="velnor-unresolved-expression" ;;
+            invalid-lock) probe="velnor-invalid-lock" ;;
             *)
               echo "::error::L2N_MARKER case=${CASE} phase=mismatch reason=unexpected-case"
               exit 2
@@ -239,6 +241,21 @@ jobs:
           if grep -q "\"name\": *\"Admit-effect marker\"" <<<"${jobs_json}"; then
             echo "::error::L2N_MARKER case=${CASE} phase=mismatch reason=fleet-admitted-probe probe=${probe}"
             exit 1
+          fi
+          if [[ "${CASE}" == "invalid-lock" ]]; then
+            # The job is admitted (checkout is allowlisted); the lock rejection
+            # happens inside the probe step and must terminate the job as a
+            # failure before any project-effect step can run.
+            probe_conclusion="$(python3 -c "import json,sys; jobs=json.load(sys.stdin)['jobs']; print(next(j['conclusion'] for j in jobs if j['name']=='${probe}'))" <<<"${jobs_json}")"
+            lock_step="$(python3 -c "import json,sys; jobs=json.load(sys.stdin)['jobs']; j=next(j for j in jobs if j['name']=='${probe}'); print(next((s['conclusion'] for s in j['steps'] if s['name']=='Reject disposable lock before project command'),'absent'))" <<<"${jobs_json}")"
+            effect_reached="$(python3 -c "import json,sys; jobs=json.load(sys.stdin)['jobs']; j=next(j for j in jobs if j['name']=='${probe}'); print('present' if any(s['name']=='Unreachable project effect' and s['conclusion']=='success' for s in j['steps']) else 'absent')" <<<"${jobs_json}")"
+            if [[ "${probe_conclusion}" != "failure" || "${lock_step}" != "failure" || "${effect_reached}" != "absent" ]]; then
+              echo "::error::L2N_MARKER case=${CASE} phase=mismatch reason=invalid-lock-not-rejected conclusion=${probe_conclusion} lock_step=${lock_step} effect=${effect_reached}"
+              exit 1
+            fi
+            echo "::notice::L2N_MARKER case=${CASE} phase=rejection-asserted probe=${probe} validation=disposable-lock fail-before-effect=true"
+            echo "L2N_REJECTION_ASSERTED case=${CASE} probe=${probe}"
+            exit 0
           fi
           if grep -q "\"name\": *\"Velnor rejected job (capability_validation)\"" <<<"${jobs_json}"; then
             echo "::notice::L2N_MARKER case=${CASE} phase=rejection-asserted probe=${probe} validation=capability_validation fail-before-effect=true"
