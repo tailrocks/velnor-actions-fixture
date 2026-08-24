@@ -2,9 +2,10 @@
 """Static workflow-surface audit for the fixture repository.
 
 Asserts the canonical plural ``lanes`` dispatch selector, full-SHA action pins,
-timeout and concurrency coverage, and the exact control-plane scenario
-enumeration. Callable reusable workflows keep their singular ``lane`` input;
-workflow_dispatch callers derive the selector from ``inputs.lanes``.
+timeout and concurrency coverage (parsed from the real YAML keys, not
+substrings), and the exact control-plane scenario enumeration. Callable
+reusable workflows keep their singular ``lane`` input; workflow_dispatch
+callers derive the selector from ``inputs.lanes``.
 Stdlib-only, mirroring the other scripts in this directory.
 """
 
@@ -163,6 +164,39 @@ def check_lanes_block(name, block, failures):
         failures.append(f"{name}: lanes default must be velnor, got {default!r}")
 
 
+def job_declares_timeout(body):
+    """True when the job body declares a real ``timeout-minutes`` mapping key.
+
+    Job properties sit exactly one level under the two-space job id, so the
+    key is matched at indent 4; comments and step-shell text cannot match.
+    """
+    return any(re.match(r"^    timeout-minutes:\s*\S", line) for line in body)
+
+
+def job_declares_concurrency_group(body):
+    """True when the job body declares a concurrency mapping with a group key.
+
+    Parses the real YAML keys at the job-property indent (block or flow
+    style) instead of substring matching, so comments and unrelated text
+    cannot satisfy the audit.
+    """
+    lines = list(body)
+    for i, line in enumerate(lines):
+        if re.match(r"^    concurrency:(\s*(?:#.*)?)$", line):
+            for later in lines[i + 1 :]:
+                stripped = later.strip()
+                if not stripped:
+                    continue
+                if len(later) - len(later.lstrip()) <= 4:
+                    break
+                if re.match(r"^      group:\s*\S", later):
+                    return True
+        elif re.match(r"^    concurrency:\s+(\{.*\})\s*(?:#.*)?$", line):
+            if re.search(r"\bgroup\s*:", line):
+                return True
+    return False
+
+
 def audit():
     failures = []
     texts = workflow_texts()
@@ -235,21 +269,22 @@ def audit():
             f"{sorted(CONTROL_PLANE_SCENARIOS)}, got {sorted(scenarios)}"
         )
 
-    # 6. Every control-plane job carries timeout-minutes and its own concurrency.
+    # 6. Every control-plane job carries timeout-minutes and its own
+    # concurrency group, parsed from the real YAML keys.
     for job_id, body in top_level_jobs(cp_text):
-        joined = "\n".join(body)
-        if "timeout-minutes:" not in joined:
+        if not job_declares_timeout(body):
             failures.append(f"control-plane.yml: job {job_id} missing timeout-minutes")
-        if "concurrency:" not in joined or "group:" not in joined:
+        if not job_declares_concurrency_group(body):
             failures.append(f"control-plane.yml: job {job_id} missing concurrency group")
 
     # 7. Every compat.yml job keeps its measured timeout; the workflow keeps
-    # its intentional concurrency group.
+    # its intentional concurrency group. Job timeouts are parsed from the
+    # real YAML keys.
     compat_text = texts["compat.yml"]
     if not re.search(r"^concurrency:", compat_text, re.MULTILINE):
         failures.append("compat.yml: missing workflow-level concurrency group")
     for job_id, body in top_level_jobs(compat_text):
-        if "timeout-minutes:" not in "\n".join(body):
+        if not job_declares_timeout(body):
             failures.append(f"compat.yml: job {job_id} missing timeout-minutes")
 
     return failures

@@ -23,7 +23,12 @@ Every phase emits machine-readable `::notice::CP_MARKER scenario=... phase=...`
 lines plus plain `KEY=value` echo lines. A hosted aggregator reports the
 requested terminal state versus the observed state and exits nonzero only on an
 unexpected mismatch; for `scenario=failure` the controlled failure at the named
-`controlled-failure` step is the requested outcome.
+`controlled-failure` step is the requested outcome. The aggregator additionally
+parses each `scenario-failure` job log and proves exactly one
+`::error::CP_MARKER` line was emitted, that it carries
+`phase=controlled-failure ... expected=true`, and that the terminal marker
+followed — acceptance for this scenario is log-based (CP_MARKER parsing), with
+no artifact handoff.
 
 ### Inputs
 
@@ -38,8 +43,16 @@ Scenario notes:
 
 - `hold`: sleeps `hold_seconds`; designed to be cancelled through GitHub.
 - `queue`: targets runs-on label `velnor-cp-queue-validation`. No other runner
-  in the fleet carries that label; only one dedicated validation instance may
-  register it, so this job stays queued until that instance picks it up.
+  in the fleet carries that label; only one dedicated ephemeral validation
+  instance may register it, so this job stays queued until that instance picks
+  it up. **Prerequisite:** register exactly that ephemeral runner before
+  dispatching this scenario. A queued job's `timeout-minutes` bounds only its
+  execution after dequeue (10 minutes here), never the queued wait itself, so
+  the hosted `queue-guard` job bounds the wait instead: it polls for up to 210
+  seconds for `scenario-queue` to leave the queued state and exits green as
+  soon as it does; if no dedicated runner dequeues it, the guard emits a
+  `queue-still-queued` mismatch marker, cancels the run, and exits nonzero —
+  guarded fail-fast instead of an unbounded QUEUED hang.
 - `concurrent`: two matrix jobs each hold ~20s; the aggregator proves interval
   overlap from emitted epoch timestamps.
 - `cache`: fixed cache key `cp-control-plane-<os>-fixed-v1`; an unchanged rerun
@@ -54,7 +67,9 @@ Before every dispatch: cancel all non-completed `control-plane` and `compat`
 runs (`gh run cancel`) and delete only stale runner registrations whose name
 carries the dedicated validation prefix (`velnor-cp-queue-validation`),
 confirming none remains. Never save rendered GitHub HTML while inspecting runs;
-record run URLs and sanitized JSON only.
+record run URLs and sanitized JSON only. A `queue` dispatch without the
+dedicated runner self-resolves through the queue-guard cancellation above;
+still confirm zero non-completed runs remain afterwards.
 
 ## Covered Features
 

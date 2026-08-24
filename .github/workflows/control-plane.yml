@@ -9,7 +9,11 @@ name: control-plane
 # annotation line plus plain `KEY=value` echo lines. The hosted aggregator
 # reports requested versus observed terminal state and exits nonzero only on
 # an unexpected mismatch. The `failure` scenario expects exactly its named
-# `controlled-failure` step to fail; nothing else may fail.
+# `controlled-failure` step to fail; nothing else may fail, and the aggregator
+# proves this from each job log's CP_MARKER lines. The `queue` scenario
+# requires one dedicated ephemeral validation runner carrying the
+# `velnor-cp-queue-validation` label; a hosted guard bounds the otherwise
+# unbounded queued wait and cancels the run when no such runner dequeues it.
 
 on:
   workflow_dispatch:
@@ -195,14 +199,62 @@ jobs:
           echo "::notice::CP_MARKER scenario=hold phase=done lane=${LANE_NAME}"
           echo "CP_PHASE=done"
 
-  # Queue isolation: the velnor-cp-queue-validation label must be carried by
-  # exactly one dedicated validation instance and by no other runner, so this
-  # job stays queued until that instance picks it up. See README.md.
-  scenario-queue:
+  # Queue isolation guard: hosted watchdog for the queue scenario. Without the
+  # dedicated validation instance the isolated job below would stay QUEUED
+  # unbounded (job timeout-minutes only bounds execution after dequeue), so
+  # this guard waits a bounded window for the job to leave the queued state
+  # and otherwise reports the missing-runner prerequisite and cancels the run.
+  # See README.md.
+  queue-guard:
     if: inputs.scenario == 'queue'
     needs: [validate-inputs]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    concurrency:
+      group: cp-${{ github.run_id }}-queue-guard
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Bound the queue wait and fail fast without the dedicated runner
+        run: |
+          set -euo pipefail
+          echo "::notice::CP_MARKER scenario=queue phase=guard-start bound_seconds=210"
+          echo "CP_SCENARIO=queue"
+          echo "CP_PHASE=guard-start"
+          deadline=$(( $(date +%s) + 210 ))
+          while [[ "$(date +%s)" -lt "${deadline}" ]]; do
+            status="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs" --jq '[.jobs[] | select(.name == "scenario-queue")][0].status // "absent"')"
+            echo "::notice::CP_MARKER scenario=queue phase=guard-poll status=${status}"
+            echo "CP_QUEUE_STATUS=${status}"
+            case "${status}" in
+              queued|absent|pending)
+                sleep 15
+                ;;
+              *)
+                echo "::notice::CP_MARKER scenario=queue phase=guard-dequeued status=${status}"
+                echo "CP_PHASE=guard-dequeued"
+                exit 0
+                ;;
+            esac
+          done
+          echo "::error::CP_MARKER scenario=queue phase=mismatch reason=queue-still-queued prerequisite=one-dedicated-velnor-cp-queue-validation-runner"
+          echo "CP_MISMATCH reason=queue-still-queued"
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/cancel" >/dev/null || true
+          exit 1
+
+  # Queue isolation: the velnor-cp-queue-validation label must be carried by
+  # exactly one dedicated ephemeral validation instance and by no other runner,
+  # so this job stays queued until that instance picks it up. The hosted
+  # queue-guard above bounds the wait. See README.md.
+  scenario-queue:
+    if: inputs.scenario == 'queue'
+    needs: [validate-inputs, queue-guard]
     runs-on: [self-hosted, velnor-cp-queue-validation]
-    timeout-minutes: 30
+    timeout-minutes: 10
     concurrency:
       group: cp-${{ github.run_id }}-queue
       cancel-in-progress: false
@@ -423,12 +475,18 @@ jobs:
 
   # Hosted aggregation: reports requested versus observed terminal state.
   # Exits nonzero only on an unexpected mismatch; the failure scenario's
-  # controlled failure is the requested terminal state, not a mismatch.
+  # controlled failure is the requested terminal state, not a mismatch. For
+  # the failure scenario it additionally parses each scenario-failure job log
+  # (CP_MARKER lines) to prove exactly one error marker was emitted and that
+  # it came from the named `controlled-failure` step. See README.md.
   aggregator:
     if: always()
-    needs: [validate-inputs, scenario-success, scenario-failure, scenario-hold, scenario-queue, scenario-concurrent, scenario-artifacts, scenario-cache, scenario-load]
+    needs: [validate-inputs, scenario-success, scenario-failure, scenario-hold, scenario-queue, queue-guard, scenario-concurrent, scenario-artifacts, scenario-cache, scenario-load]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
     concurrency:
       group: cp-${{ github.run_id }}-aggregator
       cancel-in-progress: false
@@ -438,6 +496,7 @@ jobs:
       ARTIFACT_COUNT: ${{ inputs.artifact_count }}
       NEEDS_JSON: ${{ toJSON(needs) }}
       ARTIFACT_LIST: ${{ needs.scenario-artifacts.outputs.artifact_list }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download concurrent interval evidence
         if: inputs.scenario == 'concurrent'
@@ -582,3 +641,29 @@ jobs:
           echo "::notice::CP_MARKER scenario=${SCENARIO} phase=aggregator verdict=match"
           echo "CP_VERDICT=match"
           echo "### control-plane ${SCENARIO}: requested terminal state observed" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Verify the controlled failure came only from the marked step
+        if: inputs.scenario == 'failure'
+        run: |
+          set -euo pipefail
+          verify_fail() {
+            echo "::error::CP_MARKER scenario=failure phase=mismatch reason=$1"
+            echo "CP_MISMATCH reason=$1"
+            exit 1
+          }
+          mkdir -p cp-logs
+          job_ids="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs" --jq '[.jobs[] | select(.name | startswith("scenario-failure")) | .id] | .[]')"
+          [[ -n "${job_ids}" ]] || verify_fail no-scenario-failure-jobs-found
+          while IFS= read -r job_id; do
+            log_file="cp-logs/scenario-failure-${job_id}.log"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/${job_id}/logs" > "${log_file}"
+            error_markers="$(grep -c '::error::CP_MARKER' "${log_file}" || true)"
+            [[ "${error_markers}" -eq 1 ]] || verify_fail "expected-exactly-one-error-marker job_id=${job_id} observed=${error_markers}"
+            grep '::error::CP_MARKER scenario=failure phase=controlled-failure .* expected=true' "${log_file}" >/dev/null \
+              || verify_fail "error-marker-not-from-controlled-failure-step job_id=${job_id}"
+            grep '::notice::CP_MARKER scenario=failure phase=terminal' "${log_file}" >/dev/null \
+              || verify_fail "missing-terminal-marker job_id=${job_id}"
+            echo "::notice::CP_MARKER scenario=failure phase=log-verified job_id=${job_id} error_markers=1 source=controlled-failure"
+            echo "CP_FAILURE_LOG_VERIFIED job_id=${job_id} error_markers=1"
+          done <<< "${job_ids}"
+          echo "### control-plane failure: aggregator verified the only error marker came from controlled-failure" >> "${GITHUB_STEP_SUMMARY}"
