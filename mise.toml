@@ -28,8 +28,11 @@ run = "rustup component add rustfmt && cargo fmt --all --check"
 [tasks.l2-closure]
 run = "cargo run --locked -p l2-contract -- validate"
 
+[tasks.audit-workflows]
+run = "python3 .github/scripts/audit_workflow_surface.py"
+
 [tasks.l2-test]
 run = "cargo nextest run --workspace --locked"
 
 [tasks.check]
-depends = ["actionlint", "l2-closure", "l2-test"]
+depends = ["actionlint", "audit-workflows", "l2-closure", "l2-test"]

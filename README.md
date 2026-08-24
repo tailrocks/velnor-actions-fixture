@@ -6,10 +6,55 @@ This repository intentionally keeps normal GitHub Actions YAML. It is not a Pkl/
 
 ## Runner Lanes
 
-- `lanes=velnor` (default): runs on `[self-hosted, velnor-target-mvp]`.
-- `lanes=github`: runs on pinned `ubuntu-26.04`.
-- `lanes=both`: expands the same jobs on both runners from one inline matrix.
+- `lane=velnor` (default): runs on `[self-hosted, velnor-target-mvp]`.
+- `lane=github`: runs on pinned `ubuntu-26.04`.
+- `lane=both`: expands the same jobs on both runners from one inline matrix.
 - `compare-results`: downloads artifacts from both lanes and verifies the normalized outputs match.
+
+## Control Plane
+
+`control-plane.yml` is a manually dispatched corpus for Velnor control-plane
+validation: deterministic success, a deliberate failure at exactly one named
+step, externally cancellable holds, queue isolation, measurable job overlap,
+bounded sanitized artifacts, cold/warm cache evidence, and bounded load with
+guaranteed teardown.
+
+Every phase emits machine-readable `::notice::CP_MARKER scenario=... phase=...`
+lines plus plain `KEY=value` echo lines. A hosted aggregator reports the
+requested terminal state versus the observed state and exits nonzero only on an
+unexpected mismatch; for `scenario=failure` the controlled failure at the named
+`controlled-failure` step is the requested outcome.
+
+### Inputs
+
+| Input | Type | Default | Allowed | Notes |
+| --- | --- | --- | --- | --- |
+| `scenario` | choice | `success` | `success`, `failure`, `hold`, `queue`, `concurrent`, `artifacts`, `cache`, `load` | Exactly one scenario per dispatch |
+| `hold_seconds` | number | `30` | `0..300` | Validated in-step; out-of-range fails fast |
+| `artifact_count` | number | `3` | `1..8` | Validated in-step; distinct bounded sanitized text artifacts |
+| `lane` | choice | `velnor` | `github`, `velnor`, `both` | Sole lane selector |
+
+Scenario notes:
+
+- `hold`: sleeps `hold_seconds`; designed to be cancelled through GitHub.
+- `queue`: targets runs-on label `velnor-cp-queue-validation`. No other runner
+  in the fleet carries that label; only one dedicated validation instance may
+  register it, so this job stays queued until that instance picks it up.
+- `concurrent`: two matrix jobs each hold ~20s; the aggregator proves interval
+  overlap from emitted epoch timestamps.
+- `cache`: fixed cache key `cp-control-plane-<os>-fixed-v1`; an unchanged rerun
+  expects `CP_CACHE_HIT=true`.
+- `load`: nproc-bounded CPU loop, 256 MiB bounded memory touch, 64 MiB bounded
+  disk write, declared measurement tolerances, and teardown that runs even on
+  cancellation.
+
+### Dispatch cleanup rules
+
+Before every dispatch: cancel all non-completed `control-plane` and `compat`
+runs (`gh run cancel`) and delete only stale runner registrations whose name
+carries the dedicated validation prefix (`velnor-cp-queue-validation`),
+confirming none remains. Never save rendered GitHub HTML while inspecting runs;
+record run URLs and sanitized JSON only.
 
 ## Covered Features
 
