@@ -26,7 +26,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: fixture-rust-check-${{ github.workflow }}-${{ github.ref }}-${{ inputs.package }}
+  # Include the lane (cache-key-suffix) so a lanes=both caller cannot cancel its own
+  # sibling lane: both lanes call this workflow concurrently for the same package.
+  group: fixture-rust-check-${{ github.workflow }}-${{ github.ref }}-${{ inputs.package }}-${{ inputs.cache-key-suffix }}
   cancel-in-progress: true
 
 defaults:
