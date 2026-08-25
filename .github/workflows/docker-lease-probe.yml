@@ -81,7 +81,7 @@ jobs:
                   log(f"{label}: TIMEOUT (total {len(total)} bytes)")
               return total
 
-          def probe(variant, extra_headers):
+          def probe(variant, extra_headers, fin=False):
               log(f"=== variant {variant} ===")
               s = connect()
               body = '{"Image":"busybox:latest","Cmd":["echo","probe=' + variant + '"]}'
@@ -121,6 +121,9 @@ jobs:
               a.sendall(areq.encode())
               a_head = read_head(a)
               log(f"attach head: {a_head[:250]!r}")
+              if fin:
+                  a.shutdown(socket.SHUT_WR)
+                  log("client half-closed write side (docker CLI / Go net/http)")
 
               # start on a second connection, like the CLI
               st = connect()
@@ -147,9 +150,12 @@ jobs:
               a.close()
 
           # docker CLI sends these on hijacked attach requests
-          probe("upgrade", "Connection: Upgrade\r\nUpgrade: tcp\r\n")
+          probe("upgrade", "Connection: Upgrade\r\nUpgrade: tcp\r\n", fin=False)
+          # docker CLI behavior: Go net/http half-closes the connection after
+          # sending an upgraded request — this is the suspected killer path
+          probe("fin", "Connection: Upgrade\r\nUpgrade: tcp\r\n", fin=True)
           # no upgrade headers: lease proxy injects Connection: close
-          probe("plain", "")
+          probe("plain", "", fin=False)
           log("done")
           PY
           python3 /tmp/probe.py
