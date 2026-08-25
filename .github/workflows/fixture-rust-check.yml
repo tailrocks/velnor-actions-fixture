@@ -1,6 +1,27 @@
 name: fixture-rust-check
 
 on:
+  workflow_dispatch:
+    inputs:
+      lanes:
+        description: velnor (default) | github | both
+        type: choice
+        default: velnor
+        options: [velnor, github, both]
+      package:
+        required: true
+        type: string
+        description: Cargo package name to check.
+      runner:
+        required: false
+        type: string
+        default: '"ubuntu-26.04"'
+        description: Runner label as JSON string (e.g. '"ubuntu-26.04"' or '["self-hosted","velnor-target-mvp"]').
+      cache-key-suffix:
+        required: false
+        type: string
+        default: 'github'
+        description: Lane component for the rust-cache shared-key (e.g. 'github' or 'velnor') so lanes do not share one cache.
   workflow_call:
     inputs:
       package:
