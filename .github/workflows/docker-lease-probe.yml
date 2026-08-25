@@ -159,7 +159,11 @@ jobs:
           log("done")
           PY
           python3 /tmp/probe.py
+      # Cleanup must only touch probe-* containers: the lease daemon is shared
+      # and `docker ps -aq` also lists velnor-job-* containers (including this
+      # job's own), so an unfiltered rm -f kills the job itself and siblings.
       - run: |
           set -x
-          docker ps -a | head -20
-          docker rm -f $(docker ps -aq) 2>/dev/null || true
+          docker ps -a --filter name=probe- | head -20
+          ids=$(docker ps -aq --filter name=probe-)
+          if [ -n "$ids" ]; then docker rm -f $ids; fi
