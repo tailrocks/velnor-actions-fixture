@@ -1,0 +1,159 @@
+name: docker-lease-probe
+
+# Diagnostic for tailrocks/velnor#348: raw-wire probe of the docker lease
+# socket. Reproduces the docker CLI attach/create/start dance byte-for-byte
+# so the exact point where container stdout disappears can be seen.
+
+on:
+  workflow_dispatch:
+    inputs:
+      lanes:
+        description: velnor (default) | github | both
+        type: choice
+        default: velnor
+        options: [velnor, github, both]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-lease-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 15
+    steps:
+      - run: |
+          set -x
+          ls -la /var/run/docker.sock
+          stat /var/run/docker.sock
+          env | grep -i docker || true
+          docker version
+          docker info --format '{{json .}}' | head -c 600; echo
+      - run: |
+          set -x
+          docker pull -q busybox:latest
+          docker run --rm busybox:latest echo probe-direct=ok
+          echo "cli-exit:$?"
+      - name: raw wire probe
+        run: |
+          cat > /tmp/probe.py <<'PY'
+          import socket, time, sys
+
+          SOCK = "/var/run/docker.sock"
+          T0 = time.time()
+
+          def log(msg):
+              print(f"[{time.time()-T0:7.3f}s] {msg}", flush=True)
+
+          def connect():
+              s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+              s.settimeout(20)
+              s.connect(SOCK)
+              return s
+
+          def read_head(s):
+              buf = b""
+              while b"\r\n\r\n" not in buf:
+                  b = s.recv(1)
+                  if not b:
+                      break
+                  buf += b
+              return buf
+
+          def drain(s, label):
+              total = b""
+              try:
+                  while True:
+                      b = s.recv(4096)
+                      if not b:
+                          log(f"{label}: EOF (total {len(total)} bytes)")
+                          break
+                      total += b
+                      log(f"{label}: recv {len(b)} bytes: {b[:120]!r}")
+              except socket.timeout:
+                  log(f"{label}: TIMEOUT (total {len(total)} bytes)")
+              return total
+
+          def probe(variant, extra_headers):
+              log(f"=== variant {variant} ===")
+              s = connect()
+              body = '{"Image":"busybox:latest","Cmd":["echo","probe=' + variant + '"]}'
+              hdr = (
+                  "POST /v1.51/containers/create?name=probe-"
+                  + variant
+                  + " HTTP/1.1\r\nHost: docker\r\nContent-Type: application/json\r\nContent-Length: "
+                  + str(len(body))
+                  + "\r\n"
+                  + extra_headers
+                  + "\r\n"
+              )
+              s.sendall(hdr.encode() + body.encode())
+              head = read_head(s)
+              log(f"create head: {head[:200]!r}")
+              rest = b""
+              clen = 0
+              for line in head.split(b"\r\n"):
+                  if line.lower().startswith(b"content-length:"):
+                      clen = int(line.split(b":")[1])
+              bodybuf = head.split(b"\r\n\r\n", 1)[1]
+              while len(bodybuf) < clen:
+                  bodybuf += s.recv(4096)
+              cid = bodybuf.decode().split('"Id":"')[1].split('"')[0]
+              log(f"created {cid[:12]}")
+              s.close()
+
+              # hijacked attach on its own connection, like the docker CLI
+              a = connect()
+              areq = (
+                  "POST /v1.51/containers/"
+                  + cid
+                  + "/attach?stderr=1&stdout=1&stream=1 HTTP/1.1\r\nHost: docker\r\nContent-Length: 0\r\n"
+                  + extra_headers
+                  + "\r\n"
+              )
+              a.sendall(areq.encode())
+              a_head = read_head(a)
+              log(f"attach head: {a_head[:250]!r}")
+
+              # start on a second connection, like the CLI
+              st = connect()
+              st.sendall(
+                  ("POST /v1.51/containers/" + cid + "/start HTTP/1.1\r\nHost: docker\r\nContent-Length: 0\r\n\r\n").encode()
+              )
+              st_head = read_head(st)
+              log(f"start head: {st_head.split(chr(13).encode())[0]!r}")
+              st.close()
+
+              drain(a, f"{variant} attach")
+
+              # wait for exit code on a third connection
+              w = connect()
+              w.sendall(
+                  ("POST /v1.51/containers/" + cid + "/wait HTTP/1.1\r\nHost: docker\r\nContent-Length: 0\r\n\r\n").encode()
+              )
+              w_head = read_head(w)
+              wbody = w_head.split(b"\r\n\r\n", 1)[1]
+              while b"}" not in wbody:
+                  wbody += w.recv(4096)
+              log(f"wait: {wbody!r}")
+              w.close()
+              a.close()
+
+          # docker CLI sends these on hijacked attach requests
+          probe("upgrade", "Connection: Upgrade\r\nUpgrade: tcp\r\n")
+          # no upgrade headers: lease proxy injects Connection: close
+          probe("plain", "")
+          log("done")
+          PY
+          python3 /tmp/probe.py
+      - run: |
+          set -x
+          docker ps -a | head -20
+          docker rm -f $(docker ps -aq) 2>/dev/null || true
