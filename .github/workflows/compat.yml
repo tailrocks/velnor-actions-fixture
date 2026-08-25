@@ -8,8 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: "Runner lanes: velnor (default), github, or both."
-        required: false
+        description: velnor (default) | github | both
         type: choice
         default: velnor
         options: [velnor, github, both]

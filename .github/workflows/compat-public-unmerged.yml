@@ -3,6 +3,13 @@ name: compat public unmerged
 on:
   pull_request:
   merge_group:
+  workflow_dispatch:
+    inputs:
+      lanes:
+        description: velnor (default) | github | both
+        type: choice
+        default: velnor
+        options: [velnor, github, both]
 
 permissions:
   contents: read
@@ -57,7 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         package: [app-a, app-b]
-        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
+        config: ${{ fromJSON(github.event_name != 'workflow_dispatch' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 20
     permissions:
@@ -150,7 +157,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
+        config: ${{ fromJSON(github.event_name != 'workflow_dispatch' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     steps:
@@ -164,7 +171,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
+        config: ${{ fromJSON(github.event_name != 'workflow_dispatch' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     env:
@@ -192,7 +199,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') }}
+        config: ${{ fromJSON(github.event_name != 'workflow_dispatch' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     container: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
