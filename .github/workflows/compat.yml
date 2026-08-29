@@ -31,40 +31,18 @@ defaults:
     shell: bash
 
 jobs:
-  changes:
-    runs-on: ubuntu-26.04
-    timeout-minutes: 10
-    outputs:
-      rust: ${{ steps.filter.outputs.rust }}
-      docker: ${{ steps.filter.outputs.docker }}
-      tools: ${{ steps.filter.outputs.tools }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: |
-            rust:
-              - 'Cargo.toml'
-              - 'Cargo.lock'
-              - 'crates/**'
-              - 'mise.toml'
-              - '.github/workflows/compat.yml'
-            docker:
-              - 'Dockerfile.fixture'
-              - 'docker-bake.hcl'
-              - '.github/workflows/docker.yml'
-            tools:
-              - 'justfile'
-              - 'mise.toml'
-
+  # Lane-parity coverage runs on schedule (both lanes) and manual dispatch.
+  # Push no longer triggers the per-package matrix: on push the same commit
+  # already runs the workspace build/clippy/nextest/fmt gates through the
+  # generated ci.yml on the GitHub lane, and the per-package just recipes were
+  # validated on the PR ref by compat-public-unmerged.yml, so re-running them
+  # here tripled clippy/nextest/cargo-fmt for the same tree. The deliberate
+  # cache-off vs cache-sccache A/B pair below still runs on every push.
   compat:
-    needs: [changes]
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
-      github.event_name == 'merge_group' ||
-      needs.changes.outputs.rust == 'true'
+      github.event_name == 'merge_group'
     strategy:
       fail-fast: false
       matrix:
@@ -104,12 +82,15 @@ jobs:
             ~/.cargo/git
           key: fixture-${{ matrix.config.lane }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: fixture-${{ matrix.config.lane }}-${{ runner.os }}-
+      # Target-cache key dims are compatible only (lane, os, job, toolchain via
+      # mise.toml, Cargo manifests+lock). No github.sha: the commit is not a
+      # cache dimension, and embedding it forced a fresh entry per push.
       - name: Cache Cargo target
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       # Compute MSRV from package/workspace Cargo.toml. Bare `stable` forces
       # rustup channel sync and collides with image-bundled clippy bits.
       - id: msrv
@@ -195,12 +176,15 @@ jobs:
           version: v0.16.0
           disable_annotations: "false"
       - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+      # Target-cache key dims are compatible only (lane, os, job, toolchain via
+      # mise.toml, Cargo manifests+lock). No github.sha: the commit is not a
+      # cache dimension, and embedding it forced a fresh entry per push.
       - name: Cache Cargo target
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: test "${RUSTC_WRAPPER:-}" = sccache
       - run: cargo check -p app-a --locked
 
@@ -244,7 +228,6 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
       github.event_name == 'merge_group'
-    needs: [changes]
     strategy:
       fail-fast: false
       matrix:
@@ -290,7 +273,7 @@ jobs:
   # Required aggregate job — mirrors ChainArgos rust-required / Jackin ci-required
   compat-required:
     if: always()
-    needs: [changes, compat, attestation]
+    needs: [compat, attestation]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
