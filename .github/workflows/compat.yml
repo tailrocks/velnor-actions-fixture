@@ -216,7 +216,7 @@ jobs:
       CARGO_INCREMENTAL: "0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: kunobi-ninja/kache-action@49398d37113c616fdb61be434cb497e3c2c8f3e6 # v1
+      - uses: kunobi-ninja/kache-action@78ff455251aa37139061201a39113a1924994035 # v1
         with:
           version: v0.10.0
           github-cache: "false"
