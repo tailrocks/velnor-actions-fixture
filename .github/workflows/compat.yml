@@ -93,7 +93,7 @@ jobs:
           version: v0.16.0
           disable_annotations: "false"
       - uses: rui314/setup-mold@7e4f20ad28a2e8ca6fd0892ccf72e2abb706b9c3 # v1
-      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       # rustup syncs the pinned toolchain with a minimal profile; rustfmt and
       # clippy are not guaranteed even though the just recipes need them.
       - run: rustup component add rustfmt clippy
@@ -172,7 +172,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - run: test -z "${RUSTC_WRAPPER:-}"
       - run: cargo check -p app-a --locked
 
@@ -194,7 +194,7 @@ jobs:
         with:
           version: v0.16.0
           disable_annotations: "false"
-      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - name: Cache Cargo target
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -223,7 +223,7 @@ jobs:
           cache-executables: "false"
           pr-comment: "false"
           max-size: 20GiB
-      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - run: test "$(basename "${RUSTC_WRAPPER:-}")" = kache
       - run: cargo check -p app-a --locked
 
