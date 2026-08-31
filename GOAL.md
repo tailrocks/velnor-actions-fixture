@@ -60,10 +60,12 @@ Coverage is derived from GitHub Actions usage in:
 - `tailrocks/tablerock`
 - `tailrocks/schemalane`
 
-The capability baseline is Velnor manifest version 10 at source commit
-`738f18f68472c15e30645d81a7d2d664f29e5cab`. The machine-readable baseline is
+The capability baseline is current Velnor release v0.1.250, manifest version
+10, at source commit `2fad3ffbd3f813f1b504de14163f9b57799b5e8c`. The
+machine-readable baseline is
 `coverage/velnor-capabilities.json`; fixture dispositions and evidence are in
-`coverage/fixture-coverage.json`.
+`coverage/fixture-coverage.json`; the source workflow inventory is in
+`coverage/source-workflow-inventory.md`.
 
 ## Readiness invariants
 

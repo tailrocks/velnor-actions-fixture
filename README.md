@@ -38,6 +38,30 @@ only exceptions are explicit and must produce their own evidence:
 Velnor-only admission negatives, queue probes, and backend diagnostics are
 diagnostic checks, not substitutes for mandatory dual-lane proof.
 
+## Verifier surfaces
+
+- `fixture-rust-check.yml` is a local reusable workflow. `reuse-caller.yml`
+  calls it for `app-a` and `app-b` on explicit GitHub and Velnor lanes;
+  `result-*.json` artifacts and `compare-results.py` require every package and
+  lane result when `lanes=both`. Single-lane dispatch is diagnostic.
+- `schedule.yml` runs the fixture harness on both lanes and compares normalized
+  semantic evidence in a hosted job.
+- `backend-parity.yml` records explicit backend identity: `github-hosted` for
+  GitHub and `docker` or `microvm` for Velnor; its hosted comparator checks the
+  remaining semantic evidence.
+- `multi-arch.yml` builds and tests `linux/amd64` and `linux/arm64` on each
+  selected lane; its hosted comparator requires all four records and compares
+  each platform.
+- `control-plane.yml` compares normalized lane evidence with the repository-
+  local comparator. Queue is the explicit queue exception, guarded and
+  Velnor-only; failure is the expected exception and its logs must contain
+  exactly one marked `controlled-failure` error.
+- `docker-lease-probe.yml` uses the repository-local raw-wire helper
+  `.github/scripts/workflow_evidence.py docker-probe` and compares per-lane
+  Docker lease evidence in a hosted job.
+- `attestation-negative.yml` uses `assert-negative` to assert the expected
+  per-lane failure or success conclusion for each negative attestation case.
+
 The local `check` gate runs capability coverage, workflow-surface and
 actionlint checks, side-effect-free Python syntax parsing, Rust formatting,
 workspace compilation, tests, and the L2 closure check. Run it with
@@ -136,6 +160,10 @@ The checked-in closure is validated by the dependency-free `l2-contract`
 crate. Run the complete local gate with `mise run check`.
 
 The fixture is deliberately small. It exists to verify execution semantics before running Velnor against larger repositories.
+
+The current baseline is Velnor v0.1.250, manifest v10, at source commit
+`2fad3ffbd3f813f1b504de14163f9b57799b5e8c`; see the [baseline/source workflow
+inventory](coverage/source-workflow-inventory.md).
 
 ## License
 

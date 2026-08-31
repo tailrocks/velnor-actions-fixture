@@ -12,18 +12,12 @@ on:
         required: true
         type: string
         description: Cargo package name to check.
-      runner:
-        required: false
-        type: string
-        default: '"ubuntu-26.04"'
-        description: Runner label as JSON string (e.g. '"ubuntu-26.04"' or '["self-hosted","velnor-target-mvp"]').
-      cache-key-suffix:
-        required: false
-        type: string
-        default: 'github'
-        description: Lane component for the rust-cache shared-key (e.g. 'github' or 'velnor') so lanes do not share one cache.
   workflow_call:
     inputs:
+      lane:
+        required: true
+        type: string
+        description: "Explicit lane identity: github or velnor."
       package:
         required: true
         type: string
@@ -47,9 +41,9 @@ permissions:
   contents: read
 
 concurrency:
-  # Include the lane (cache-key-suffix) so a lanes=both caller cannot cancel its own
-  # sibling lane: both lanes call this workflow concurrently for the same package.
-  group: fixture-rust-check-${{ github.workflow }}-${{ github.ref }}-${{ inputs.package }}-${{ inputs.cache-key-suffix }}
+  # Include the lane so a lanes=both caller cannot cancel its own sibling lane:
+  # dispatch uses inputs.lanes; workflow_call uses its explicit cache suffix.
+  group: fixture-rust-check-${{ github.workflow }}-${{ github.ref }}-${{ inputs.package }}-${{ inputs.lanes || inputs.cache-key-suffix }}
   cancel-in-progress: true
 
 defaults:
@@ -58,10 +52,16 @@ defaults:
 
 jobs:
   rust-check:
-    runs-on: ${{ fromJSON(inputs.runner) }}
+    name: rust-check (${{ matrix.lane }}, ${{ inputs.package }})
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') && '["github","velnor"]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && '["github"]' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && '["velnor"]' || format('["{0}"]', inputs.lane)) }}
+    runs-on: ${{ github.event_name == 'workflow_call' && fromJSON(inputs.runner) || matrix.lane == 'github' && 'ubuntu-26.04' || fromJSON('["self-hosted","velnor-target-mvp"]') }}
     timeout-minutes: 20
     env:
       FIXTURE_PACKAGE: ${{ inputs.package }}
+      FIXTURE_LANE: ${{ matrix.lane }}
       SCCACHE_GHA_ENABLED: "false"
       SCCACHE_CACHE_SIZE: 20G
       RUSTC_WRAPPER: sccache
@@ -77,15 +77,27 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: fixture-reusable-${{ inputs.cache-key-suffix }}-${{ runner.os }}-${{ inputs.package }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: fixture-reusable-${{ inputs.cache-key-suffix }}-${{ runner.os }}-
+          key: fixture-reusable-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ inputs.package }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: fixture-reusable-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-
       - name: Cache Cargo target
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: fixture-target-${{ inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: fixture-target-${{ inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
+          restore-keys: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: cargo check -p "${FIXTURE_PACKAGE}" --locked
-      - run: |
+      - name: Write deterministic lane evidence
+        run: |
+          set -euo pipefail
+          result_dir="result-${FIXTURE_LANE}-${FIXTURE_PACKAGE}"
+          python3 .github/scripts/write-result.py \
+            "${FIXTURE_PACKAGE}" \
+            "${FIXTURE_LANE}" \
+            "${result_dir}/result.json"
           echo "### reusable rust-check: ${FIXTURE_PACKAGE}" >> "${GITHUB_STEP_SUMMARY}"
           echo "reusable-check-passed=true" >> "${GITHUB_OUTPUT}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: result-${{ matrix.lane }}-${{ inputs.package }}
+          path: result-${{ matrix.lane }}-${{ inputs.package }}/result.json
+          if-no-files-found: error

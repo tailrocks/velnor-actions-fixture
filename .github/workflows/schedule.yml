@@ -56,6 +56,35 @@ jobs:
           key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
           restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: cargo check --workspace --locked
+      - name: Run fixture-harness tests and emit evidence
+        env:
+          LANE: ${{ matrix.config.lane }}
+        run: |
+          set -euo pipefail
+          cargo nextest run --locked -p fixture-harness --all-targets
+          cargo run --quiet --locked -p fixture-harness --example command_files
+          tmp_dir="$(mktemp -d)"
+          mkdir -p "${tmp_dir}/tree/nested"
+          printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
+          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
+          test -s "${tmp_dir}/tree.txt"
+          cargo run --quiet --locked -p fixture-harness --example cache_payload -- schedule "${LANE,,}" > "${tmp_dir}/cache.txt"
+          grep -q '^velnor.fixture.cache.v1$' "${tmp_dir}/cache.txt"
+          printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
+          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
+          grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
+          mkdir -p evidence
+          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
+            --scenario schedule \
+            --lane "${LANE,,}" \
+            --field examples=command_files,artifact_tree,cache_payload,release_subject \
+            --field result=pass \
+            --output "evidence/schedule-${LANE}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: schedule-evidence-${{ matrix.config.lane }}
+          path: evidence/schedule-${{ matrix.config.lane }}.json
+          if-no-files-found: error
       - run: |
           {
             echo "### scheduled-check (${{ matrix.config.lane }})"
@@ -63,9 +92,64 @@ jobs:
             echo "- ref: ${{ github.ref }}"
           } >> "${GITHUB_STEP_SUMMARY}"
 
+  compare:
+    name: compare scheduled lanes
+    needs: [scheduled-check]
+    if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: Require both scheduled lanes to pass
+        env:
+          LANES_RESULT: ${{ needs.scheduled-check.result }}
+        run: test "${LANES_RESULT}" = success
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: schedule-evidence-GitHub
+          path: artifacts/github
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: schedule-evidence-Velnor
+          path: artifacts/velnor
+      - name: Compare deterministic scheduled evidence
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              "github": Path("artifacts/github/schedule-GitHub.json"),
+              "velnor": Path("artifacts/velnor/schedule-Velnor.json"),
+          }
+
+          def load(lane, path):
+              if not path.is_file():
+                  raise SystemExit(f"missing {lane} evidence: {path}")
+              files = sorted(item for item in path.parent.rglob("*") if item.is_file())
+              if files != [path]:
+                  raise SystemExit(f"unexpected {lane} evidence files: {files}")
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              if payload.get("schema") != "velnor.fixture.evidence.v1":
+                  raise SystemExit(f"invalid {lane} evidence schema")
+              if payload.get("scenario") != "schedule" or payload.get("lane") != lane:
+                  raise SystemExit(f"invalid {lane} evidence identity")
+              if payload.get("fields", {}).get("result") != "pass":
+                  raise SystemExit(f"{lane} scheduled result is not pass")
+              return payload
+
+          github = load("github", expected["github"])
+          velnor = load("velnor", expected["velnor"])
+          github.pop("lane")
+          velnor.pop("lane")
+          if github != velnor:
+              raise SystemExit("scheduled semantic evidence mismatch")
+          print("scheduled lane evidence matches")
+          PY
+
   schedule-required:
     if: always()
-    needs: [scheduled-check]
+    needs: [scheduled-check, compare]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:

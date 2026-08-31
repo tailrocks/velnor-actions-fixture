@@ -25,8 +25,8 @@ concurrency:
 jobs:
   missing-permission:
     if: inputs.case == 'missing-permission'
-    # The negative outcome is the expectation; assert-negative turns it green.
-    continue-on-error: true
+    # Deliberately omit id-token: write. The action must retain a failure
+    # conclusion; assert-negative validates that conclusion after all lanes.
     strategy:
       fail-fast: false
       matrix:
@@ -45,8 +45,8 @@ jobs:
 
   no-match:
     if: inputs.case == 'no-match'
-    # The negative outcome is the expectation; assert-negative turns it green.
-    continue-on-error: true
+    # No subject is created. The action must retain a failure conclusion;
+    # assert-negative validates that conclusion after all lanes.
     strategy:
       fail-fast: false
       matrix:
@@ -65,8 +65,9 @@ jobs:
 
   unapproved-input:
     if: inputs.case == 'unapproved-input'
-    # The negative outcome is the expectation; assert-negative turns it green.
-    continue-on-error: true
+    # Velnor rejects this input before execution; GitHub is the explicit
+    # comparison exception and is expected to succeed. assert-negative checks
+    # the selected lane conclusions individually.
     strategy:
       fail-fast: false
       matrix:

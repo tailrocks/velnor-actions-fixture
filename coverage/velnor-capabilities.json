@@ -1,7 +1,7 @@
 {
   "version": 10,
-  "source_sha": "738f18f68472c15e30645d81a7d2d664f29e5cab",
-  "crate_version": "0.1.247",
+  "source_sha": "2fad3ffbd3f813f1b504de14163f9b57799b5e8c",
+  "crate_version": "0.1.250",
   "actions": [
     {
       "repository": "tailrocks/velnor-actions",
@@ -255,7 +255,7 @@
     {
       "repository": "tailrocks/velnor-actions",
       "path": ".github/workflows/package-signer.yml",
-      "allowed_refs": ["c222e52030fee9ea6eae573a5769770be01d8438", "77d323dcfdb176b332edc24bfc92cb625b3ab4c8", "643c5341b160be151a7fae19b89b6a4f8ab3b275"],
+      "allowed_refs": ["2d045521be342284cd567b7058a0e635dc74b37c", "c222e52030fee9ea6eae573a5769770be01d8438", "77d323dcfdb176b332edc24bfc92cb625b3ab4c8", "643c5341b160be151a7fae19b89b6a4f8ab3b275"],
       "inputs": ["artifact-name", "subject-path", "source-ref"],
       "notes": "hosted package signer; full-SHA and closed inputs admitted"
     }

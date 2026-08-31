@@ -9,6 +9,7 @@ callers derive the selector from ``inputs.lanes``.
 Stdlib-only, mirroring the other scripts in this directory.
 """
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -233,6 +234,23 @@ def check_lanes_block(name, block, failures):
         failures.append(f"{name}: lanes default must be both, got {default!r}")
 
 
+def check_callable_lane_block(name, block, failures):
+    """Validate one singular callable ``lane`` input block."""
+    if scalar_field(block, "type") != "string":
+        failures.append(f"{name}: lane input must be type string")
+    if scalar_field(block, "required") == "true":
+        return
+
+    options = set(block_option_values(block, "options"))
+    if not options or not options <= LANE_OPTIONS:
+        failures.append(
+            f"{name}: lane options must be a non-empty subset of {sorted(LANE_OPTIONS)}, got {sorted(options)}"
+        )
+    default = scalar_field(block, "default")
+    if default != "both":
+        failures.append(f"{name}: lane default must be both, got {default!r}")
+
+
 def job_declares_timeout(body):
     """True when the job body declares a real ``timeout-minutes`` mapping key.
 
@@ -266,6 +284,226 @@ def job_declares_concurrency_group(body):
     return False
 
 
+def job_step_blocks(body):
+    """Yield actual ``steps`` list items from a job body."""
+    lines = list(body)
+    steps_index = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if re.match(r"^    steps:\s*(?:#.*)?$", line)
+        ),
+        None,
+    )
+    if steps_index is None:
+        return []
+
+    steps_indent = indent_of(lines[steps_index])
+    step_indent = None
+    blocks = []
+    current = None
+    for line in lines[steps_index + 1 :]:
+        stripped = line.strip()
+        current_indent = indent_of(line)
+        if stripped and current_indent <= steps_indent:
+            break
+        if not stripped:
+            if current is not None:
+                current.append(line)
+            continue
+        if step_indent is None:
+            if stripped.startswith("-") and current_indent > steps_indent:
+                step_indent = current_indent
+            else:
+                continue
+        if current_indent == step_indent and stripped.startswith("-"):
+            if current is not None:
+                blocks.append(current)
+            current = [line]
+        elif current is not None:
+            current.append(line)
+    if current is not None:
+        blocks.append(current)
+    return blocks
+
+
+def step_uses(step, action):
+    return any(
+        re.match(rf"^\s*(?:-\s*)?uses:\s*{re.escape(action)}@\S+", line)
+        for line in step
+    )
+
+
+def step_with_names(step):
+    """Extract names from actual ``with.name`` keys in one step."""
+    names = []
+    for index, line in enumerate(step):
+        if not re.match(r"^\s*with:\s*(?:#.*)?$", line):
+            continue
+        with_indent = indent_of(line)
+        for following in step[index + 1 :]:
+            stripped = following.strip()
+            following_indent = indent_of(following)
+            if stripped and following_indent <= with_indent:
+                break
+            match = re.match(r"^\s+name:\s*(.*)$", following)
+            if match:
+                names.append(match.group(1).strip().strip("\"'"))
+    return names
+
+
+def build_matrix_arrays(body):
+    """Parse JSON arrays embedded in the build job's matrix expression."""
+    lines = list(body)
+    matrix_index = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if re.match(r"^      matrix:\s*(?:#.*)?$", line)
+        ),
+        None,
+    )
+    if matrix_index is None:
+        return []
+
+    matrix_indent = indent_of(lines[matrix_index])
+    matrix_lines = []
+    for line in lines[matrix_index + 1 :]:
+        if line.strip() and indent_of(line) <= matrix_indent:
+            break
+        matrix_lines.append(line)
+
+    arrays = []
+    for encoded in re.findall(r"\[\{.*?\}\]", "\n".join(matrix_lines), re.DOTALL):
+        try:
+            parsed = json.loads(encoded)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, list) and all(isinstance(item, dict) for item in parsed):
+            arrays.append(parsed)
+    return arrays
+
+
+def remote_sha_failures(texts):
+    failures = []
+    for name, text in texts.items():
+        for i, line in enumerate(text.splitlines(), start=1):
+            match = re.match(r"^\s*(?:-\s*)?uses:\s*(\S+)", line)
+            if not match:
+                continue
+            ref = match.group(1)
+            if ref.startswith("./"):
+                continue
+            if "@" not in ref or not SHA_RE.search(ref + " "):
+                failures.append(
+                    f"{name}:{i}: remote action not full-SHA-pinned: {ref}"
+                )
+    return failures
+
+
+def pages_policy_failures(texts):
+    pages = ""
+    if hasattr(texts, "items"):
+        for path, text in texts.items():
+            normalized_path = str(path).replace("\\", "/")
+            if normalized_path.endswith("/.github/workflows/pages.yml") or normalized_path == ".github/workflows/pages.yml" or normalized_path.endswith("/pages.yml") or normalized_path == "pages.yml":
+                pages = str(text)
+                break
+    else:
+        for item in texts:
+            if isinstance(item, (tuple, list)) and len(item) == 2:
+                path, text = item
+                normalized_path = str(path).replace("\\", "/")
+                if normalized_path.endswith("/.github/workflows/pages.yml") or normalized_path == ".github/workflows/pages.yml" or normalized_path.endswith("/pages.yml") or normalized_path == "pages.yml":
+                    pages = str(text)
+                    break
+
+    lines = pages.splitlines()
+    jobs_start = next((index for index, line in enumerate(lines) if line.strip() == "jobs:"), None)
+    jobs = {}
+    if jobs_start is not None:
+        current_job = None
+        for line in lines[jobs_start + 1:]:
+            if line and not line[0].isspace():
+                break
+            if line.startswith("  ") and not line.startswith("    ") and line.strip().endswith(":"):
+                current_job = line.strip()[:-1]
+                jobs[current_job] = []
+            elif current_job is not None:
+                jobs[current_job].append(line)
+
+    failures = []
+    build = "\n".join(jobs.get("build", []))
+    matrix_arrays = build_matrix_arrays(jobs.get("build", []))
+    has_velnor_non_writer = any(
+        item.get("lane") == "velnor" and item.get("writer") is False
+        for array in matrix_arrays
+        for item in array
+    )
+    has_github_writer = any(
+        item.get("lane") == "github" and item.get("writer") is True
+        for array in matrix_arrays
+        for item in array
+    )
+    has_dual_writer_branch = any(
+        any(item.get("lane") == "velnor" and item.get("writer") is False for item in array)
+        and any(item.get("lane") == "github" and item.get("writer") is True for item in array)
+        for array in matrix_arrays
+    )
+    if not has_velnor_non_writer or not has_dual_writer_branch:
+        failures.append("pages.yml: missing the Velnor non-writer marker in the build matrix")
+    if not has_github_writer or not has_dual_writer_branch:
+        failures.append("pages.yml: missing the GitHub writer marker in the build matrix")
+
+    if "compare" not in jobs:
+        failures.append("pages.yml: missing top-level compare job")
+    else:
+        download_names = [
+            name
+            for step in job_step_blocks(jobs["compare"])
+            if step_uses(step, "actions/download-artifact")
+            for name in step_with_names(step)
+        ]
+        if sorted(download_names) != ["pages-evidence-github", "pages-evidence-velnor"]:
+            failures.append("pages.yml: compare must contain both evidence artifact names")
+
+        compare = "\n".join(jobs["compare"])
+        condition = "".join(compare.split())
+        has_push = "'push'" in condition or '"push"' in condition
+        has_dispatch = "workflow_dispatch" in condition
+        has_both = "inputs.lanes=='both'" in condition or 'inputs.lanes=="both"' in condition
+        if not (has_push and has_dispatch and has_both):
+            failures.append("pages.yml: compare condition must allow push and both-lane dispatch")
+
+    deploy = "\n".join(jobs.get("deploy", []))
+    if not any(line.strip().replace(" ", "").replace("\t", "") == "needs:[build,compare]" for line in deploy.splitlines()):
+        failures.append("pages.yml: deploy must declare needs: [build, compare]")
+    deploy_condition = "".join(deploy.split())
+    if not ("needs.compare.result=='success'" in deploy_condition or 'needs.compare.result=="success"' in deploy_condition):
+        failures.append("pages.yml: deploy condition must require compare success")
+    allowed_deploy_paths = (
+        "github.event_name=='push'" in deploy_condition
+        and "github.event_name=='workflow_dispatch'&&inputs.lanes=='github'"
+        in deploy_condition
+        and "github.event_name=='workflow_dispatch'&&inputs.lanes=='both'"
+        in deploy_condition
+    )
+    if not allowed_deploy_paths:
+        failures.append(
+            "pages.yml: deploy must allow only push, GitHub dispatch, or both-lane dispatch"
+        )
+
+    has_evidence_upload = any(
+        step_uses(step, "actions/upload-artifact")
+        and any(name.startswith("pages-evidence-") for name in step_with_names(step))
+        for step in job_step_blocks(jobs.get("build", []))
+    )
+    if not has_evidence_upload:
+        failures.append("pages.yml: build must contain a pages-evidence upload-artifact step")
+
+    return failures
+
+
 def audit():
     failures = []
     texts = workflow_texts()
@@ -277,18 +515,7 @@ def audit():
     failures.extend(cargo_policy_failures(texts))
 
     # 1. Full-SHA pins for every remote `uses:` in every workflow.
-    for name, text in texts.items():
-        for i, line in enumerate(text.splitlines(), start=1):
-            match = re.match(r"^\s*uses:\s*(\S+)", line)
-            if not match:
-                continue
-            ref = match.group(1)
-            if ref.startswith("./"):
-                continue
-            if "@" not in ref or not SHA_RE.search(ref + " "):
-                failures.append(
-                    f"{name}:{i}: remote action not full-SHA-pinned: {ref}"
-                )
+    failures.extend(remote_sha_failures(texts))
 
     # 2. Dispatch callers use exactly the canonical plural `lanes` selector.
     # Callable reusable workflows keep their singular `lane` input; callers
@@ -306,21 +533,14 @@ def audit():
         if "lanes" in inputs:
             check_lanes_block(name, inputs["lanes"], failures)
 
-    # 3. Sole `lane` selector wherever it is declared (reusables and any
-    # callable reusable workflows use the singular `lane` input; it still
-    # defaults to both so callers cannot silently become single-lane.
+    # 3. Sole `lane` selector wherever it is declared. Required callable
+    # wrappers name their lane explicitly; optional callable inputs retain the
+    # dual-lane options/default contract.
     for name, text in texts.items():
         block = input_block(text, "lane")
         if block is None:
             continue
-        options = set(block_option_values(block, "options"))
-        if not options or not options <= LANE_OPTIONS:
-            failures.append(
-                f"{name}: lane options must be a non-empty subset of {sorted(LANE_OPTIONS)}, got {sorted(options)}"
-            )
-        default = scalar_field(block, "default")
-        if default != "both":
-            failures.append(f"{name}: lane default must be both, got {default!r}")
+        check_callable_lane_block(name, block, failures)
 
     # 4. compat.yml and control-plane.yml are workflow_dispatch callers and
     # must declare the full canonical plural `lanes` selector.
@@ -359,6 +579,7 @@ def audit():
         if not job_declares_timeout(body):
             failures.append(f"compat.yml: job {job_id} missing timeout-minutes")
 
+    failures.extend(pages_policy_failures(texts))
     return failures
 
 

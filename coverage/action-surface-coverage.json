@@ -363,9 +363,9 @@
       "repository": "tailrocks/velnor-actions",
       "path": ".github/workflows/package-signer.yml",
       "admission_only": [
-        {"kind": "input", "name": "artifact-name", "workflow": null, "reference": "tailrocks/velnor-actions@c222e52030fee9ea6eae573a5769770be01d8438", "reason": "Remote reusable workflow is admission-only in the self-contained fixture."},
-        {"kind": "input", "name": "subject-path", "workflow": null, "reference": "tailrocks/velnor-actions@c222e52030fee9ea6eae573a5769770be01d8438", "reason": "Remote reusable workflow is admission-only in the self-contained fixture."},
-        {"kind": "input", "name": "source-ref", "workflow": null, "reference": "tailrocks/velnor-actions@c222e52030fee9ea6eae573a5769770be01d8438", "reason": "Remote reusable workflow is admission-only in the self-contained fixture."}
+        {"kind": "input", "name": "artifact-name", "workflow": null, "reference": "tailrocks/velnor-actions@2d045521be342284cd567b7058a0e635dc74b37c", "reason": "Remote reusable workflow is admission-only in the self-contained fixture."},
+        {"kind": "input", "name": "subject-path", "workflow": null, "reference": "tailrocks/velnor-actions@2d045521be342284cd567b7058a0e635dc74b37c", "reason": "Remote reusable workflow is admission-only in the self-contained fixture."},
+        {"kind": "input", "name": "source-ref", "workflow": null, "reference": "tailrocks/velnor-actions@2d045521be342284cd567b7058a0e635dc74b37c", "reason": "Remote reusable workflow is admission-only in the self-contained fixture."}
       ]
     }
   ]

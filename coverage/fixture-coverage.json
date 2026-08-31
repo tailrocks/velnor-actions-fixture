@@ -1,7 +1,7 @@
 {
   "manifest": {
     "version": 10,
-    "source_sha": "738f18f68472c15e30645d81a7d2d664f29e5cab"
+    "source_sha": "2fad3ffbd3f813f1b504de14163f9b57799b5e8c"
   },
   "actions": [
     {
@@ -870,11 +870,9 @@
       "id": "command-files-env-path-output-summary",
       "fixture_status": "covered",
       "evidence": [
-        "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
       ],
       "producer": [
-        "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
       ],
       "comparator": [
@@ -900,11 +898,9 @@
       "id": "outcome-conclusion-continue-on-error",
       "fixture_status": "covered",
       "evidence": [
-        "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
       ],
       "producer": [
-        "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
       ],
       "comparator": [
@@ -932,14 +928,10 @@
       "id": "job-container",
       "fixture_status": "covered",
       "evidence": [
-        ".github/workflows/docker.yml",
-        ".github/workflows/docker-lease-probe.yml",
-        "crates/fixture-harness/src/lib.rs"
+        ".github/workflows/compat.yml"
       ],
       "producer": [
-        ".github/workflows/docker.yml",
-        ".github/workflows/docker-lease-probe.yml",
-        "crates/fixture-harness/src/lib.rs"
+        ".github/workflows/compat.yml"
       ],
       "comparator": [
         ".github/scripts/audit_capability_coverage.py"
@@ -949,14 +941,10 @@
       "id": "service-container",
       "fixture_status": "covered",
       "evidence": [
-        ".github/workflows/docker.yml",
-        ".github/workflows/docker-lease-probe.yml",
-        "crates/fixture-harness/src/lib.rs"
+        ".github/workflows/compat.yml"
       ],
       "producer": [
-        ".github/workflows/docker.yml",
-        ".github/workflows/docker-lease-probe.yml",
-        "crates/fixture-harness/src/lib.rs"
+        ".github/workflows/compat.yml"
       ],
       "comparator": [
         ".github/scripts/audit_capability_coverage.py"
