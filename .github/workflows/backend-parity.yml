@@ -38,6 +38,7 @@ jobs:
         config: ${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - name: Run fixture-harness tests and examples
         env:
           LANE: ${{ matrix.config.lane }}
