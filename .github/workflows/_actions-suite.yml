@@ -15,7 +15,6 @@ on:
 permissions:
   actions: read
   contents: read
-  pages: write
 
 concurrency:
   group: actions-suite-${{ github.ref }}-${{ inputs.lanes || inputs.lane }}
