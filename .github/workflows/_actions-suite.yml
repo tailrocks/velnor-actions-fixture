@@ -65,12 +65,6 @@ jobs:
       - if: matrix.lane == 'velnor'
         name: Expected unsupported configure-pages on Velnor microVM
         run: echo 'EXPECTED_UNSUPPORTED adapter=actions/configure-pages backend=microvm'
-      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v7
-        if: matrix.lane == 'github'
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            return { fixture: "github-script-probe" };
       - if: matrix.lane == 'velnor'
         name: Expected unsupported github-script on Velnor microVM
         run: echo 'EXPECTED_UNSUPPORTED adapter=actions/github-script backend=microvm'
@@ -103,6 +97,21 @@ jobs:
           name: suite-actions-${{ matrix.lane }}
           path: evidence/actions-${{ matrix.lane }}.json
           if-no-files-found: error
+
+  github-script:
+    name: hosted github-script probe
+    if: (inputs.lanes || inputs.lane) != 'velnor'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: actions-suite-${{ github.run_id }}-github-script
+      cancel-in-progress: false
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            return { fixture: "github-script-probe" };
 
   compare:
     name: compare admitted-action lanes
