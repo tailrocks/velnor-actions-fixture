@@ -27,7 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         lane: ${{ fromJSON((inputs.lanes || inputs.lane) == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes || inputs.lane)) }}
-    runs-on: ${{ matrix.lane == 'github' && 'ubuntu-26.04' || fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') }}
+    runs-on: ${{ matrix.lane == 'github' && 'ubuntu-26.04' || fromJSON('["self-hosted","velnor-target-mvp"]') }}
     timeout-minutes: 25
     env:
       LANE: ${{ matrix.lane }}
