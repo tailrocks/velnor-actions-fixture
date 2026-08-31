@@ -100,6 +100,10 @@ AUTOMATIC_LANE_EXCEPTIONS = {
 SECRET_GATED_WORKFLOWS = {
     "app-token-probe.yml": "GitHub App credentials are optional secrets",
 }
+AUTOMATIC_L2_WORKFLOWS = {
+    "l2-runtime.yml": "l2-runtime",
+    "l2-provenance.yml": "l2-provenance",
+}
 AUTOMATIC_EVENTS = {"merge_group", "pull_request", "push", "schedule", "workflow_run"}
 
 USES_RE = re.compile(r"^\s*(?:-\s*)?uses:\s*['\"]?([^'\"\s#]+)")
@@ -242,10 +246,7 @@ def validate_coverage_row(
     if not isinstance(reason, str) or not reason.strip():
         failures.append(f"{label}.reason: must be a non-empty string")
 
-    evidence = check_string_list(row, "evidence", label, failures, nonempty=True)
-    for path_text in evidence:
-        if not (ROOT / path_text).is_file():
-            failures.append(f"{label}.evidence: path does not exist: {path_text}")
+    evidence = validate_capability_mappings(row, label, failures)
 
     actual_inputs = check_string_list(row, "inputs", label, failures, nonempty=False)
     expected_inputs = manifest_row.get("inputs", [])
@@ -268,6 +269,20 @@ def validate_coverage_row(
     if missing_subpaths:
         failures.append(f"{label}.subpaths: missing values {missing_subpaths}")
     return evidence
+
+
+def validate_capability_mappings(
+    row: dict[str, Any], label: str, failures: list[str]
+) -> list[str]:
+    """Require closed producer/comparator/evidence path mappings."""
+    mappings: dict[str, list[str]] = {}
+    for field in ("producer", "comparator", "evidence"):
+        values = check_string_list(row, field, label, failures, nonempty=True)
+        mappings[field] = values
+        for path_text in values:
+            if not (ROOT / path_text).is_file():
+                failures.append(f"{label}.{field}: path does not exist: {path_text}")
+    return mappings["evidence"]
 
 
 def validate_coverage(
@@ -409,10 +424,7 @@ def validate_coverage(
         status = row.get("fixture_status")
         if status not in RUNTIME_SEMANTICS_STATUS_VALUES:
             failures.append(f"{label}.fixture_status: invalid value {status!r}")
-        evidence = check_string_list(row, "evidence", label, failures, nonempty=False)
-        for path_text in evidence:
-            if not (ROOT / path_text).is_file():
-                failures.append(f"{label}.evidence: path does not exist: {path_text}")
+        evidence = validate_capability_mappings(row, label, failures)
         if status == "covered" and not evidence:
             failures.append(f"{label}.evidence: covered row requires evidence")
         if status == "expected-unsupported":
@@ -1080,7 +1092,48 @@ def validate_lane_policy(coverage: dict[str, Any], failures: list[str]) -> None:
             failures.append(
                 f"{name}: secret-gated exception lacks an explicit secret guard ({reason})"
             )
+        required_markers = (
+            "actions/upload-artifact@",
+            "app-token-readiness",
+            "status=not-ready",
+            "status=ready",
+            "status=failed",
+            "actions/download-artifact@",
+        )
+        for marker in required_markers:
+            if marker not in text:
+                failures.append(
+                    f"{name}: secret-gated readiness evidence missing {marker!r}"
+                )
     validate_automatic_lane_policy(positive_set, texts, failures)
+    for workflow_name, job_name in sorted(AUTOMATIC_L2_WORKFLOWS.items()):
+        workflow_text = texts.get(workflow_name, "")
+        if not re.search(r"^  workflow_call:\s*$", workflow_text, re.MULTILINE):
+            failures.append(f"{workflow_name}: automatic verifier path requires workflow_call")
+        lane_default = re.search(
+            r"^\s+lane:\s+\{[^}]*default:\s*both\b", workflow_text, re.MULTILINE
+        )
+        if not lane_default:
+            failures.append(f"{workflow_name}: workflow_call lane default must be both")
+        ci_text = texts.get("ci.yml", "")
+        if not re.search(
+            rf"^  {re.escape(job_name)}:\s*$.*?^\s+uses:\s+\./\.github/workflows/{re.escape(workflow_name)}\s*$",
+            ci_text,
+            re.MULTILINE | re.DOTALL,
+        ):
+            failures.append(
+                f"ci.yml: automatic verifier is missing local call for {workflow_name}"
+            )
+        for dependent_job in ("lane-verdict", "ci-required"):
+            body_match = re.search(
+                rf"^  {dependent_job}:\n(.*?)(?=^  [A-Za-z0-9_-]+:|\Z)",
+                ci_text,
+                re.MULTILINE | re.DOTALL,
+            )
+            if not body_match or not re.search(rf"\b{re.escape(job_name)}\b", body_match.group(1)):
+                failures.append(
+                    f"ci.yml: {dependent_job} must depend on {job_name}"
+                )
 
 
 def audit(*, contract_only: bool) -> list[str]:

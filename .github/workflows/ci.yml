@@ -57,10 +57,26 @@ jobs:
     with:
       lane: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'pull_request' && 'both' || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' }}
 
+  l2-runtime:
+    uses: ./.github/workflows/l2-runtime.yml
+    with:
+      lane: ${{ inputs.lanes || 'both' }}
+
+  l2-provenance:
+    uses: ./.github/workflows/l2-provenance.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    secrets: inherit
+    with:
+      lane: ${{ inputs.lanes || 'both' }}
+      signer-workflow: github.com/${{ github.repository }}/.github/workflows/ci.yml
+
   lane-verdict:
     name: exact two-lane evidence verdict
     if: always()
-    needs: [contract-audit, rust, runtime, actions, docker]
+    needs: [contract-audit, rust, runtime, actions, docker, l2-runtime, l2-provenance]
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     concurrency:
@@ -131,7 +147,7 @@ jobs:
 
   ci-required:
     if: always()
-    needs: [contract-audit, rust, runtime, actions, docker, lane-verdict]
+    needs: [contract-audit, rust, runtime, actions, docker, l2-runtime, l2-provenance, lane-verdict]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     concurrency:

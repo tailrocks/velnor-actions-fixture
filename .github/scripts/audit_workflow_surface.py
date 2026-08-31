@@ -28,6 +28,10 @@ CONTROL_PLANE_SCENARIOS = {
 }
 
 LANE_OPTIONS = {"velnor", "github", "both"}
+AUTOMATIC_L2_CALLS = {
+    "l2-runtime.yml": "l2-runtime",
+    "l2-provenance.yml": "l2-provenance",
+}
 SHA_RE = re.compile(r"@[0-9a-f]{40}(\s|$|#)")
 FIXTURE_HARNESS_TEST_RE = re.compile(
     r"(?:^|(?:&&|[;&|])\s*|\bthen\s+)cargo\s+test\b[^\n]*"
@@ -187,6 +191,34 @@ def cargo_policy_failures(texts):
     return failures
 
 
+def automatic_l2_failures(texts):
+    """Require CI to call both L2 diagnostics with their dual-lane default."""
+    failures = []
+    ci_text = texts.get("ci.yml", "")
+    for workflow, job in sorted(AUTOMATIC_L2_CALLS.items()):
+        workflow_text = texts.get(workflow, "")
+        if not re.search(r"^  workflow_call:\s*$", workflow_text, re.MULTILINE):
+            failures.append(f"{workflow}: missing workflow_call trigger")
+        if not re.search(
+            r"^\s+lane:\s+\{[^}]*default:\s*both\b", workflow_text, re.MULTILINE
+        ):
+            failures.append(f"{workflow}: workflow_call lane default must be both")
+        job_match = re.search(
+            rf"^  {re.escape(job)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:|\Z)",
+            ci_text,
+            re.MULTILINE | re.DOTALL,
+        )
+        if not job_match:
+            failures.append(f"ci.yml: missing automatic L2 job {job}")
+            continue
+        body = job_match.group(1)
+        if f"uses: ./.github/workflows/{workflow}" not in body:
+            failures.append(f"ci.yml: {job} must call ./.github/workflows/{workflow}")
+        if not re.search(r"^\s+lane:\s+.*(?:both|inputs\.lanes)", body, re.MULTILINE):
+            failures.append(f"ci.yml: {job} must pass the automatic both-lane selector")
+    return failures
+
+
 def check_lanes_block(name, block, failures):
     """Validate one plural ``lanes`` dispatch input block."""
     if scalar_field(block, "type") != "choice":
@@ -237,6 +269,7 @@ def job_declares_concurrency_group(body):
 def audit():
     failures = []
     texts = workflow_texts()
+    failures.extend(automatic_l2_failures(texts))
 
     # Rust fixture workloads use nextest. Restrict this check to the named
     # harness package so legitimate ordinary `cargo test` commands remain

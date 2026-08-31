@@ -40,7 +40,13 @@
       ],
       "execution": "external-admission-only",
       "fixture_status": "external-admission-only",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        "coverage/velnor-capabilities.json"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "jackin-project/jackin-role-action",
@@ -59,7 +65,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "fsfe/reuse-action",
@@ -73,7 +85,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/checkout",
@@ -97,7 +115,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "supported"
+      "microvm": "supported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/cache",
@@ -120,7 +144,13 @@
       ],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "supported"
+      "microvm": "supported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/attest-build-provenance",
@@ -136,7 +166,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/create-github-app-token",
@@ -158,7 +194,13 @@
       "subpaths": [],
       "execution": "secret-gated-dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/upload-artifact",
@@ -180,7 +222,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/github-script",
@@ -197,7 +245,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/download-artifact",
@@ -216,7 +270,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/upload-pages-artifact",
@@ -233,7 +293,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/pages.yml",
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/configure-pages",
@@ -252,7 +319,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/pages.yml",
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/deploy-pages",
@@ -273,7 +347,14 @@
       "subpaths": [],
       "execution": "hosted-only",
       "fixture_status": "hosted-only",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/pages.yml",
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "dorny/paths-filter",
@@ -294,7 +375,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml",
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "jdx/mise-action",
@@ -317,7 +405,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml",
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "mozilla-actions/sccache-action",
@@ -335,7 +430,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "supported"
+      "microvm": "supported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml",
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "kunobi-ninja/kache-action",
@@ -362,7 +464,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/compat.yml",
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "rui314/setup-mold",
@@ -376,7 +485,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/compat.yml",
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "extractions/setup-just",
@@ -390,7 +506,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/compat.yml",
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "swatinem/rust-cache",
@@ -408,7 +531,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "supported"
+      "microvm": "supported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml",
+        ".github/workflows/renovate.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "crazy-max/ghaction-github-runtime",
@@ -422,7 +552,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml",
+        ".github/workflows/renovate.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "renovatebot/github-action",
@@ -440,7 +577,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml",
+        ".github/workflows/renovate.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/setup-buildx-action",
@@ -461,7 +605,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/login-action",
@@ -479,7 +630,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/metadata-action",
@@ -496,7 +654,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/build-push-action",
@@ -523,7 +688,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/bake-action",
@@ -542,7 +714,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "hadolint/hadolint-action",
@@ -572,7 +751,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/setup-qemu-action",
@@ -590,7 +776,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "sigstore/cosign-installer",
@@ -607,7 +800,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml",
+        ".github/workflows/_docker-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     }
   ],
   "reusable_workflows": [
@@ -631,7 +831,13 @@
       "subpaths": [],
       "execution": "external-admission-only",
       "fixture_status": "external-admission-only",
-      "microvm": "not-applicable-server-expanded"
+      "microvm": "not-applicable-server-expanded",
+      "producer": [
+        "coverage/velnor-capabilities.json"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "tailrocks/velnor-actions",
@@ -650,7 +856,13 @@
       "subpaths": [],
       "execution": "external-admission-only",
       "fixture_status": "external-admission-only",
-      "microvm": "not-applicable-server-expanded"
+      "microvm": "not-applicable-server-expanded",
+      "producer": [
+        "coverage/velnor-capabilities.json"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     }
   ],
   "runtime_semantics": [
@@ -660,6 +872,13 @@
       "evidence": [
         "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
+      ],
+      "producer": [
+        "crates/fixture-harness/src/lib.rs",
+        ".github/workflows/_runtime-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -668,6 +887,13 @@
       "evidence": [
         "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
+      ],
+      "producer": [
+        "crates/fixture-harness/src/lib.rs",
+        ".github/workflows/_runtime-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -676,6 +902,13 @@
       "evidence": [
         "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
+      ],
+      "producer": [
+        "crates/fixture-harness/src/lib.rs",
+        ".github/workflows/_runtime-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -685,6 +918,14 @@
         ".github/workflows/docker.yml",
         ".github/workflows/docker-lease-probe.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/docker.yml",
+        ".github/workflows/docker-lease-probe.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -694,6 +935,14 @@
         ".github/workflows/docker.yml",
         ".github/workflows/docker-lease-probe.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/docker.yml",
+        ".github/workflows/docker-lease-probe.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -703,6 +952,14 @@
         ".github/workflows/docker.yml",
         ".github/workflows/docker-lease-probe.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/docker.yml",
+        ".github/workflows/docker-lease-probe.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -713,6 +970,14 @@
         ".github/workflows/backend-parity.yml",
         ".github/workflows/control-plane.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/backend-parity.yml",
+        ".github/workflows/control-plane.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -722,6 +987,14 @@
         ".github/workflows/backend-parity.yml",
         ".github/workflows/control-plane.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/backend-parity.yml",
+        ".github/workflows/control-plane.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -732,6 +1005,14 @@
         ".github/workflows/backend-parity.yml",
         ".github/workflows/control-plane.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/backend-parity.yml",
+        ".github/workflows/control-plane.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -741,6 +1022,14 @@
         ".github/workflows/backend-parity.yml",
         ".github/workflows/control-plane.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/backend-parity.yml",
+        ".github/workflows/control-plane.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     }
   ],
