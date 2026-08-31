@@ -9,9 +9,9 @@ on:
         required: true
         options: [missing-permission, no-match, unapproved-input]
       lanes:
-        description: velnor (default) | github | both
+        description: "velnor | github | both (default: both)"
         type: choice
-        default: velnor
+        default: both
         options: [velnor, github, both]
 
 permissions:

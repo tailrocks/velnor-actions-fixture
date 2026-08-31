@@ -1,0 +1,46 @@
+name: app-token-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      lanes:
+        description: "velnor | github | both (default: both)"
+        type: choice
+        default: both
+        options: [velnor, github, both]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-token-probe-${{ github.ref }}-${{ inputs.lanes }}
+  cancel-in-progress: true
+
+# Explicit opt-in only. Missing secrets intentionally skips the probe; it must
+# never turn an ordinary positive run into a secret-dependent fake success.
+jobs:
+  probe:
+    name: app-token-probe (${{ matrix.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
+    runs-on: ${{ matrix.lane == 'github' && 'ubuntu-26.04' || fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') }}
+    timeout-minutes: 10
+    env:
+      VELNOR_APP_ID: ${{ secrets.VELNOR_APP_ID }}
+      VELNOR_APP_PRIVATE_KEY: ${{ secrets.VELNOR_APP_PRIVATE_KEY }}
+    steps:
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v2
+        if: env.VELNOR_APP_ID != '' && env.VELNOR_APP_PRIVATE_KEY != ''
+        id: app-token
+        with:
+          app-id: ${{ env.VELNOR_APP_ID }}
+          private-key: ${{ env.VELNOR_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+      - if: env.VELNOR_APP_ID != '' && env.VELNOR_APP_PRIVATE_KEY != ''
+        run: test -n '${{ steps.app-token.outputs.token }}'
+      - if: env.VELNOR_APP_ID == '' || env.VELNOR_APP_PRIVATE_KEY == ''
+        run: |
+          echo 'secret-gated app-token probe skipped: configure VELNOR_APP_ID and VELNOR_APP_PRIVATE_KEY'

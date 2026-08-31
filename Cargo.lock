@@ -17,6 +17,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "fixture-harness"
+version = "0.1.0"
+
+[[package]]
 name = "l2-contract"
 version = "0.1.0"
 

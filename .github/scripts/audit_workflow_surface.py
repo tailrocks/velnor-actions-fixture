@@ -16,13 +16,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
-# ci.yml is rendered by velnor-actions-generator ("DO NOT EDIT") and still
-# carries the superseded sole-lane dispatch input pinned to mirrored release
-# 2026.8.30. The generator's plural-`lanes` render has not been propagated to
-# that file yet; until it is re-rendered upstream, ci.yml is the only permitted
-# dispatch-level sole-`lane` exception. Never hand-edit ci.yml here.
-GENERATOR_PENDING_SOLE_LANE = frozenset({"ci.yml"})
-
 CONTROL_PLANE_SCENARIOS = {
     "success",
     "failure",
@@ -160,8 +153,8 @@ def check_lanes_block(name, block, failures):
             f"{name}: lanes options must be exactly {sorted(LANE_OPTIONS)}, got {sorted(options)}"
         )
     default = scalar_field(block, "default")
-    if default != "velnor":
-        failures.append(f"{name}: lanes default must be velnor, got {default!r}")
+    if default != "both":
+        failures.append(f"{name}: lanes default must be both, got {default!r}")
 
 
 def job_declares_timeout(body):
@@ -217,16 +210,14 @@ def audit():
 
     # 2. Dispatch callers use exactly the canonical plural `lanes` selector.
     # Callable reusable workflows keep their singular `lane` input; callers
-    # derive it from `inputs.lanes`. ci.yml stays exempt only until the
-    # generator propagates its plural-`lanes` render (see
-    # GENERATOR_PENDING_SOLE_LANE).
+    # derive it from `inputs.lanes`.
     for name, text in texts.items():
         inputs = dispatch_inputs(text)
         if not inputs:
             continue
         if "lane" in inputs:
             is_reusable = re.search(r"^  workflow_call:", text, re.MULTILINE)
-            if not is_reusable and name not in GENERATOR_PENDING_SOLE_LANE:
+            if not is_reusable:
                 failures.append(
                     f"{name}: dispatch selector must be plural `lanes`, found sole `lane`"
                 )
@@ -234,9 +225,8 @@ def audit():
             check_lanes_block(name, inputs["lanes"], failures)
 
     # 3. Sole `lane` selector wherever it is declared (reusables and any
-    # pending generator output). Negative fixtures may intentionally restrict
-    # to a subset of lanes (no `both`, since a negative proof runs on one
-    # lane); they must still stay within the canonical set.
+    # callable reusable workflows use the singular `lane` input; it still
+    # defaults to both so callers cannot silently become single-lane.
     for name, text in texts.items():
         block = input_block(text, "lane")
         if block is None:
@@ -247,8 +237,8 @@ def audit():
                 f"{name}: lane options must be a non-empty subset of {sorted(LANE_OPTIONS)}, got {sorted(options)}"
             )
         default = scalar_field(block, "default")
-        if default != "velnor":
-            failures.append(f"{name}: lane default must be velnor, got {default!r}")
+        if default != "both":
+            failures.append(f"{name}: lane default must be both, got {default!r}")
 
     # 4. compat.yml and control-plane.yml are workflow_dispatch callers and
     # must declare the full canonical plural `lanes` selector.

@@ -13,6 +13,21 @@ lockfile = true
 [tasks.actionlint]
 run = "actionlint"
 
+[tasks.workflow-check]
+run = "just workflow-check"
+
+[tasks.python-check]
+run = "just python-check"
+
+[tasks.capability-audit]
+run = "just capability-audit"
+
+[tasks.rust-check]
+run = "just rust-check"
+
+[tasks.rust-test]
+run = "just rust-test"
+
 [tasks.build]
 run = "cargo build --workspace --locked"
 
@@ -26,13 +41,13 @@ run = "rustup component add clippy && cargo clippy --workspace --all-targets --l
 run = "rustup component add rustfmt && cargo fmt --all --check"
 
 [tasks.l2-closure]
-run = "cargo run --locked -p l2-contract -- validate"
+run = "just l2-closure"
 
 [tasks.audit-workflows]
-run = "python3 .github/scripts/audit_workflow_surface.py"
+run = "just audit-workflows"
 
 [tasks.l2-test]
 run = "cargo nextest run --workspace --locked"
 
 [tasks.check]
-depends = ["actionlint", "audit-workflows", "l2-closure", "l2-test"]
+depends = ["workflow-check", "audit-workflows", "capability-audit", "fmt", "rust-check", "rust-test", "l2-closure"]

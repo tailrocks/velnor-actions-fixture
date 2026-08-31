@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: velnor (default) | github | both
+        description: "velnor | github | both (default: both)"
         type: choice
-        default: velnor
+        default: both
         options: [velnor, github, both]
 
 permissions:
@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: |
-          echo "policy route: public unmerged code -> github-hosted" >> "${GITHUB_STEP_SUMMARY}"
+          echo "policy route: public unmerged code -> both lanes" >> "${GITHUB_STEP_SUMMARY}"
       - id: filter
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
@@ -64,7 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         package: [app-a, app-b]
-        config: ${{ fromJSON(github.event_name != 'workflow_dispatch' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || github.event_name == 'pull_request' && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 20
     permissions:
@@ -134,6 +134,32 @@ jobs:
       - run: just fmt-check
       - run: just clippy "${{ matrix.package }}"
       - run: just nextest "${{ matrix.package }}"
+      - name: Run fixture-harness tests and examples
+        env:
+          LANE: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          cargo test --locked -p fixture-harness --all-targets
+          cargo run --quiet --locked -p fixture-harness --example command_files
+          tmp_dir="$(mktemp -d)"
+          mkdir -p "${tmp_dir}/tree/nested"
+          printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
+          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
+          test -s "${tmp_dir}/tree.txt"
+          cargo run --quiet --locked -p fixture-harness --example cache_payload -- compat-public "${LANE}-${PACKAGE}" > "${tmp_dir}/cache.txt"
+          grep -q '^velnor.fixture.cache.v1$' "${tmp_dir}/cache.txt"
+          printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
+          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
+          grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
+          mkdir -p evidence
+          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
+            --scenario compat-public \
+            --lane "${LANE}" \
+            --field "package=${PACKAGE}" \
+            --field examples=command_files,artifact_tree,cache_payload,release_subject \
+            --field result=pass \
+            --output "evidence/compat-public-${LANE}-${PACKAGE}.json"
       # Verify MSRV step with env injection — mirrors Jackin MSRV pattern
       - name: Check MSRV
         env:
@@ -146,18 +172,24 @@ jobs:
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
-      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" "${{ matrix.config.lane }}" "out/result.json"
+      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" "${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}" "out/result.json"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: result-${{ matrix.config.lane }}-${{ matrix.package }}
+          name: result-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}-${{ matrix.package }}
           path: out/result.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: compat-public-harness-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}-${{ matrix.package }}
+          path: evidence/compat-public-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}-${{ matrix.package }}.json
+          if-no-files-found: error
 
   cache-off:
     name: Cache off (${{ matrix.config.lane }})
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(github.event_name != 'workflow_dispatch' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || github.event_name == 'pull_request' && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     steps:
@@ -171,7 +203,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(github.event_name != 'workflow_dispatch' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || github.event_name == 'pull_request' && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     env:
@@ -199,7 +231,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(github.event_name != 'workflow_dispatch' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || github.event_name == 'pull_request' && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     container: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
@@ -238,7 +270,8 @@ jobs:
 
   compare-results:
     needs: [compat]
-    if: always() && needs.compat.result == 'success'
+    # This comparator is meaningful only for an explicit dual-lane run.
+    if: inputs.lanes == 'both' && needs.compat.result == 'success'
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:

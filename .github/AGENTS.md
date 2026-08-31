@@ -2,10 +2,15 @@
 
 Every executable positive fixture uses one canonical YAML shape on all lanes:
 
-- `velnor` is the automatic and manual default and uses the selected
-  `velnor-trusted` group with label `velnor-target-mvp`.
-- `github` is the explicit comparison/recovery lane on `ubuntu-26.04`.
-- `both` executes identical positive workload jobs on both lanes.
+- `both` is the automatic and manual default for positive paths and executes
+  identical local reusable suites on both lanes.
+- Classify every scenario as mandatory dual-lane, an explicitly evidenced
+  hosted-only/secret-gated exception, or an explicitly evidenced microVM
+  expected-unsupported case; never silently downgrade a mandatory scenario.
+- `github` and `velnor` are explicit diagnostic single-lane selectors only.
+- Public untrusted PRs are hosted-only; Pages has one hosted writer; mutation
+  and secret-gated jobs remain explicitly gated. Negative admission and queue/
+  backend diagnostics may remain Velnor-only.
 
 The canonical Sunday parity schedule selects `both`. Only
 `matrix.config.writer` may gate mutations and must select exactly one writer.

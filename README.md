@@ -6,10 +6,42 @@ This repository intentionally keeps normal GitHub Actions YAML. It is not a Pkl/
 
 ## Runner Lanes
 
-- `lanes=velnor` (default): runs on `[self-hosted, velnor-target-mvp]`.
-- `lanes=github`: runs on pinned `ubuntu-26.04`.
-- `lanes=both`: expands the same jobs on both runners from one inline matrix.
-- `compare-results`: downloads artifacts from both lanes and verifies the normalized outputs match.
+- `lanes=both` (mandatory default): runs the same local suite on GitHub
+  `ubuntu-26.04` and the Velnor trusted runner `[self-hosted,
+  velnor-target-mvp]`.
+- `lanes=github` or `lanes=velnor`: explicit diagnostic single-lane dispatch;
+  it never claims parity.
+- `compare-results` requires both lane artifacts and fails on either missing lane.
+
+`ci.yml` is self-contained: `_rust-suite.yml`, `_runtime-suite.yml`,
+`_actions-suite.yml`, and `_docker-suite.yml` are local reusable workflows.
+There are no remote reusable workflow calls. Public untrusted PRs are the
+explicit hosted-only exception. Pages deployment remains hosted-only with one
+writer; mutation/secret-gated jobs and Velnor-only negative admission and
+queue/backend diagnostics retain their explicit conditions.
+
+## Readiness classes
+
+Mandatory positive scenarios require semantic evidence from both runners. The
+only exceptions are explicit and must produce their own evidence:
+
+- Hosted-only: untrusted fork pull requests and the single
+  `actions/deploy-pages` writer. Pages build/upload/compare still run on both
+  lanes.
+- Secret-gated dual: GitHub App-token verification runs on both lanes when the
+  required credentials exist; otherwise the workflow reports a skipped
+  prerequisite, not readiness.
+- MicroVM expected-unsupported: Velnor microVM supports positive checkout,
+  cache, Rust cache, and sccache only. Other adapters need an explicit reason
+  for expected-unsupported status.
+
+Velnor-only admission negatives, queue probes, and backend diagnostics are
+diagnostic checks, not substitutes for mandatory dual-lane proof.
+
+The local `check` gate runs capability coverage, workflow-surface and
+actionlint checks, side-effect-free Python syntax parsing, Rust formatting,
+workspace compilation, tests, and the L2 closure check. Run it with
+`mise run check` or `just check`.
 
 ## Control Plane
 
@@ -37,7 +69,7 @@ no artifact handoff.
 | `scenario` | choice | `success` | `success`, `failure`, `hold`, `queue`, `concurrent`, `artifacts`, `cache`, `load` | Exactly one scenario per dispatch |
 | `hold_seconds` | number | `30` | `0..300` | Validated in-step; out-of-range fails fast |
 | `artifact_count` | number | `3` | `1..8` | Validated in-step; distinct bounded sanitized text artifacts |
-| `lanes` | choice | `velnor` | `github`, `velnor`, `both` | Canonical plural lanes selector |
+| `lanes` | choice | `both` | `github`, `velnor`, `both` | Canonical plural lanes selector |
 
 Scenario notes:
 
@@ -85,6 +117,8 @@ still confirm zero non-completed runs remain afterwards.
 - command files: `GITHUB_ENV`, `GITHUB_OUTPUT`, `GITHUB_PATH`, `GITHUB_STEP_SUMMARY`
 - Docker Buildx setup and local image build
 - Postgres service health, alias reachability, and mapped-port context
+- deterministic Pages docs-tree validation: missing or empty trees fail; a
+  tree containing a non-empty regular file passes
 
 ## Build L2 proof corpus
 
