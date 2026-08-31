@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/app-a",
     "crates/app-b",
+    "crates/fixture-harness",
     "crates/l2-contract",
     "crates/shared",
 ]

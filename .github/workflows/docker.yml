@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: velnor (default) | github | both
+        description: "velnor | github | both (default: both)"
         type: choice
-        default: velnor
+        default: both
         options: [velnor, github, both]
 
 permissions:
@@ -88,7 +88,8 @@ jobs:
 
   docker-compare:
     needs: [docker]
-    if: always() && needs.docker.result == 'success'
+    # Single-lane diagnostic dispatches have no parity claim.
+    if: inputs.lanes == 'both' && needs.docker.result == 'success'
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
@@ -99,10 +100,8 @@ jobs:
       - run: |
           set -euo pipefail
           # Artifact names use the capitalized matrix lane labels (Velnor/GitHub).
-          if [[ ! -f "artifacts/docker-result-GitHub/docker-result.txt" || ! -f "artifacts/docker-result-Velnor/docker-result.txt" ]]; then
-            echo "single-lane run: only one lane artifact present, nothing to compare"
-            exit 0
-          fi
+          test -f "artifacts/docker-result-GitHub/docker-result.txt" || { echo 'missing GitHub docker result' >&2; exit 1; }
+          test -f "artifacts/docker-result-Velnor/docker-result.txt" || { echo 'missing Velnor docker result' >&2; exit 1; }
           github_out="$(cat "artifacts/docker-result-GitHub/docker-result.txt")"
           velnor_out="$(cat "artifacts/docker-result-Velnor/docker-result.txt")"
           echo "github: ${github_out}"

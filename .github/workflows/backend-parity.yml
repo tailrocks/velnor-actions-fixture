@@ -1,31 +1,68 @@
 # Canonical extra fixture workflow. Copy into tailrocks/velnor-actions-fixture
 # as .github/workflows/backend-parity.yml. Does not add a repository-controlled
 # backend input. Pool selection (docker vs microvm) is operator execution.toml.
-# lanes remains velnor | github | both.
+# lanes remains velnor | github | both; automatic runs always select both.
+# This is a positive backend probe, not a hosted-only diagnostic.
 
 name: backend-parity
 on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: velnor | github | both (default velnor)
+        description: "velnor | github | both (default: both)"
         type: choice
-        default: velnor
+        default: both
         options: [velnor, github, both]
   pull_request:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-parity-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   parity:
     name: backend-parity (${{ matrix.config.lane }})
     runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 20
+    concurrency:
+      group: backend-parity-${{ github.run_id }}-${{ matrix.config.lane }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(github.event_name == 'push' && '[{"lane":"GitHub","runner":"ubuntu-26.04"}]' || '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":["self-hosted","velnor"]}]') }}
+        config: ${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run fixture-harness tests and examples
+        env:
+          LANE: ${{ matrix.config.lane }}
+        run: |
+          set -euo pipefail
+          cargo test --locked -p fixture-harness --all-targets
+          cargo run --quiet --locked -p fixture-harness --example command_files
+          tmp_dir="$(mktemp -d)"
+          mkdir -p "${tmp_dir}/tree/nested"
+          printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
+          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
+          test -s "${tmp_dir}/tree.txt"
+          cargo run --quiet --locked -p fixture-harness --example cache_payload -- backend "${LANE}" > "${tmp_dir}/cache.txt"
+          grep -q '^velnor.fixture.cache.v1$' "${tmp_dir}/cache.txt"
+          printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
+          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
+          grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
+          mkdir -p evidence
+          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
+            --scenario backend-parity \
+            --lane "${LANE,,}" \
+            --field examples=command_files,artifact_tree,cache_payload,release_subject \
+            --field backend="${VELNOR_EXECUTION_BACKEND:-unknown}" \
+            --field result=pass \
+            --output "evidence/backend-${LANE}.json"
       - name: Record pool backend
         shell: bash
         run: |
@@ -41,6 +78,11 @@ jobs:
               test "${VELNOR_EXECUTION_BACKEND}" = "docker" -o "${VELNOR_EXECUTION_BACKEND}" = "microvm"
             fi
           fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-parity-${{ matrix.config.lane }}
+          path: evidence/backend-${{ matrix.config.lane }}.json
+          if-no-files-found: error
       - name: Guest docker is not the host control plane
         shell: bash
         run: |

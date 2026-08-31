@@ -1,0 +1,106 @@
+name: _runtime-suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      lanes:
+        description: github | velnor | both
+        type: choice
+        default: both
+        options: [github, velnor, both]
+  workflow_call:
+    inputs:
+      lane: {type: string, required: false, default: both}
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: runtime-suite-${{ github.ref }}-${{ inputs.lanes || inputs.lane }}
+  cancel-in-progress: false
+
+jobs:
+  runtime:
+    name: runtime (${{ matrix.lane }}, ${{ matrix.package }})
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON((inputs.lanes || inputs.lane) == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes || inputs.lane)) }}
+        package: [app-a, app-b]
+    runs-on: ${{ matrix.lane == 'github' && 'ubuntu-26.04' || fromJSON('["self-hosted","velnor-target-mvp"]') }}
+    timeout-minutes: 25
+    env:
+      FIXTURE_PACKAGE: ${{ matrix.package }}
+      LANE: ${{ matrix.lane }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - name: Run fixture-harness tests and examples
+        run: |
+          set -euo pipefail
+          cargo test --locked -p fixture-harness --all-targets
+          cargo run --quiet --locked -p fixture-harness --example command_files
+          tmp_dir="$(mktemp -d)"
+          mkdir -p "${tmp_dir}/tree/nested"
+          printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
+          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
+          test -s "${tmp_dir}/tree.txt"
+          cargo run --quiet --locked -p fixture-harness --example cache_payload -- runtime "${LANE}" > "${tmp_dir}/cache.txt"
+          grep -q '^velnor.fixture.cache.v1$' "${tmp_dir}/cache.txt"
+          printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
+          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
+          grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
+      - name: Emit command-file evidence
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          printf '%s\n' '#!/usr/bin/env bash' 'echo fixture-tool-ok' > "$HOME/.local/bin/fixture-tool"
+          chmod +x "$HOME/.local/bin/fixture-tool"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "### runtime ${LANE} ${FIXTURE_PACKAGE}" >> "$GITHUB_STEP_SUMMARY"
+      - uses: ./.github/actions/check-fixture-output
+        with:
+          package: ${{ matrix.package }}
+      - name: Write canonical harness evidence
+        run: |
+          set -euo pipefail
+          mkdir -p evidence result
+          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
+            --scenario runtime \
+            --lane "${LANE}" \
+            --field "package=${FIXTURE_PACKAGE}" \
+            --field examples=command_files,artifact_tree,cache_payload,release_subject \
+            --field command_files=GITHUB_ENV,GITHUB_OUTPUT,GITHUB_PATH,GITHUB_STEP_SUMMARY \
+            --field result=pass \
+            --output "evidence/runtime-${LANE}-${FIXTURE_PACKAGE}.json"
+          python3 .github/scripts/write-result.py "${FIXTURE_PACKAGE}" "${LANE}" result/result.json
+          HARNESS_EVIDENCE="evidence/runtime-${LANE}-${FIXTURE_PACKAGE}.json" RESULT_JSON=result/result.json python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          result_path = Path(os.environ["RESULT_JSON"])
+          result = json.loads(result_path.read_text())
+          result["evidence"]["harness"] = json.loads(Path(os.environ["HARNESS_EVIDENCE"]).read_text())
+          result_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: result-${{ matrix.lane }}-${{ matrix.package }}
+          path: result/result.json
+          if-no-files-found: error
+
+  compare:
+    name: compare runtime lanes
+    if: (inputs.lanes || inputs.lane) == 'both'
+    needs: [runtime]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: result-*
+          path: artifacts
+      - run: python3 .github/scripts/compare-results.py artifacts

@@ -17,18 +17,6 @@
         "github-actions"
       ],
       "matchPackageNames": [
-        "jackin-project/velnor-actions",
-        "tailrocks/velnor-actions",
-        "ChainArgos/velnor-actions"
-      ],
-      "groupName": "velnor-actions fleet",
-      "automerge": false
-    },
-    {
-      "matchManagers": [
-        "github-actions"
-      ],
-      "matchPackageNames": [
         "jdx/mise"
       ],
       "description": "l2-runtime.yml pins a deliberately older literal mise version (EXPLICIT_MISE_VERSION); admission requires a literal, so an automated bump to latest silently breaks the differs-from-omitted-resolution invariant.",

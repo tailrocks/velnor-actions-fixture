@@ -32,9 +32,9 @@ on:
         type: number
         default: 3
       lanes:
-        description: velnor (default) | github | both
+        description: "velnor | github | both (default: both)"
         type: choice
-        default: velnor
+        default: both
         options: [velnor, github, both]
 
 permissions:
