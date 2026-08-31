@@ -44,7 +44,7 @@ jobs:
       - name: Run fixture-harness tests and examples
         run: |
           set -euo pipefail
-          cargo test --locked -p fixture-harness --all-targets
+          cargo nextest run --locked -p fixture-harness --all-targets
           cargo run --quiet --locked -p fixture-harness --example command_files
           tmp_dir="$(mktemp -d)"
           mkdir -p "${tmp_dir}/tree/nested"

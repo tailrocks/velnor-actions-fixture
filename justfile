@@ -10,7 +10,10 @@ nextest package:
     cargo nextest run --locked -p "{{package}}"
 
 python-check:
-    python3 -c 'import ast; from pathlib import Path; paths=sorted(Path(".github/scripts").glob("*.py")); assert paths, "no Python scripts found"; [ast.parse(path.read_text(encoding="utf-8"), filename=str(path)) for path in paths]'
+    python3 -c 'import ast; from pathlib import Path; paths=sorted(Path(".github/scripts").rglob("*.py")); assert paths, "no Python scripts found"; [ast.parse(path.read_text(encoding="utf-8"), filename=str(path)) for path in paths]'
+
+python-test:
+    python3 .github/scripts/test_audits.py
 
 capability-audit:
     python3 .github/scripts/audit_capability_coverage.py
@@ -30,6 +33,7 @@ l2-closure:
 workflow-check:
     actionlint
     just python-check
+    just python-test
     ! rg -n '^\s*-\s*uses:.*tailrocks/velnor-actions' .github/workflows
 
 check:

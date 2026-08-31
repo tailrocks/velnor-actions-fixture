@@ -1,0 +1,11 @@
+{
+  "actions": [
+    {
+      "repository": "actions/checkout",
+      "exercised": [],
+      "expected_unsupported": [],
+      "admission_only": []
+    }
+  ],
+  "reusable_workflows": []
+}

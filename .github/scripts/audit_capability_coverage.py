@@ -18,6 +18,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 CAPABILITIES_PATH = ROOT / "coverage" / "velnor-capabilities.json"
 COVERAGE_PATH = ROOT / "coverage" / "fixture-coverage.json"
+SURFACE_COVERAGE_PATH = ROOT / "coverage" / "action-surface-coverage.json"
 WORKFLOWS = ROOT / ".github" / "workflows"
 ACTIONS = ROOT / ".github" / "actions"
 
@@ -84,6 +85,8 @@ READINESS_ACTION_STATUSES = {
     "hosted-only",
 }
 READINESS_RUNTIME_STATUSES = {"covered", "expected-unsupported"}
+SURFACE_STATUSES = ("exercised", "expected_unsupported", "admission_only")
+SURFACE_KINDS = {"input", "subpath"}
 
 # These are policy exceptions, not alternate defaults. They must stay named
 # here so an automatic single-lane path cannot silently become acceptable.
@@ -426,6 +429,228 @@ def validate_coverage(
             failures.append(f"{label}: readiness status is {status!r}")
 
 
+def workflow_surface_index() -> dict[str, list[dict[str, Any]]]:
+    """Index executable remote action references by exact workflow location."""
+    result: dict[str, list[dict[str, Any]]] = {}
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        relative = path.relative_to(ROOT).as_posix()
+        for line, uses, body, uses_indent in extract_uses(path):
+            if uses.startswith("./") or "@" not in uses:
+                continue
+            result.setdefault(uses, []).append(
+                {
+                    "workflow": relative,
+                    "line": line,
+                    "inputs": extract_with_inputs(body, uses_indent),
+                }
+            )
+    return result
+
+
+def surface_reference_identity(reference: str) -> tuple[str, str] | None:
+    if "@" not in reference:
+        return None
+    identity = reference.rsplit("@", 1)[0]
+    parts = identity.split("/")
+    if len(parts) < 2:
+        return None
+    return "/".join(parts[:2]), "/".join(parts[2:])
+
+
+def validate_surface_coverage(
+    surface: dict[str, Any],
+    manifest_actions: dict[str, dict[str, Any]],
+    manifest_workflows: dict[tuple[str, str], dict[str, Any]],
+    failures: list[str],
+    *,
+    verify_workflow_references: bool,
+) -> None:
+    """Require one explicit disposition for every admitted input/subpath.
+
+    ``fixture-coverage.json`` intentionally retains the manifest-shaped lists
+    for human summary. This separate contract is the source of proof: each
+    admitted surface item names its disposition and the exact workflow/ref
+    that proves it, or an explicit non-execution reason.
+    """
+    raw_actions = surface.get("actions")
+    if not isinstance(raw_actions, list):
+        failures.append("surface.actions: must be an array")
+        raw_actions = []
+    surface_action_rows = rows_by_key(
+        raw_actions, ("repository",), "surface.actions", failures
+    )
+    surface_actions = {key[0]: row for key, row in surface_action_rows.items()}
+    for repository in sorted(set(surface_actions) - set(manifest_actions)):
+        failures.append(f"surface.actions: unknown action {repository}")
+    for repository in sorted(set(manifest_actions) - set(surface_actions)):
+        failures.append(f"surface.actions: missing row for {repository}")
+
+    uses = workflow_surface_index() if verify_workflow_references else {}
+    for repository in sorted(set(manifest_actions) & set(surface_actions)):
+        manifest_row = manifest_actions[repository]
+        row = surface_actions[repository]
+        label = f"surface.actions[{repository}]"
+        expected = {
+            ("input", name) for name in manifest_row.get("inputs", [])
+        } | {
+            ("subpath", name) for name in manifest_row.get("allowed_subpaths", [])
+        }
+        seen: dict[tuple[str, str], str] = {}
+        for status in SURFACE_STATUSES:
+            entries = row.get(status)
+            if not isinstance(entries, list):
+                failures.append(f"{label}.{status}: must be an array")
+                continue
+            for index, entry in enumerate(entries):
+                entry_label = f"{label}.{status}[{index}]"
+                if not isinstance(entry, dict):
+                    failures.append(f"{entry_label}: must be an object")
+                    continue
+                kind = entry.get("kind")
+                name = entry.get("name")
+                if kind not in SURFACE_KINDS or not isinstance(name, str) or not name:
+                    failures.append(
+                        f"{entry_label}: kind must be input/subpath and name non-empty"
+                    )
+                    continue
+                key = (kind, name)
+                if key in seen:
+                    failures.append(
+                        f"{label}: {key!r} listed in both {seen[key]} and {status}"
+                    )
+                seen[key] = status
+                if key not in expected:
+                    failures.append(f"{entry_label}: unknown manifest surface {key!r}")
+
+                reference = entry.get("reference")
+                identity = (
+                    surface_reference_identity(reference)
+                    if isinstance(reference, str)
+                    else None
+                )
+                if identity is None:
+                    failures.append(
+                        f"{entry_label}.reference: must be repository@reference"
+                    )
+                    continue
+                reference_repository, reference_subpath = identity
+                if reference_repository != repository:
+                    failures.append(
+                        f"{entry_label}.reference: repository must be {repository!r}"
+                    )
+                allowed_refs = manifest_row.get("allowed_refs", [])
+                if reference.rsplit("@", 1)[1] not in allowed_refs:
+                    failures.append(
+                        f"{entry_label}.reference: unadmitted reference {reference!r}"
+                    )
+
+                reason = entry.get("reason")
+                if status != "exercised" and (
+                    not isinstance(reason, str) or not reason.strip()
+                ):
+                    failures.append(
+                        f"{entry_label}.reason: {status} requires a non-empty reason"
+                    )
+
+                workflow = entry.get("workflow")
+                if status == "admission_only":
+                    if workflow is not None:
+                        failures.append(
+                            f"{entry_label}.workflow: admission_only must not name an executable workflow"
+                        )
+                    continue
+                if not isinstance(workflow, str) or not workflow:
+                    failures.append(
+                        f"{entry_label}.workflow: {status} requires a workflow path"
+                    )
+                    continue
+                workflow_path = ROOT / workflow
+                if not workflow_path.is_file() or workflow_path.parent != WORKFLOWS:
+                    failures.append(
+                        f"{entry_label}.workflow: not an executable workflow: {workflow}"
+                    )
+                    continue
+                if not verify_workflow_references:
+                    continue
+                matching_uses = [
+                    use for use in uses.get(reference, []) if use["workflow"] == workflow
+                ]
+                if not matching_uses:
+                    failures.append(
+                        f"{entry_label}: reference not found in workflow: {workflow}: {reference}"
+                    )
+                    continue
+                if kind == "subpath" and reference_subpath != name:
+                    failures.append(
+                        f"{entry_label}.reference: subpath must be {name!r}, got {reference_subpath!r}"
+                    )
+                if kind == "input" and status == "exercised" and not any(
+                    name in use["inputs"] for use in matching_uses
+                ):
+                    failures.append(
+                        f"{entry_label}: input is not passed by the mapped workflow reference"
+                    )
+
+        missing = sorted(expected - set(seen))
+        for kind, name in missing:
+            failures.append(f"{label}: missing surface mapping for {kind} {name}")
+
+    raw_workflows = surface.get("reusable_workflows")
+    if raw_workflows is None:
+        raw_workflows = []
+    surface_workflows = rows_by_key(
+        raw_workflows,
+        ("repository", "path"),
+        "surface.reusable_workflows",
+        failures,
+    )
+    for key in sorted(set(surface_workflows) - set(manifest_workflows)):
+        failures.append(f"surface.reusable_workflows: unknown workflow {key[0]}:{key[1]}")
+    for key in sorted(set(manifest_workflows) - set(surface_workflows)):
+        failures.append(f"surface.reusable_workflows: missing row for {key[0]}:{key[1]}")
+    for key in sorted(set(manifest_workflows) & set(surface_workflows)):
+        label = f"surface.reusable_workflows[{key[0]}:{key[1]}]"
+        row = surface_workflows[key]
+        expected = {("input", name) for name in manifest_workflows[key].get("inputs", [])}
+        seen: set[tuple[str, str]] = set()
+        entries = row.get("admission_only")
+        if not isinstance(entries, list):
+            failures.append(f"{label}.admission_only: must be an array")
+            entries = []
+        for index, entry in enumerate(entries):
+            entry_label = f"{label}.admission_only[{index}]"
+            if not isinstance(entry, dict):
+                failures.append(f"{entry_label}: must be an object")
+                continue
+            kind = entry.get("kind")
+            name = entry.get("name")
+            key_value = (kind, name)
+            if kind != "input" or not isinstance(name, str) or not name:
+                failures.append(f"{entry_label}: reusable workflow mappings must name an input")
+                continue
+            if key_value in seen:
+                failures.append(f"{entry_label}: duplicate mapping {key_value!r}")
+            seen.add(key_value)
+            if key_value not in expected:
+                failures.append(f"{entry_label}: unknown manifest surface {key_value!r}")
+            if entry.get("workflow") is not None:
+                failures.append(f"{entry_label}.workflow: admission_only must be null")
+            reference = entry.get("reference")
+            identity = (
+                surface_reference_identity(reference)
+                if isinstance(reference, str)
+                else None
+            )
+            if identity is None or identity[0] != key[0]:
+                failures.append(f"{entry_label}.reference: repository must be {key[0]!r}")
+            elif isinstance(reference, str) and reference.rsplit("@", 1)[1] not in manifest_workflows[key].get("allowed_refs", []):
+                failures.append(f"{entry_label}.reference: unadmitted reference {reference!r}")
+            if not isinstance(entry.get("reason"), str) or not entry["reason"].strip():
+                failures.append(f"{entry_label}.reason: admission_only requires a non-empty reason")
+        for missing in sorted(expected - seen):
+            failures.append(f"{label}: missing surface mapping for input {missing[1]}")
+
+
 def validate_kache_contract(
     coverage: dict[str, Any],
     manifest_actions: dict[str, dict[str, Any]],
@@ -503,9 +728,20 @@ def extract_uses(path: Path) -> list[tuple[int, str, list[str], int]]:
         if not match:
             continue
         uses_indent = indent_of(line)
+        boundary_indent = uses_indent
+        if not line.lstrip().startswith("-"):
+            for previous in reversed(lines[:index]):
+                if not previous.strip():
+                    continue
+                previous_indent = indent_of(previous)
+                if previous_indent >= uses_indent:
+                    continue
+                if previous.lstrip().startswith("-"):
+                    boundary_indent = previous_indent
+                break
         body: list[str] = []
         for later in lines[index + 1 :]:
-            if later.strip() and indent_of(later) <= uses_indent:
+            if later.strip() and indent_of(later) <= boundary_indent:
                 break
             body.append(later)
         result.append((index + 1, match.group(1), body, uses_indent))
@@ -851,7 +1087,15 @@ def audit(*, contract_only: bool) -> list[str]:
     failures: list[str] = []
     capabilities = load_json(CAPABILITIES_PATH, failures)
     coverage = load_json(COVERAGE_PATH, failures)
+    surface = load_json(SURFACE_COVERAGE_PATH, failures)
     manifest_actions, manifest_workflows = validate_manifest(capabilities, failures)
+    validate_surface_coverage(
+        surface,
+        manifest_actions,
+        manifest_workflows,
+        failures,
+        verify_workflow_references=not contract_only,
+    )
     validate_coverage(
         coverage,
         manifest_actions,

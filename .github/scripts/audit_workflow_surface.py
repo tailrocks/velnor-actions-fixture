@@ -29,6 +29,10 @@ CONTROL_PLANE_SCENARIOS = {
 
 LANE_OPTIONS = {"velnor", "github", "both"}
 SHA_RE = re.compile(r"@[0-9a-f]{40}(\s|$|#)")
+FIXTURE_HARNESS_TEST_RE = re.compile(
+    r"(?:^|(?:&&|[;&|])\s*|\bthen\s+)cargo\s+test\b[^\n]*"
+    r"(?:--package|-p)\s+['\"]?fixture-harness['\"]?(?:\s|$)"
+)
 
 
 def workflow_texts():
@@ -143,6 +147,46 @@ def top_level_jobs(text):
             yield match.group(1), body
 
 
+def run_script_lines(text):
+    """Yield (line number, shell line) for workflow ``run`` values."""
+    lines = text.splitlines()
+    in_run = False
+    run_indent = 0
+    for number, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        indent = indent_of(line)
+        if in_run:
+            if stripped and indent <= run_indent:
+                in_run = False
+            else:
+                if stripped and not stripped.startswith("#"):
+                    yield number, line
+                continue
+        match = re.match(r"^(\s*)(?:-\s*)?run:\s*(.*)$", line)
+        if not match:
+            continue
+        run_indent = len(match.group(1))
+        inline = match.group(2).strip()
+        if inline and inline not in {"|", ">", "|-", ">-", "|+", ">+"}:
+            if not inline.startswith("#"):
+                yield number, inline
+        else:
+            in_run = True
+
+
+def cargo_policy_failures(texts):
+    """Reject fixture-harness ``cargo test`` while allowing ordinary tests."""
+    failures = []
+    for name, text in sorted(texts.items()):
+        for number, line in run_script_lines(text):
+            if FIXTURE_HARNESS_TEST_RE.search(line.strip()):
+                failures.append(
+                    f"{name}:{number}: fixture-harness commands must use `cargo nextest run`, "
+                    "not `cargo test`"
+                )
+    return failures
+
+
 def check_lanes_block(name, block, failures):
     """Validate one plural ``lanes`` dispatch input block."""
     if scalar_field(block, "type") != "choice":
@@ -193,6 +237,11 @@ def job_declares_concurrency_group(body):
 def audit():
     failures = []
     texts = workflow_texts()
+
+    # Rust fixture workloads use nextest. Restrict this check to the named
+    # harness package so legitimate ordinary `cargo test` commands remain
+    # available for unrelated diagnostic or negative fixtures.
+    failures.extend(cargo_policy_failures(texts))
 
     # 1. Full-SHA pins for every remote `uses:` in every workflow.
     for name, text in texts.items():
