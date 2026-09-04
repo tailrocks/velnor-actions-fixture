@@ -31,7 +31,8 @@ capability-audit:
 #   VELNOR_SOURCE_DIR=/path/to/velnor just refresh-capability-baseline
 #
 # A development build reports source_sha "development"; the recipe names the
-# checkout's HEAD commit for it so the baseline is always bound to a commit.
+# checkout's HEAD commit for provenance. Capability binding uses the content
+# digest, so unrelated runner commits do not invalidate unchanged admissions.
 refresh-capability-baseline:
     #!/usr/bin/env bash
     set -euo pipefail

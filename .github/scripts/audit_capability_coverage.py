@@ -12,6 +12,7 @@ hand edit.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -33,7 +34,8 @@ ACTIONS = ROOT / ".github" / "actions"
 # what let a v10 baseline certify a v11 runner, and what let one admitted
 # action be swapped for another without the audit noticing, because the count
 # stayed at 30 across the change. The baseline is now bound to the runner under
-# test at audit time and compared by identity, never by cardinality.
+# test at audit time by canonical capability content, never by cardinality or a
+# source commit that may change without changing the admitted surface.
 #
 # Fields of the `velnor capabilities export` document that must agree exactly.
 MANIFEST_ACTION_FIELDS = ("adapter", "allowed_refs", "allowed_subpaths", "inputs", "notes")
@@ -42,6 +44,12 @@ MANIFEST_WORKFLOW_FIELDS = ("allowed_refs", "inputs", "notes")
 # A development build of the runner reports this instead of its commit, because
 # `VELNOR_SOURCE_SHA` is only baked in for release builds.
 DEVELOPMENT_SOURCE_SHA = "development"
+CAPABILITY_IDENTITY_FIELD = "capability_sha256"
+# `source_sha` identifies the build provenance, not the admitted capability
+# content. The verifier-owned identity is excluded too to avoid hashing itself.
+CAPABILITY_IDENTITY_EXCLUDED_FIELDS = frozenset(
+    {"source_sha", CAPABILITY_IDENTITY_FIELD}
+)
 
 # The exported capability document is a pure function of these four files:
 # `manifest.rs` holds every admitted repository, ref, subpath and input;
@@ -154,6 +162,47 @@ def load_json(path: Path, failures: list[str]) -> dict[str, Any]:
     return value
 
 
+def capability_identity(document: dict[str, Any]) -> str:
+    """Return the stable identity of the admitted capability content.
+
+    Runner commits are provenance. They are deliberately excluded so a commit
+    that changes code outside the manifest does not invalidate an unchanged
+    capability contract. Every other exported field, including future fields,
+    participates in the identity and therefore cannot drift unnoticed.
+    """
+    content = {
+        key: value
+        for key, value in document.items()
+        if key not in CAPABILITY_IDENTITY_EXCLUDED_FIELDS
+    }
+    canonical = json.dumps(
+        content,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def validate_capability_identity(
+    document: dict[str, Any], label: str, failures: list[str]
+) -> None:
+    identity = document.get(CAPABILITY_IDENTITY_FIELD)
+    if (
+        not isinstance(identity, str)
+        or len(identity) != 64
+        or not all(character in "0123456789abcdef" for character in identity)
+    ):
+        failures.append(
+            f"{label}.{CAPABILITY_IDENTITY_FIELD}: must be a full lowercase SHA-256 digest"
+        )
+    elif identity != capability_identity(document):
+        failures.append(
+            f"{label}.{CAPABILITY_IDENTITY_FIELD}: does not match the canonical capability content"
+        )
+
+
 def rows_by_key(
     rows: Any,
     key_fields: tuple[str, ...],
@@ -250,7 +299,7 @@ def load_runner_baseline(
             failures.append(
                 "the runner under test is a development build and reports "
                 f"source_sha={DEVELOPMENT_SOURCE_SHA!r}; pass --velnor-source-sha SHA "
-                "so the baseline is bound to a named commit"
+                "so the export retains named build provenance"
             )
             return None
         document["source_sha"] = source_sha
@@ -356,7 +405,7 @@ def bind_baseline(
     not its size: swapping one repository for another leaves the count
     unchanged and must still fail.
     """
-    for field in ("version", "crate_version", "source_sha"):
+    for field in ("version", "crate_version"):
         expected = baseline.get(field)
         actual = capabilities.get(field)
         if actual != expected:
@@ -364,6 +413,15 @@ def bind_baseline(
                 f"coverage/velnor-capabilities.json {field} is {actual!r}, but the Velnor "
                 f"build under test reports {expected!r}; the baseline is stale"
             )
+
+    expected_identity = capabilities.get(CAPABILITY_IDENTITY_FIELD)
+    actual_identity = capability_identity(baseline)
+    if expected_identity != actual_identity:
+        failures.append(
+            f"coverage/velnor-capabilities.json {CAPABILITY_IDENTITY_FIELD} is "
+            f"{expected_identity!r}, but the Velnor build under test reports "
+            f"{actual_identity!r}; the capability baseline is stale"
+        )
 
     expected_actions = index_export(baseline.get("actions"), ("repository",))
     actual_actions = index_export(capabilities.get("actions"), ("repository",))
@@ -436,9 +494,12 @@ def compare_identity(
 
 
 def validate_manifest(
-    capabilities: dict[str, Any], failures: list[str]
+    capabilities: dict[str, Any],
+    failures: list[str],
+    *,
+    require_capability_identity: bool = False,
 ) -> tuple[dict[str, dict[str, Any]], dict[tuple[str, str], dict[str, Any]]]:
-    """Check the baseline's internal shape. Identity is checked by bind_baseline."""
+    """Check a manifest's shape and, for the checked-in baseline, its identity."""
     if not isinstance(capabilities.get("version"), int):
         failures.append("capabilities.version: must be an integer")
     source_sha = capabilities.get("source_sha")
@@ -453,6 +514,10 @@ def validate_manifest(
         )
     if not isinstance(capabilities.get("crate_version"), str):
         failures.append("capabilities.crate_version: must be a string")
+    if require_capability_identity:
+        validate_capability_identity(
+            capabilities, "capabilities", failures
+        )
 
     action_rows = rows_by_key(
         capabilities.get("actions"), ("repository",), "capabilities.actions", failures
@@ -579,11 +644,16 @@ def validate_coverage(
     if not isinstance(manifest_identity, dict):
         failures.append("coverage.manifest: must be an object")
     else:
-        # The coverage document records which manifest it was written against.
-        # That identity is checked against the capability baseline, which is
-        # itself bound to the runner under test, so a stale coverage document
-        # cannot outlive the build it describes.
-        for field in ("version", "source_sha"):
+        # The coverage document records which manifest content it was written
+        # against. That identity is checked against the capability baseline,
+        # which is itself bound to the runner under test, so stale coverage
+        # cannot outlive the capability contract it describes.
+        if "source_sha" in manifest_identity:
+            failures.append(
+                "coverage.manifest.source_sha: source commits are provenance, not "
+                f"capability identity; use {CAPABILITY_IDENTITY_FIELD}"
+            )
+        for field in ("version", CAPABILITY_IDENTITY_FIELD):
             if manifest_identity.get(field) != capabilities_identity.get(field):
                 failures.append(
                     f"coverage.manifest.{field} is {manifest_identity.get(field)!r}, but "
@@ -1374,7 +1444,9 @@ def audit(
     capabilities = load_json(CAPABILITIES_PATH, failures)
     coverage = load_json(COVERAGE_PATH, failures)
     surface = load_json(SURFACE_COVERAGE_PATH, failures)
-    manifest_actions, manifest_workflows = validate_manifest(capabilities, failures)
+    manifest_actions, manifest_workflows = validate_manifest(
+        capabilities, failures, require_capability_identity=True
+    )
 
     if not contract_only:
         # Readiness binds the checked-in baseline to the Velnor build under
@@ -1384,6 +1456,7 @@ def audit(
             capabilities_export, runner_source, velnor_source_sha, failures
         )
         if baseline is not None:
+            validate_manifest(baseline, failures)
             bind_baseline(capabilities, baseline, failures)
 
     validate_surface_coverage(
@@ -1442,6 +1515,10 @@ def refresh_baseline(
     if failures:
         return report(failures)
 
+    # The runner export does not own this verifier identity. Recompute it from
+    # the export after removing any stale value a future runner may emit.
+    baseline.pop(CAPABILITY_IDENTITY_FIELD, None)
+    baseline[CAPABILITY_IDENTITY_FIELD] = capability_identity(baseline)
     CAPABILITIES_PATH.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
 
     # The coverage document records the manifest identity it was written
@@ -1452,14 +1529,15 @@ def refresh_baseline(
         return report(failures)
     coverage["manifest"] = {
         "version": baseline["version"],
-        "source_sha": baseline["source_sha"],
+        CAPABILITY_IDENTITY_FIELD: baseline[CAPABILITY_IDENTITY_FIELD],
     }
     COVERAGE_PATH.write_text(json.dumps(coverage, indent=2) + "\n", encoding="utf-8")
 
     print(
         "refreshed coverage/velnor-capabilities.json from the runner under test: "
         f"manifest v{baseline['version']}, crate {baseline['crate_version']}, "
-        f"source {baseline['source_sha']}"
+        f"source {baseline['source_sha']}, "
+        f"{CAPABILITY_IDENTITY_FIELD} {baseline[CAPABILITY_IDENTITY_FIELD]}"
     )
     failures = audit(
         contract_only=False,

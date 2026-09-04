@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -145,9 +146,9 @@ class SurfaceCoverageTests(unittest.TestCase):
 class BaselineBindingTests(unittest.TestCase):
     """The baseline must be bound to the runner under test, by identity.
 
-    Before this, the baseline was pinned to Python constants: a v10 baseline
-    certified a v11 runner, and one admitted action was swapped for another
-    without the audit noticing, because the count stayed at 30.
+    Capability content is identified by a canonical digest. Source SHA remains
+    provenance, but a commit that changes no admitted capability must not make
+    the readiness gate red.
     """
 
     def baseline(self):
@@ -167,10 +168,25 @@ class BaselineBindingTests(unittest.TestCase):
         runner["version"] = runner["version"] + 1
         self.assertIn("the baseline is stale", "\n".join(self.bind(runner)))
 
-    def test_a_stale_source_sha_is_rejected(self):
+    def test_a_new_source_sha_with_same_capability_content_is_accepted(self):
         runner = self.baseline()
         runner["source_sha"] = "2fad3ffbd3f813f1b504de14163f9b57799b5e8c"
-        self.assertIn("source_sha", "\n".join(self.bind(runner)))
+        self.assertEqual(self.bind(runner), [])
+
+    def test_a_changed_unmodeled_capability_field_is_rejected_by_content_identity(self):
+        runner = self.baseline()
+        runner["future_capability_field"] = "unexpected"
+        failures = "\n".join(self.bind(runner))
+        self.assertIn("capability_sha256", failures)
+
+    def test_a_tampered_checked_in_identity_is_rejected(self):
+        baseline = self.baseline()
+        baseline[coverage_audit.CAPABILITY_IDENTITY_FIELD] = "0" * 64
+        failures = []
+        coverage_audit.validate_manifest(
+            baseline, failures, require_capability_identity=True
+        )
+        self.assertIn("canonical capability content", "\n".join(failures))
 
     def test_a_swapped_action_identity_is_rejected_at_constant_cardinality(self):
         """The exact mutation that manifest v11 made and the audit missed."""
@@ -221,6 +237,69 @@ class BaselineBindingTests(unittest.TestCase):
                 )
             )
             self.assertIn("different Velnor build", "\n".join(failures))
+
+    def test_capability_identity_excludes_provenance_but_includes_content(self):
+        baseline = self.baseline()
+        changed_source = dict(baseline)
+        changed_source["source_sha"] = "2fad3ffbd3f813f1b504de14163f9b57799b5e8c"
+        self.assertEqual(
+            coverage_audit.capability_identity(baseline),
+            coverage_audit.capability_identity(changed_source),
+        )
+        changed_content = dict(baseline)
+        changed_content["crate_version"] = "0.1.251"
+        self.assertNotEqual(
+            coverage_audit.capability_identity(baseline),
+            coverage_audit.capability_identity(changed_content),
+        )
+
+    def test_refresh_recomputes_content_identity_for_a_new_runner_commit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            export = self.baseline()
+            export["source_sha"] = "2fad3ffbd3f813f1b504de14163f9b57799b5e8c"
+            export_path = directory / "export.json"
+            export_path.write_text(json.dumps(export), encoding="utf-8")
+
+            capabilities_path = directory / "velnor-capabilities.json"
+            coverage_path = directory / "fixture-coverage.json"
+            capabilities_path.write_text("{}", encoding="utf-8")
+            coverage_path.write_text(
+                json.dumps(
+                    json.loads(
+                        (ROOT / "coverage" / "fixture-coverage.json")
+                        .read_text(encoding="utf-8")
+                    )
+                ),
+                encoding="utf-8",
+            )
+            with mock.patch.object(
+                coverage_audit, "CAPABILITIES_PATH", capabilities_path
+            ), mock.patch.object(coverage_audit, "COVERAGE_PATH", coverage_path):
+                self.assertEqual(
+                    coverage_audit.refresh_baseline(
+                        capabilities_export=export_path,
+                        runner_source=None,
+                        velnor_source_sha=None,
+                    ),
+                    0,
+                )
+
+            refreshed = json.loads(capabilities_path.read_text(encoding="utf-8"))
+            refreshed_coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                refreshed[coverage_audit.CAPABILITY_IDENTITY_FIELD],
+                coverage_audit.capability_identity(refreshed),
+            )
+            self.assertEqual(
+                refreshed_coverage["manifest"],
+                {
+                    "version": refreshed["version"],
+                    coverage_audit.CAPABILITY_IDENTITY_FIELD: refreshed[
+                        coverage_audit.CAPABILITY_IDENTITY_FIELD
+                    ],
+                },
+            )
 
 
 class MicroVmDispositionTests(unittest.TestCase):
