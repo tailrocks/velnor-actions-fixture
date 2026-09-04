@@ -209,6 +209,19 @@ fn a_single_lane_comparison_is_an_error() {
     );
 }
 
+#[test]
+fn duplicate_lane_names_are_rejected() {
+    let directory = scratch("duplicate-lane");
+    write(&directory, "github", &record("github", HEALTHY_OBSERVED));
+    let set = EvidenceSet::load(&directory, "rust").expect("valid evidence");
+    let failures = compare(&set, &["github".to_owned(), "github".to_owned()])
+        .expect_err("duplicate lanes cannot establish parity");
+    assert!(
+        failures.join(" ").contains("duplicate lane names"),
+        "{failures:?}"
+    );
+}
+
 /// The behavioural case: the Velnor lane observed a different exit code.
 #[test]
 fn a_divergent_exit_code_is_rejected() {

@@ -20,13 +20,25 @@ use crate::record::EvidenceSet;
 ///
 /// # Errors
 ///
-/// Returns every difference found: missing lanes, missing records, divergent
-/// provenance outside the normalization allowlist, and divergent observations.
+/// Returns every difference found: duplicate or missing lanes, missing records,
+/// divergent provenance outside the normalization allowlist, and divergent
+/// observations.
 pub fn compare(set: &EvidenceSet, lanes: &[String]) -> Result<String, Vec<String>> {
     if lanes.len() < 2 {
         return Err(vec![format!(
             "cross-lane comparison requires at least two lanes, got {:?}; a single-lane \
              dispatch is diagnostic and cannot establish parity",
+            lanes
+        )]);
+    }
+    if lanes
+        .iter()
+        .enumerate()
+        .any(|(index, lane)| lanes[..index].contains(lane))
+    {
+        return Err(vec![format!(
+            "cross-lane comparison requires unique lane names, got {:?}; duplicate lane names \
+             cannot establish parity",
             lanes
         )]);
     }
