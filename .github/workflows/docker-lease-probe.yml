@@ -119,7 +119,14 @@ jobs:
           else
             expected_lanes=("${LANES}")
           fi
-          python3 .github/scripts/workflow_evidence.py compare \
+          # A single-lane dispatch is diagnostic: it uses `diagnose`, which never
+          # claims parity. `compare` refuses a single lane outright.
+          if [[ "${#expected_lanes[@]}" -eq 1 ]]; then
+            verb=diagnose
+          else
+            verb=compare
+          fi
+          python3 .github/scripts/workflow_evidence.py "${verb}" \
             --directory evidence \
             --scenario docker-lease-probe \
             --lanes "${expected_lanes[@]}"

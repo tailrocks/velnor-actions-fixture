@@ -8,8 +8,11 @@ The default mode is the readiness gate and audits current workflow content.
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -22,12 +25,20 @@ SURFACE_COVERAGE_PATH = ROOT / "coverage" / "action-surface-coverage.json"
 WORKFLOWS = ROOT / ".github" / "workflows"
 ACTIONS = ROOT / ".github" / "actions"
 
-EXPECTED_MANIFEST_VERSION = 10
-EXPECTED_SOURCE_SHA = "2fad3ffbd3f813f1b504de14163f9b57799b5e8c"
-EXPECTED_ACTION_COUNT = 30
-EXPECTED_REUSABLE_WORKFLOW_COUNT = 2
-EXPECTED_KACHE_REF = "49398d37113c616fdb61be434cb497e3c2c8f3e6"
-EXPECTED_KACHE_VERSION = "v0.14.2"
+# There are deliberately no EXPECTED_MANIFEST_VERSION / EXPECTED_SOURCE_SHA /
+# EXPECTED_ACTION_COUNT constants here. Pinning the baseline to constants is
+# what let a v10 baseline certify a v11 runner, and what let one admitted
+# action be swapped for another without the audit noticing, because the count
+# stayed at 30 across the change. The baseline is now bound to the runner under
+# test at audit time and compared by identity, never by cardinality.
+#
+# Fields of the `velnor capabilities export` document that must agree exactly.
+MANIFEST_ACTION_FIELDS = ("adapter", "allowed_refs", "allowed_subpaths", "inputs", "notes")
+MANIFEST_WORKFLOW_FIELDS = ("allowed_refs", "inputs", "notes")
+
+# A development build of the runner reports this instead of its commit, because
+# `VELNOR_SOURCE_SHA` is only baked in for release builds.
+DEVELOPMENT_SOURCE_SHA = "development"
 
 MICROVM_SUPPORTED = {
     "actions/cache",
@@ -164,55 +175,236 @@ def check_string_list(
     return values
 
 
+def load_runner_baseline(
+    export_path: Path | None,
+    runner_source: Path | None,
+    source_sha: str | None,
+    failures: list[str],
+) -> dict[str, Any] | None:
+    """Produce the capability manifest of the Velnor build under test.
+
+    Either a ``velnor-runner capabilities export`` document is supplied
+    directly, or a runner checkout is supplied and the export is produced from
+    it. Both paths end at the same artefact: a document Velnor wrote about
+    itself. Nothing here reads the fixture's checked-in baseline, which is the
+    thing being audited.
+    """
+    if export_path is not None and runner_source is not None:
+        failures.append("--capabilities-export and --runner-source are mutually exclusive")
+        return None
+    if export_path is not None:
+        try:
+            document = json.loads(export_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            failures.append(f"unreadable capabilities export {export_path}: {error}")
+            return None
+    elif runner_source is not None:
+        document = export_from_runner_source(runner_source, failures)
+        if document is None:
+            return None
+        if source_sha is None:
+            source_sha = git_head(runner_source, failures)
+    else:
+        failures.append(
+            "readiness requires the capability manifest of the Velnor build under test: "
+            "pass --capabilities-export PATH (a `velnor-runner capabilities export` "
+            "document), or --runner-source DIR (a Velnor checkout), or set "
+            "VELNOR_CAPABILITIES_EXPORT / VELNOR_SOURCE_DIR. An audit that cannot see "
+            "the runner cannot certify it."
+        )
+        return None
+
+    if not isinstance(document, dict):
+        failures.append("capabilities export: root must be an object")
+        return None
+
+    exported_sha = document.get("source_sha")
+    if exported_sha == DEVELOPMENT_SOURCE_SHA:
+        if not source_sha:
+            failures.append(
+                "the runner under test is a development build and reports "
+                f"source_sha={DEVELOPMENT_SOURCE_SHA!r}; pass --velnor-source-sha SHA "
+                "so the baseline is bound to a named commit"
+            )
+            return None
+        document["source_sha"] = source_sha
+    elif source_sha and exported_sha != source_sha:
+        failures.append(
+            f"capabilities export source_sha is {exported_sha!r}, but the commit under "
+            f"test is {source_sha!r}; this export came from a different Velnor build"
+        )
+        return None
+    return document
+
+
+def git_head(directory: Path, failures: list[str]) -> str | None:
+    result = subprocess.run(
+        ["git", "-C", str(directory), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        failures.append(f"cannot read the runner commit from {directory}: {result.stderr.strip()}")
+        return None
+    return result.stdout.strip()
+
+
+def export_from_runner_source(directory: Path, failures: list[str]) -> dict[str, Any] | None:
+    """Ask the runner checkout to export its own capability manifest."""
+    manifest = directory / "crates" / "velnor-runner" / "src" / "manifest.rs"
+    if not manifest.is_file():
+        failures.append(f"{directory} is not a Velnor checkout: {manifest} does not exist")
+        return None
+    result = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "--locked",
+            "-p",
+            "velnor-runner",
+            "--bin",
+            "velnor-runner",
+            "--",
+            "capabilities",
+            "export",
+        ],
+        cwd=directory,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        failures.append(
+            f"`velnor-runner capabilities export` failed in {directory}: "
+            f"{result.stderr.strip()[-2000:]}"
+        )
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        failures.append(f"`velnor-runner capabilities export` emitted invalid JSON: {error}")
+        return None
+
+
+def bind_baseline(
+    capabilities: dict[str, Any], baseline: dict[str, Any], failures: list[str]
+) -> None:
+    """Fail loudly on any drift between the checked-in baseline and the runner.
+
+    Comparison is by identity throughout. The admitted action *set* is compared,
+    not its size: swapping one repository for another leaves the count
+    unchanged and must still fail.
+    """
+    for field in ("version", "crate_version", "source_sha"):
+        expected = baseline.get(field)
+        actual = capabilities.get(field)
+        if actual != expected:
+            failures.append(
+                f"coverage/velnor-capabilities.json {field} is {actual!r}, but the Velnor "
+                f"build under test reports {expected!r}; the baseline is stale"
+            )
+
+    expected_actions = index_export(baseline.get("actions"), ("repository",))
+    actual_actions = index_export(capabilities.get("actions"), ("repository",))
+    if expected_actions is None or actual_actions is None:
+        failures.append("capabilities.actions: both documents must list action objects")
+        return
+    compare_identity(
+        actual_actions, expected_actions, MANIFEST_ACTION_FIELDS, "capabilities.actions", failures
+    )
+
+    expected_workflows = index_export(
+        baseline.get("reusable_workflows"), ("repository", "path")
+    )
+    actual_workflows = index_export(
+        capabilities.get("reusable_workflows"), ("repository", "path")
+    )
+    if expected_workflows is None or actual_workflows is None:
+        failures.append(
+            "capabilities.reusable_workflows: both documents must list workflow objects"
+        )
+        return
+    compare_identity(
+        actual_workflows,
+        expected_workflows,
+        MANIFEST_WORKFLOW_FIELDS,
+        "capabilities.reusable_workflows",
+        failures,
+    )
+
+
+def index_export(
+    rows: Any, key_fields: tuple[str, ...]
+) -> dict[tuple[str, ...], dict[str, Any]] | None:
+    if not isinstance(rows, list):
+        return None
+    indexed: dict[tuple[str, ...], dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            return None
+        key = tuple(str(row.get(field)) for field in key_fields)
+        indexed[key] = row
+    return indexed
+
+
+def compare_identity(
+    actual: dict[tuple[str, ...], dict[str, Any]],
+    expected: dict[tuple[str, ...], dict[str, Any]],
+    fields: tuple[str, ...],
+    label: str,
+    failures: list[str],
+) -> None:
+    for key in sorted(set(expected) - set(actual)):
+        failures.append(
+            f"{label}: the runner under test admits {':'.join(key)}, but the baseline "
+            "does not list it"
+        )
+    for key in sorted(set(actual) - set(expected)):
+        failures.append(
+            f"{label}: the baseline lists {':'.join(key)}, but the runner under test "
+            "does not admit it"
+        )
+    for key in sorted(set(actual) & set(expected)):
+        for field in fields:
+            if actual[key].get(field) != expected[key].get(field):
+                failures.append(
+                    f"{label}[{':'.join(key)}].{field}: baseline has "
+                    f"{actual[key].get(field)!r}, the runner under test has "
+                    f"{expected[key].get(field)!r}"
+                )
+
+
 def validate_manifest(
     capabilities: dict[str, Any], failures: list[str]
 ) -> tuple[dict[str, dict[str, Any]], dict[tuple[str, str], dict[str, Any]]]:
-    if capabilities.get("version") != EXPECTED_MANIFEST_VERSION:
+    """Check the baseline's internal shape. Identity is checked by bind_baseline."""
+    if not isinstance(capabilities.get("version"), int):
+        failures.append("capabilities.version: must be an integer")
+    source_sha = capabilities.get("source_sha")
+    if (
+        not isinstance(source_sha, str)
+        or len(source_sha) != 40
+        or not all(character in "0123456789abcdef" for character in source_sha)
+    ):
         failures.append(
-            f"capabilities.version: expected {EXPECTED_MANIFEST_VERSION}, "
-            f"got {capabilities.get('version')!r}"
-        )
-    if capabilities.get("source_sha") != EXPECTED_SOURCE_SHA:
-        failures.append(
-            f"capabilities.source_sha: expected {EXPECTED_SOURCE_SHA}, "
-            f"got {capabilities.get('source_sha')!r}"
+            "capabilities.source_sha: must be a full lowercase commit SHA naming the "
+            f"Velnor build the baseline was taken from, got {source_sha!r}"
         )
     if not isinstance(capabilities.get("crate_version"), str):
         failures.append("capabilities.crate_version: must be a string")
 
-    raw_action_rows = capabilities.get("actions")
-    if isinstance(raw_action_rows, list) and len(raw_action_rows) != EXPECTED_ACTION_COUNT:
-        failures.append(
-            "capabilities.actions: expected exactly "
-            f"{EXPECTED_ACTION_COUNT} rows, got {len(raw_action_rows)}"
-        )
-    raw_workflow_rows = capabilities.get("reusable_workflows")
-    if isinstance(raw_workflow_rows, list) and len(raw_workflow_rows) != EXPECTED_REUSABLE_WORKFLOW_COUNT:
-        failures.append(
-            "capabilities.reusable_workflows: expected exactly "
-            f"{EXPECTED_REUSABLE_WORKFLOW_COUNT} rows, got {len(raw_workflow_rows)}"
-        )
-
     action_rows = rows_by_key(
-        raw_action_rows, ("repository",), "capabilities.actions", failures
+        capabilities.get("actions"), ("repository",), "capabilities.actions", failures
     )
     workflow_rows = rows_by_key(
-        raw_workflow_rows,
+        capabilities.get("reusable_workflows"),
         ("repository", "path"),
         "capabilities.reusable_workflows",
         failures,
     )
     actions = {key[0]: row for key, row in action_rows.items()}
-
-    if len(actions) != EXPECTED_ACTION_COUNT:
-        failures.append(
-            f"capabilities.actions: expected {EXPECTED_ACTION_COUNT} rows, got {len(actions)}"
-        )
-    if len(workflow_rows) != EXPECTED_REUSABLE_WORKFLOW_COUNT:
-        failures.append(
-            "capabilities.reusable_workflows: expected "
-            f"{EXPECTED_REUSABLE_WORKFLOW_COUNT} rows, got {len(workflow_rows)}"
-        )
 
     for repository, row in sorted(actions.items()):
         label = f"capabilities.actions[{repository}]"
@@ -237,6 +429,7 @@ def validate_coverage_row(
     failures: list[str],
     *,
     expected_subpaths: Any,
+    repository: str | None = None,
 ) -> list[str]:
     disposition = row.get("disposition")
     if disposition not in DISPOSITION_VALUES:
@@ -246,7 +439,7 @@ def validate_coverage_row(
     if not isinstance(reason, str) or not reason.strip():
         failures.append(f"{label}.reason: must be a non-empty string")
 
-    evidence = validate_capability_mappings(row, label, failures)
+    evidence = validate_capability_mappings(row, label, failures, repository=repository)
 
     actual_inputs = check_string_list(row, "inputs", label, failures, nonempty=False)
     expected_inputs = manifest_row.get("inputs", [])
@@ -272,23 +465,53 @@ def validate_coverage_row(
 
 
 def validate_capability_mappings(
-    row: dict[str, Any], label: str, failures: list[str]
+    row: dict[str, Any], label: str, failures: list[str], *, repository: str | None = None
 ) -> list[str]:
-    """Require closed producer/comparator/evidence path mappings."""
+    """Require closed producer/comparator/evidence path mappings.
+
+    A citation must contain what it cites. Existence alone was the whole check
+    before, which is how 21 action rows came to cite workflow files that never
+    mention the action they claim to exercise. A cited workflow or action file
+    must reference the repository whose row cites it; other cited files (audit
+    scripts, comparators, documentation) only have to exist, because they are
+    tooling rather than proof of exercise.
+    """
     mappings: dict[str, list[str]] = {}
     for field in ("producer", "comparator", "evidence"):
         values = check_string_list(row, field, label, failures, nonempty=True)
         mappings[field] = values
         for path_text in values:
-            if not (ROOT / path_text).is_file():
+            path = ROOT / path_text
+            if not path.is_file():
                 failures.append(f"{label}.{field}: path does not exist: {path_text}")
+                continue
+            if repository is None or not is_workflow_citation(path_text):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError as error:
+                failures.append(f"{label}.{field}: unreadable citation {path_text}: {error}")
+                continue
+            if repository.lower() not in text.lower():
+                failures.append(
+                    f"{label}.{field}: {path_text} does not reference {repository}; "
+                    "a citation must contain what it cites"
+                )
     return mappings["evidence"]
+
+
+def is_workflow_citation(path_text: str) -> bool:
+    """True for a citation that claims a workflow or action exercises a row."""
+    return path_text.startswith((".github/workflows/", ".github/actions/")) and path_text.endswith(
+        (".yml", ".yaml")
+    )
 
 
 def validate_coverage(
     coverage: dict[str, Any],
     manifest_actions: dict[str, dict[str, Any]],
     manifest_workflows: dict[tuple[str, str], dict[str, Any]],
+    capabilities_identity: dict[str, Any],
     failures: list[str],
     *,
     readiness: bool,
@@ -297,27 +520,19 @@ def validate_coverage(
     if not isinstance(manifest_identity, dict):
         failures.append("coverage.manifest: must be an object")
     else:
-        if manifest_identity.get("version") != EXPECTED_MANIFEST_VERSION:
-            failures.append(
-                f"coverage.manifest.version: expected {EXPECTED_MANIFEST_VERSION}"
-            )
-        if manifest_identity.get("source_sha") != EXPECTED_SOURCE_SHA:
-            failures.append(
-                f"coverage.manifest.source_sha: expected {EXPECTED_SOURCE_SHA}"
-            )
+        # The coverage document records which manifest it was written against.
+        # That identity is checked against the capability baseline, which is
+        # itself bound to the runner under test, so a stale coverage document
+        # cannot outlive the build it describes.
+        for field in ("version", "source_sha"):
+            if manifest_identity.get(field) != capabilities_identity.get(field):
+                failures.append(
+                    f"coverage.manifest.{field} is {manifest_identity.get(field)!r}, but "
+                    f"the capability baseline says {capabilities_identity.get(field)!r}"
+                )
 
     raw_action_rows = coverage.get("actions")
-    if isinstance(raw_action_rows, list) and len(raw_action_rows) != EXPECTED_ACTION_COUNT:
-        failures.append(
-            "coverage.actions: expected exactly "
-            f"{EXPECTED_ACTION_COUNT} rows, got {len(raw_action_rows)}"
-        )
     raw_workflow_rows = coverage.get("reusable_workflows")
-    if isinstance(raw_workflow_rows, list) and len(raw_workflow_rows) != EXPECTED_REUSABLE_WORKFLOW_COUNT:
-        failures.append(
-            "coverage.reusable_workflows: expected exactly "
-            f"{EXPECTED_REUSABLE_WORKFLOW_COUNT} rows, got {len(raw_workflow_rows)}"
-        )
 
     coverage_action_rows = rows_by_key(
         raw_action_rows, ("repository",), "coverage.actions", failures
@@ -339,6 +554,7 @@ def validate_coverage(
             manifest_actions[repository],
             failures,
             expected_subpaths=manifest_actions[repository].get("allowed_subpaths", []),
+            repository=repository,
         )
         execution = row.get("execution")
         status = row.get("fixture_status")
@@ -397,6 +613,7 @@ def validate_coverage(
             manifest_workflows[key],
             failures,
             expected_subpaths=[],
+            repository=key[0],
         )
         if row.get("execution") != "external-admission-only":
             failures.append(f"{label}.execution: must be 'external-admission-only'")
@@ -663,36 +880,6 @@ def validate_surface_coverage(
             failures.append(f"{label}: missing surface mapping for input {missing[1]}")
 
 
-def validate_kache_contract(
-    coverage: dict[str, Any],
-    manifest_actions: dict[str, dict[str, Any]],
-    failures: list[str],
-) -> tuple[str, str]:
-    kache = manifest_actions.get("kunobi-ninja/kache-action", {})
-    if kache.get("allowed_refs") != [EXPECTED_KACHE_REF]:
-        failures.append(
-            "capabilities.actions[kunobi-ninja/kache-action].allowed_refs: "
-            f"must be [{EXPECTED_KACHE_REF!r}]"
-        )
-    if "version" not in kache.get("inputs", []):
-        failures.append(
-            "capabilities.actions[kunobi-ninja/kache-action].inputs: missing 'version'"
-        )
-
-    contract = coverage.get("kache_contract")
-    if not isinstance(contract, dict):
-        failures.append("coverage.kache_contract: must be an object")
-        return EXPECTED_KACHE_REF, EXPECTED_KACHE_VERSION
-    expected = {
-        "repository": "kunobi-ninja/kache-action",
-        "ref": EXPECTED_KACHE_REF,
-        "version": EXPECTED_KACHE_VERSION,
-    }
-    if contract != expected:
-        failures.append(f"coverage.kache_contract: expected {expected!r}, got {contract!r}")
-    return EXPECTED_KACHE_REF, EXPECTED_KACHE_VERSION
-
-
 def indent_of(line: str) -> int:
     return len(line) - len(line.lstrip())
 
@@ -807,8 +994,6 @@ def validate_remote_uses(
     coverage: dict[str, Any],
     manifest_actions: dict[str, dict[str, Any]],
     manifest_workflows: dict[tuple[str, str], dict[str, Any]],
-    kache_ref: str,
-    kache_version: str,
     failures: list[str],
 ) -> None:
     workflow_policy = coverage.get("workflow_policy", {})
@@ -906,23 +1091,6 @@ def validate_remote_uses(
                 failures,
                 allow_unadmitted=policy_name in negative_workflows,
             )
-
-            if repository == "kunobi-ninja/kache-action":
-                if reference != kache_ref:
-                    failures.append(
-                        f"{relative}:{line_number}: Kache ref must be {kache_ref}, got {reference}"
-                    )
-                version = None
-                for body_line in body:
-                    version_match = re.match(r"^\s+version:\s*([^#]+?)\s*(?:#.*)?$", body_line)
-                    if version_match:
-                        version = version_match.group(1).strip().strip("'\"")
-                        break
-                if version != kache_version:
-                    failures.append(
-                        f"{relative}:{line_number}: Kache version must be "
-                        f"{kache_version}, got {version!r}"
-                    )
 
     for name, expected in sorted(expected_negative.items()):
         missing = sorted(expected - seen_expected.get(name, set()))
@@ -1136,12 +1304,29 @@ def validate_lane_policy(coverage: dict[str, Any], failures: list[str]) -> None:
                 )
 
 
-def audit(*, contract_only: bool) -> list[str]:
+def audit(
+    *,
+    contract_only: bool,
+    capabilities_export: Path | None = None,
+    runner_source: Path | None = None,
+    velnor_source_sha: str | None = None,
+) -> list[str]:
     failures: list[str] = []
     capabilities = load_json(CAPABILITIES_PATH, failures)
     coverage = load_json(COVERAGE_PATH, failures)
     surface = load_json(SURFACE_COVERAGE_PATH, failures)
     manifest_actions, manifest_workflows = validate_manifest(capabilities, failures)
+
+    if not contract_only:
+        # Readiness binds the checked-in baseline to the Velnor build under
+        # test. Without this the baseline is an unverifiable assertion, and a
+        # stale one certifies whatever runner happens to be running.
+        baseline = load_runner_baseline(
+            capabilities_export, runner_source, velnor_source_sha, failures
+        )
+        if baseline is not None:
+            bind_baseline(capabilities, baseline, failures)
+
     validate_surface_coverage(
         surface,
         manifest_actions,
@@ -1153,38 +1338,72 @@ def audit(*, contract_only: bool) -> list[str]:
         coverage,
         manifest_actions,
         manifest_workflows,
+        capabilities,
         failures,
         readiness=not contract_only,
-    )
-    kache_ref, kache_version = validate_kache_contract(
-        coverage, manifest_actions, failures
     )
     if not contract_only:
         validate_remote_uses(
             coverage,
             manifest_actions,
             manifest_workflows,
-            kache_ref,
-            kache_version,
             failures,
         )
         validate_lane_policy(coverage, failures)
     return sorted(set(failures))
 
 
+def parse_arguments(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Audit Velnor capability coverage against the runner under test. "
+            "Readiness mode requires the capability manifest of that runner."
+        )
+    )
+    parser.add_argument(
+        "--contract-only",
+        action="store_true",
+        help="validate the checked-in contracts only; does not establish readiness",
+    )
+    parser.add_argument(
+        "--capabilities-export",
+        type=Path,
+        default=environment_path("VELNOR_CAPABILITIES_EXPORT"),
+        help="a `velnor-runner capabilities export` document from the build under test",
+    )
+    parser.add_argument(
+        "--runner-source",
+        type=Path,
+        default=environment_path("VELNOR_SOURCE_DIR"),
+        help="a Velnor checkout to export the capability manifest from",
+    )
+    parser.add_argument(
+        "--velnor-source-sha",
+        default=os.environ.get("VELNOR_SOURCE_SHA") or None,
+        help="the Velnor commit under test, required for development builds",
+    )
+    return parser.parse_args(argv)
+
+
+def environment_path(name: str) -> Path | None:
+    value = os.environ.get(name)
+    return Path(value) if value else None
+
+
 def main() -> int:
-    args = sys.argv[1:]
-    if args not in ([], ["--contract-only"]):
-        print("usage: audit_capability_coverage.py [--contract-only]", file=sys.stderr)
-        return 2
-    contract_only = args == ["--contract-only"]
-    failures = audit(contract_only=contract_only)
+    args = parse_arguments(sys.argv[1:])
+    failures = audit(
+        contract_only=args.contract_only,
+        capabilities_export=args.capabilities_export,
+        runner_source=args.runner_source,
+        velnor_source_sha=args.velnor_source_sha,
+    )
     if failures:
         for failure in failures:
             print(f"ERROR: {failure}", file=sys.stderr)
         print(f"capability coverage audit failed: {len(failures)} error(s)", file=sys.stderr)
         return 1
-    mode = "contract" if contract_only else "readiness"
+    mode = "contract" if args.contract_only else "readiness"
     print(f"capability coverage {mode} audit passed")
     return 0
 

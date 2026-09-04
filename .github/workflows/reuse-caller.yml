@@ -66,7 +66,25 @@ jobs:
           merge-multiple: false
       - name: Compare all package/lane evidence
         if: always() && github.event_name == 'workflow_dispatch' && inputs.lanes == 'both'
-        run: python3 .github/scripts/compare-results.py artifacts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "${GITHUB_ENV}"
+          import json
+          from pathlib import Path
+
+          baseline = json.loads(Path("coverage/velnor-capabilities.json").read_text())
+          print(f"BASELINE_MANIFEST_VERSION={baseline['version']}")
+          print(f"BASELINE_SOURCE_SHA={baseline['source_sha']}")
+          PY
+          cargo run --quiet --locked -p verifier --bin verifier -- compare \
+            --directory artifacts \
+            --scenario fixture-rust-check \
+            --lanes github velnor \
+            --expect-run-id "${GITHUB_RUN_ID}" \
+            --expect-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --expect-commit "${GITHUB_SHA}" \
+            --expect-velnor-manifest-version "${BASELINE_MANIFEST_VERSION}" \
+            --expect-velnor-source-sha "${BASELINE_SOURCE_SHA}"
       - name: Record diagnostic-only single-lane dispatch
         if: always() && github.event_name == 'workflow_dispatch' && inputs.lanes != 'both'
         run: echo "single-lane dispatch is diagnostic only; parity comparison skipped"

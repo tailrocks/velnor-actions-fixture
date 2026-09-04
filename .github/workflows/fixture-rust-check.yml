@@ -86,16 +86,33 @@ jobs:
           key: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
           restore-keys: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: cargo check -p "${FIXTURE_PACKAGE}" --locked
-      - name: Write deterministic lane evidence
+      - name: Record command-file effects
         run: |
           set -euo pipefail
-          result_dir="result-${FIXTURE_LANE}-${FIXTURE_PACKAGE}"
-          python3 .github/scripts/write-result.py \
-            "${FIXTURE_PACKAGE}" \
-            "${FIXTURE_LANE}" \
-            "${result_dir}/result.json"
           echo "### reusable rust-check: ${FIXTURE_PACKAGE}" >> "${GITHUB_STEP_SUMMARY}"
           echo "reusable-check-passed=true" >> "${GITHUB_OUTPUT}"
+          echo "FIXTURE_CHECKED=${FIXTURE_PACKAGE}" >> "${GITHUB_ENV}"
+      # `steps` is computed by the runner, not by this workflow, so the outcome
+      # and conclusion of every step above are the one behavioural signal here
+      # that no workflow author can write down.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: fixture-rust-check
+          evidence-id: ${{ inputs.package }}
+          lane: ${{ env.FIXTURE_LANE }}
+          output: result-${{ env.FIXTURE_LANE }}-${{ inputs.package }}/result.json
+          observations: |
+            --observe-command build=cargo build --quiet --locked -p ${{ inputs.package }}
+            --observe-command run=cargo run --quiet --locked -p ${{ inputs.package }}
+            --observe-env checked=FIXTURE_CHECKED
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: result-${{ matrix.lane }}-${{ inputs.package }}

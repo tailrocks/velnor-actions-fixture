@@ -15,8 +15,17 @@ python-check:
 python-test:
     python3 .github/scripts/test_audits.py
 
+# Readiness requires the capability manifest of the Velnor build under test.
+# Set VELNOR_CAPABILITIES_EXPORT to a `velnor-runner capabilities export`
+# document, or VELNOR_SOURCE_DIR to a Velnor checkout. An audit that cannot see
+# the runner cannot certify it, and now says so instead of passing.
 capability-audit:
     python3 .github/scripts/audit_capability_coverage.py
+
+# Contract-only mode checks the checked-in documents against each other. It
+# does not establish readiness and must never be substituted for the gate above.
+capability-contract:
+    python3 .github/scripts/audit_capability_coverage.py --contract-only
 
 audit-workflows:
     python3 .github/scripts/audit_workflow_surface.py

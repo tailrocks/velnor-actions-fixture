@@ -158,29 +158,30 @@ jobs:
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ matrix.package }}
-      - name: Write canonical harness evidence
+      # `steps` is computed by the runner, not written by this workflow, so
+      # the outcome and conclusion of every step above are the behavioural
+      # signal no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
         run: |
           set -euo pipefail
-          mkdir -p evidence result
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario runtime \
-            --lane "${LANE}" \
-            --field "package=${FIXTURE_PACKAGE}" \
-            --field examples=command_files,artifact_tree,cache_payload,release_subject,service_probe \
-            --field command_files=GITHUB_ENV,GITHUB_OUTPUT,GITHUB_PATH,GITHUB_STEP_SUMMARY \
-            --field result=pass \
-            --output "evidence/runtime-${LANE}-${FIXTURE_PACKAGE}.json"
-          python3 .github/scripts/write-result.py "${FIXTURE_PACKAGE}" "${LANE}" result/result.json
-          HARNESS_EVIDENCE="evidence/runtime-${LANE}-${FIXTURE_PACKAGE}.json" RESULT_JSON=result/result.json python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          result_path = Path(os.environ["RESULT_JSON"])
-          result = json.loads(result_path.read_text())
-          result["evidence"]["harness"] = json.loads(Path(os.environ["HARNESS_EVIDENCE"]).read_text())
-          result_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-          PY
+          mkdir -p result
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: runtime-result
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.lane }}
+          output: result/result.json
+          observations: |
+            --observe-command examples=cargo run --quiet --locked -p fixture-harness --example command_files
+            --observe-command artifact-tree=cargo run --quiet --locked -p fixture-harness --example artifact_tree
+            --observe-command cache-payload=cargo run --quiet --locked -p fixture-harness --example cache_payload
+            --observe-command release-subject=cargo run --quiet --locked -p fixture-harness --example release_subject
+            --observe-env command-file-env=FIXTURE_PACKAGE
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: result-${{ matrix.lane }}-${{ matrix.package }}
@@ -199,4 +200,23 @@ jobs:
         with:
           pattern: result-*
           path: artifacts
-      - run: python3 .github/scripts/compare-results.py artifacts
+      - name: Compare observed lane behaviour
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "${GITHUB_ENV}"
+          import json
+          from pathlib import Path
+
+          baseline = json.loads(Path("coverage/velnor-capabilities.json").read_text())
+          print(f"BASELINE_MANIFEST_VERSION={baseline['version']}")
+          print(f"BASELINE_SOURCE_SHA={baseline['source_sha']}")
+          PY
+          cargo run --quiet --locked -p verifier --bin verifier -- compare \
+            --directory artifacts \
+            --scenario runtime-result \
+            --lanes github velnor \
+            --expect-run-id "${GITHUB_RUN_ID}" \
+            --expect-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --expect-commit "${GITHUB_SHA}" \
+            --expect-velnor-manifest-version "${BASELINE_MANIFEST_VERSION}" \
+            --expect-velnor-source-sha "${BASELINE_SOURCE_SHA}"

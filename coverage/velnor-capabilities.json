@@ -1,148 +1,339 @@
 {
-  "version": 10,
-  "source_sha": "2fad3ffbd3f813f1b504de14163f9b57799b5e8c",
+  "version": 11,
+  "source_sha": "2858e92df0eb78df4f1a6fe2ad4cbf86f1d56355",
   "crate_version": "0.1.250",
   "actions": [
     {
       "repository": "tailrocks/velnor-actions",
       "adapter": "ApprovedComposite",
-      "allowed_refs": ["77d323dcfdb176b332edc24bfc92cb625b3ab4c8", "3057391f93f3bfc0fe570ee08cfcea9533ea3f92"],
-      "allowed_subpaths": ["actions/run-gate", "actions/cache-contract", "actions/aggregate"],
-      "inputs": ["name", "command", "schema-version", "declaration-sha256", "expected-declaration-sha256", "cache-id", "expected-cache-id", "scope", "expected-scope", "cache-owner", "expected-cache-owner", "reservation-id", "expected-reservation-id", "required-peak-bytes", "quota-reserved-bytes", "attributed-bytes", "cleanup-state", "materialization-id", "expected-materialization-id"],
+      "allowed_refs": [
+        "77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+        "3057391f93f3bfc0fe570ee08cfcea9533ea3f92"
+      ],
+      "allowed_subpaths": [
+        "actions/run-gate",
+        "actions/cache-contract",
+        "actions/aggregate"
+      ],
+      "inputs": [
+        "name",
+        "command",
+        "schema-version",
+        "declaration-sha256",
+        "expected-declaration-sha256",
+        "cache-id",
+        "expected-cache-id",
+        "scope",
+        "expected-scope",
+        "cache-owner",
+        "expected-cache-owner",
+        "reservation-id",
+        "expected-reservation-id",
+        "required-peak-bytes",
+        "quota-reserved-bytes",
+        "attributed-bytes",
+        "cleanup-state",
+        "materialization-id",
+        "expected-materialization-id"
+      ],
       "notes": "pinned unified-CI composites; exact subpaths fetched and recursively validated"
     },
     {
       "repository": "jackin-project/jackin-role-action",
       "adapter": "ApprovedComposite",
-      "allowed_refs": ["041f17a6d32f8fd2a8ef03c2a63be58346993136", "80a1acd07257a23b441c546e6fcad12239ef7626", "889e01e1fec152cc68271385f8976319244d9251"],
+      "allowed_refs": [
+        "041f17a6d32f8fd2a8ef03c2a63be58346993136",
+        "80a1acd07257a23b441c546e6fcad12239ef7626",
+        "889e01e1fec152cc68271385f8976319244d9251"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["path", "jackin-version", "skip-build", "registry-cache-image"],
+      "inputs": [
+        "path",
+        "jackin-version",
+        "skip-build",
+        "registry-cache-image"
+      ],
       "notes": "pinned remote composite; expanded into strictly validated native adapters"
     },
     {
       "repository": "fsfe/reuse-action",
       "adapter": "ApprovedComposite",
-      "allowed_refs": ["676e2d560c9a403aa252096d99fcab3e1132b0f5"],
+      "allowed_refs": [
+        "676e2d560c9a403aa252096d99fcab3e1132b0f5"
+      ],
       "allowed_subpaths": [],
       "inputs": [],
       "notes": "pinned Docker action; generic Docker execution with a closed identity and input surface"
     },
     {
+      "repository": "jdx/mr-boxington-action",
+      "adapter": "ApprovedComposite",
+      "allowed_refs": [
+        "adc5c234c02592f7edd008bf81d5bc0e9584dc03"
+      ],
+      "allowed_subpaths": [],
+      "inputs": [
+        "backend",
+        "version",
+        "github-token",
+        "cache-key",
+        "restore-keys",
+        "cache-generation",
+        "save-on-workflow-dispatch",
+        "toolchain",
+        "max-size",
+        "cache-links",
+        "server-url",
+        "namespace",
+        "token",
+        "token-file",
+        "oidc-audience",
+        "server-mode"
+      ],
+      "notes": "pinned Node24 main/post action; generic fetched-action execution with a closed identity and input surface"
+    },
+    {
       "repository": "actions/checkout",
       "adapter": "Checkout",
-      "allowed_refs": ["__native", "9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0", "3d3c42e5aac5ba805825da76410c181273ba90b1", "df4cb1c069e1874edd31b4311f1884172cec0e10", "34e114876b0b11c390a56381ad16ebd13914f8d5", "v4", "v6", "v7"],
+      "allowed_refs": [
+        "__native",
+        "9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+        "3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "df4cb1c069e1874edd31b4311f1884172cec0e10",
+        "34e114876b0b11c390a56381ad16ebd13914f8d5",
+        "v4",
+        "v6",
+        "v7"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["repository", "ref", "token", "persist-credentials", "path", "clean", "fetch-depth", "fetch-tags", "lfs"],
+      "inputs": [
+        "repository",
+        "ref",
+        "token",
+        "persist-credentials",
+        "path",
+        "clean",
+        "fetch-depth",
+        "fetch-tags",
+        "lfs"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "actions/cache",
       "adapter": "Cache",
-      "allowed_refs": ["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "27d5ce7f107fe9357f9df03efb73ab90386fccae"],
-      "allowed_subpaths": ["restore", "save"],
-      "inputs": ["path", "key", "restore-keys", "fail-on-cache-miss", "lookup-only"],
+      "allowed_refs": [
+        "55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+        "27d5ce7f107fe9357f9df03efb73ab90386fccae"
+      ],
+      "allowed_subpaths": [
+        "restore",
+        "save"
+      ],
+      "inputs": [
+        "path",
+        "key",
+        "restore-keys",
+        "fail-on-cache-miss",
+        "lookup-only"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "actions/attest-build-provenance",
       "adapter": "AttestBuildProvenance",
-      "allowed_refs": ["0f67c3f4856b2e3261c31976d6725780e5e4c373", "4d101475d8b20a2381f78447822ac1eab6504dd8"],
+      "allowed_refs": [
+        "0f67c3f4856b2e3261c31976d6725780e5e4c373",
+        "4d101475d8b20a2381f78447822ac1eab6504dd8"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["subject-path"],
+      "inputs": [
+        "subject-path"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "actions/create-github-app-token",
       "adapter": "CreateGitHubAppToken",
-      "allowed_refs": ["bcd2ba49218906704ab6c1aa796996da409d3eb1"],
+      "allowed_refs": [
+        "bcd2ba49218906704ab6c1aa796996da409d3eb1"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["client-id", "app-id", "private-key", "owner", "repositories", "github-api-url", "skip-token-revoke"],
+      "inputs": [
+        "client-id",
+        "app-id",
+        "private-key",
+        "owner",
+        "repositories",
+        "github-api-url",
+        "skip-token-revoke"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "actions/upload-artifact",
       "adapter": "UploadArtifact",
-      "allowed_refs": ["043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "ea165f8d65b6e75b540449e92b4886f43607fa02", "v7"],
+      "allowed_refs": [
+        "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+        "ea165f8d65b6e75b540449e92b4886f43607fa02",
+        "v7"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["name", "path", "if-no-files-found", "include-hidden-files", "overwrite", "compression-level", "retention-days"],
+      "inputs": [
+        "name",
+        "path",
+        "if-no-files-found",
+        "include-hidden-files",
+        "overwrite",
+        "compression-level",
+        "retention-days"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "actions/github-script",
       "adapter": "GitHubScript",
-      "allowed_refs": ["3a2844b7e9c422d3c10d287c895573f7108da1b3"],
+      "allowed_refs": [
+        "3a2844b7e9c422d3c10d287c895573f7108da1b3"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["github-token", "script"],
+      "inputs": [
+        "github-token",
+        "script"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "actions/download-artifact",
       "adapter": "DownloadArtifact",
-      "allowed_refs": ["3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c", "v8"],
+      "allowed_refs": [
+        "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+        "v8"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["name", "pattern", "path", "merge-multiple"],
+      "inputs": [
+        "name",
+        "pattern",
+        "path",
+        "merge-multiple"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "actions/upload-pages-artifact",
       "adapter": "UploadPagesArtifact",
-      "allowed_refs": ["fc324d3547104276b827a68afc52ff2a11cc49c9", "v5"],
+      "allowed_refs": [
+        "fc324d3547104276b827a68afc52ff2a11cc49c9",
+        "v5"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["path", "name"],
+      "inputs": [
+        "path",
+        "name"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "actions/configure-pages",
       "adapter": "ConfigurePages",
-      "allowed_refs": ["45bfe0192ca1faeb007ade9deae92b16b8254a0d"],
+      "allowed_refs": [
+        "45bfe0192ca1faeb007ade9deae92b16b8254a0d"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["token", "enablement", "static_site_generator", "generator_config_file"],
+      "inputs": [
+        "token",
+        "enablement",
+        "static_site_generator",
+        "generator_config_file"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "actions/deploy-pages",
       "adapter": "DeployPages",
-      "allowed_refs": ["cd2ce8fcbc39b97be8ca5fce6e763baed58fa128", "v5"],
+      "allowed_refs": [
+        "cd2ce8fcbc39b97be8ca5fce6e763baed58fa128",
+        "v5"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["token", "timeout", "error_count", "reporting_interval", "preview", "artifact_name"],
+      "inputs": [
+        "token",
+        "timeout",
+        "error_count",
+        "reporting_interval",
+        "preview",
+        "artifact_name"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "dorny/paths-filter",
       "adapter": "PathsFilter",
-      "allowed_refs": ["ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d", "7b450fff21473bca461d4b92ce414b9d0420d706", "v4"],
+      "allowed_refs": [
+        "ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d",
+        "7b450fff21473bca461d4b92ce414b9d0420d706",
+        "v4"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["filters", "base", "ref", "list-files", "working-directory", "token"],
+      "inputs": [
+        "filters",
+        "base",
+        "ref",
+        "list-files",
+        "working-directory",
+        "token"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "jdx/mise-action",
       "adapter": "Mise",
-      "allowed_refs": ["c2a87611a18de5b3828c5652fe268e992400cb5c", "3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518", "7e36c90d9ab29c415a2384db3006f3ec8a8cc654", "dad1bfd3df957f44999b559dd69dc1671cb4e9ea", "e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d", "dba19683ed58901619b14f395a24841710cb4925", "v4"],
+      "allowed_refs": [
+        "c2a87611a18de5b3828c5652fe268e992400cb5c",
+        "3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518",
+        "7e36c90d9ab29c415a2384db3006f3ec8a8cc654",
+        "dad1bfd3df957f44999b559dd69dc1671cb4e9ea",
+        "e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d",
+        "dba19683ed58901619b14f395a24841710cb4925",
+        "v4"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["version", "install", "install_args", "working_directory", "github_token", "cache", "cache_key_prefix", "cache_save"],
+      "inputs": [
+        "version",
+        "install",
+        "install_args",
+        "working_directory",
+        "github_token",
+        "cache",
+        "cache_key_prefix",
+        "cache_save"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "mozilla-actions/sccache-action",
       "adapter": "Sccache",
-      "allowed_refs": ["fc920bf0ec8de6ee65d409111f7ec508035751ba", "9e7fa8a12102821edf02ca5dbea1acd0f89a2696", "v0.0.10"],
+      "allowed_refs": [
+        "fc920bf0ec8de6ee65d409111f7ec508035751ba",
+        "9e7fa8a12102821edf02ca5dbea1acd0f89a2696",
+        "v0.0.10"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["version", "disable_annotations", "token"],
-      "notes": "native Rust adapter; estate pin sweep 2026-07-18"
-    },
-    {
-      "repository": "kunobi-ninja/kache-action",
-      "adapter": "Kache",
-      "allowed_refs": ["49398d37113c616fdb61be434cb497e3c2c8f3e6"],
-      "allowed_subpaths": [],
-      "inputs": ["version", "github-cache", "cache-executables", "pr-comment", "max-size", "token", "sync", "warm", "manifest-key", "namespace", "min-compile-ms", "cache-key-prefix"],
+      "inputs": [
+        "version",
+        "disable_annotations",
+        "token"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "rui314/setup-mold",
       "adapter": "SetupMold",
-      "allowed_refs": ["7e4f20ad28a2e8ca6fd0892ccf72e2abb706b9c3", "9c9c13bf4c3f1adef0cc596abc155580bcb04444", "v1"],
+      "allowed_refs": [
+        "7e4f20ad28a2e8ca6fd0892ccf72e2abb706b9c3",
+        "9c9c13bf4c3f1adef0cc596abc155580bcb04444",
+        "v1"
+      ],
       "allowed_subpaths": [],
       "inputs": [],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
@@ -150,7 +341,9 @@
     {
       "repository": "extractions/setup-just",
       "adapter": "SetupJust",
-      "allowed_refs": ["53165ef7e734c5c07cb06b3c8e7b647c5aa16db3"],
+      "allowed_refs": [
+        "53165ef7e734c5c07cb06b3c8e7b647c5aa16db3"
+      ],
       "allowed_subpaths": [],
       "inputs": [],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
@@ -158,15 +351,27 @@
     {
       "repository": "swatinem/rust-cache",
       "adapter": "RustCache",
-      "allowed_refs": ["42dc69e1aa15d09112580998cf2ef0119e2e91ae", "c19371144df3bb44fab255c43d04cbc2ab54d1c4", "e18b497796c12c097a38f9edb9d0641fb99eee32", "v2"],
+      "allowed_refs": [
+        "42dc69e1aa15d09112580998cf2ef0119e2e91ae",
+        "c19371144df3bb44fab255c43d04cbc2ab54d1c4",
+        "e18b497796c12c097a38f9edb9d0641fb99eee32",
+        "v2"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["shared-key", "cache-directories", "cache-on-failure"],
+      "inputs": [
+        "shared-key",
+        "cache-directories",
+        "cache-on-failure"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "crazy-max/ghaction-github-runtime",
       "adapter": "GitHubRuntimeExport",
-      "allowed_refs": ["04d248b84655b509d8c44dc1d6f990c879747487", "v4"],
+      "allowed_refs": [
+        "04d248b84655b509d8c44dc1d6f990c879747487",
+        "v4"
+      ],
       "allowed_subpaths": [],
       "inputs": [],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
@@ -174,73 +379,165 @@
     {
       "repository": "renovatebot/github-action",
       "adapter": "Renovate",
-      "allowed_refs": ["5402b206248e5a8c8427a15102702eb9c1793efc", "0a7b68676027570f113b1d6e7b69b231b56167ab", "e09d604f8f803bb527bd8321ed5be06c460b8682", "316d7cd859606d6039a2182b7d69199e9b036835", "3064367f740a1a91cca218698a63902689cce200", "22e0a16091fc706b04affe6ae53d5e3358ac4023", "693b9ef15eec82123529a37c782242f091365961"],
+      "allowed_refs": [
+        "5402b206248e5a8c8427a15102702eb9c1793efc",
+        "0a7b68676027570f113b1d6e7b69b231b56167ab",
+        "e09d604f8f803bb527bd8321ed5be06c460b8682",
+        "316d7cd859606d6039a2182b7d69199e9b036835",
+        "3064367f740a1a91cca218698a63902689cce200",
+        "22e0a16091fc706b04affe6ae53d5e3358ac4023",
+        "693b9ef15eec82123529a37c782242f091365961"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["token", "renovate-version", "renovate-image"],
+      "inputs": [
+        "token",
+        "renovate-version",
+        "renovate-image"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "docker/setup-buildx-action",
       "adapter": "DockerSetupBuildx",
-      "allowed_refs": ["37fe631027851001ddb9b187196cc803df7f5f0e", "bb05f3f5519dd87d3ba754cc423b652a5edd6d2c", "v4"],
+      "allowed_refs": [
+        "37fe631027851001ddb9b187196cc803df7f5f0e",
+        "bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+        "v4"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["name", "driver", "install", "cleanup", "keep-state", "buildkitd-config-inline"],
+      "inputs": [
+        "name",
+        "driver",
+        "install",
+        "cleanup",
+        "keep-state",
+        "buildkitd-config-inline"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "docker/login-action",
       "adapter": "DockerLogin",
-      "allowed_refs": ["dbcb813823bdd20940b903addbd779551569679f", "abd2ef45e78c5afb21d64d4ca52ee8550d9572c7", "af1e73f918a031802d376d3c8bbc3fe56130a9b0", "v4"],
+      "allowed_refs": [
+        "dbcb813823bdd20940b903addbd779551569679f",
+        "abd2ef45e78c5afb21d64d4ca52ee8550d9572c7",
+        "af1e73f918a031802d376d3c8bbc3fe56130a9b0",
+        "v4"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["registry", "username", "password"],
+      "inputs": [
+        "registry",
+        "username",
+        "password"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "docker/metadata-action",
       "adapter": "DockerMetadata",
-      "allowed_refs": ["dc802804100637a589fabce1cb79ff13a1411302", "v6"],
+      "allowed_refs": [
+        "dc802804100637a589fabce1cb79ff13a1411302",
+        "v6"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["images", "tags"],
+      "inputs": [
+        "images",
+        "tags"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "docker/build-push-action",
       "adapter": "DockerBuildPush",
-      "allowed_refs": ["53b7df96c91f9c12dcc8a07bcb9ccacbed38856a", "v7"],
+      "allowed_refs": [
+        "53b7df96c91f9c12dcc8a07bcb9ccacbed38856a",
+        "v7"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["context", "file", "platforms", "tags", "labels", "build-args", "secrets", "cache-from", "cache-to", "outputs", "push", "load"],
+      "inputs": [
+        "context",
+        "file",
+        "platforms",
+        "tags",
+        "labels",
+        "build-args",
+        "secrets",
+        "cache-from",
+        "cache-to",
+        "outputs",
+        "push",
+        "load"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "docker/bake-action",
       "adapter": "DockerBake",
-      "allowed_refs": ["d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b", "v7"],
+      "allowed_refs": [
+        "d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b",
+        "v7"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["files", "set", "push", "targets"],
+      "inputs": [
+        "files",
+        "set",
+        "push",
+        "targets"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "hadolint/hadolint-action",
       "adapter": "Hadolint",
-      "allowed_refs": ["06be81baf89a55ffd0e24b8f04a4185738dd3387", "2a66e89f53d0771bb131a7fa31f3136336094aa6"],
+      "allowed_refs": [
+        "06be81baf89a55ffd0e24b8f04a4185738dd3387",
+        "2a66e89f53d0771bb131a7fa31f3136336094aa6"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["dockerfile", "config", "recursive", "output-file", "no-color", "no-fail", "verbose", "format", "failure-threshold", "override-error", "override-warning", "override-info", "override-style", "ignore", "trusted-registries"],
+      "inputs": [
+        "dockerfile",
+        "config",
+        "recursive",
+        "output-file",
+        "no-color",
+        "no-fail",
+        "verbose",
+        "format",
+        "failure-threshold",
+        "override-error",
+        "override-warning",
+        "override-info",
+        "override-style",
+        "ignore",
+        "trusted-registries"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "docker/setup-qemu-action",
       "adapter": "SetupQemu",
-      "allowed_refs": ["96fe6ef7f33517b61c61be40b68a1882f3264fb8"],
+      "allowed_refs": [
+        "96fe6ef7f33517b61c61be40b68a1882f3264fb8"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["image", "platforms", "reset"],
+      "inputs": [
+        "image",
+        "platforms",
+        "reset"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     },
     {
       "repository": "sigstore/cosign-installer",
       "adapter": "CosignInstaller",
-      "allowed_refs": ["6f9f17788090df1f26f669e9d70d6ae9567deba6"],
+      "allowed_refs": [
+        "6f9f17788090df1f26f669e9d70d6ae9567deba6"
+      ],
       "allowed_subpaths": [],
-      "inputs": ["cosign-release", "install-dir"],
+      "inputs": [
+        "cosign-release",
+        "install-dir"
+      ],
       "notes": "native Rust adapter; estate pin sweep 2026-07-18"
     }
   ],
@@ -248,15 +545,34 @@
     {
       "repository": "jackin-project/jackin-role-action",
       "path": ".github/workflows/publish.yml",
-      "allowed_refs": ["041f17a6d32f8fd2a8ef03c2a63be58346993136", "80a1acd07257a23b441c546e6fcad12239ef7626"],
-      "inputs": ["jackin-version", "registry", "runner-amd64", "runner-arm64", "runner-merge", "publish"],
+      "allowed_refs": [
+        "041f17a6d32f8fd2a8ef03c2a63be58346993136",
+        "80a1acd07257a23b441c546e6fcad12239ef7626"
+      ],
+      "inputs": [
+        "jackin-version",
+        "registry",
+        "runner-amd64",
+        "runner-arm64",
+        "runner-merge",
+        "publish"
+      ],
       "notes": "server-expanded reusable workflow; identity/full-SHA/inputs admitted, jobs.<id>.uses never parsed as a runner action"
     },
     {
       "repository": "tailrocks/velnor-actions",
       "path": ".github/workflows/package-signer.yml",
-      "allowed_refs": ["2d045521be342284cd567b7058a0e635dc74b37c", "c222e52030fee9ea6eae573a5769770be01d8438", "77d323dcfdb176b332edc24bfc92cb625b3ab4c8", "643c5341b160be151a7fae19b89b6a4f8ab3b275"],
-      "inputs": ["artifact-name", "subject-path", "source-ref"],
+      "allowed_refs": [
+        "2d045521be342284cd567b7058a0e635dc74b37c",
+        "c222e52030fee9ea6eae573a5769770be01d8438",
+        "77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+        "643c5341b160be151a7fae19b89b6a4f8ab3b275"
+      ],
+      "inputs": [
+        "artifact-name",
+        "subject-path",
+        "source-ref"
+      ],
       "notes": "hosted package signer; full-SHA and closed inputs admitted"
     }
   ]

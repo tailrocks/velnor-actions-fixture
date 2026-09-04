@@ -141,21 +141,130 @@ class SurfaceCoverageTests(unittest.TestCase):
         self.assertEqual(self.validate(fixture=fixture), [])
 
 
-class ManifestContractTests(unittest.TestCase):
-    def test_manifest_rejects_old_source_sha(self):
+class BaselineBindingTests(unittest.TestCase):
+    """The baseline must be bound to the runner under test, by identity.
+
+    Before this, the baseline was pinned to Python constants: a v10 baseline
+    certified a v11 runner, and one admitted action was swapped for another
+    without the audit noticing, because the count stayed at 30.
+    """
+
+    def baseline(self):
         path = ROOT / "coverage" / "velnor-capabilities.json"
-        manifest = json.loads(path.read_text(encoding="utf-8"))
-        old_sha = "738f18f68472c15e30645d81a7d2d664f29e5cab"
-        manifest["source_sha"] = old_sha
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def bind(self, runner):
         failures = []
+        coverage_audit.bind_baseline(self.baseline(), runner, failures)
+        return failures
 
-        coverage_audit.validate_manifest(manifest, failures)
+    def test_the_checked_in_baseline_matches_itself(self):
+        self.assertEqual(self.bind(self.baseline()), [])
 
-        self.assertIn(
-            f"capabilities.source_sha: expected {coverage_audit.EXPECTED_SOURCE_SHA}, "
-            f"got {old_sha!r}",
+    def test_a_stale_manifest_version_is_rejected(self):
+        runner = self.baseline()
+        runner["version"] = runner["version"] + 1
+        self.assertIn("the baseline is stale", "\n".join(self.bind(runner)))
+
+    def test_a_stale_source_sha_is_rejected(self):
+        runner = self.baseline()
+        runner["source_sha"] = "2fad3ffbd3f813f1b504de14163f9b57799b5e8c"
+        self.assertIn("source_sha", "\n".join(self.bind(runner)))
+
+    def test_a_swapped_action_identity_is_rejected_at_constant_cardinality(self):
+        """The exact mutation that manifest v11 made and the audit missed."""
+        runner = self.baseline()
+        for row in runner["actions"]:
+            if row["repository"] == "jdx/mr-boxington-action":
+                row["repository"] = "kunobi-ninja/kache-action"
+        self.assertEqual(len(runner["actions"]), len(self.baseline()["actions"]))
+        failures = "\n".join(self.bind(runner))
+        self.assertIn("kunobi-ninja/kache-action", failures)
+        self.assertIn("jdx/mr-boxington-action", failures)
+
+    def test_a_widened_allowed_ref_is_rejected(self):
+        runner = self.baseline()
+        runner["actions"][0]["allowed_refs"] = runner["actions"][0]["allowed_refs"] + [
+            "0000000000000000000000000000000000000000"
+        ]
+        self.assertIn("allowed_refs", "\n".join(self.bind(runner)))
+
+    def test_a_widened_input_surface_is_rejected(self):
+        runner = self.baseline()
+        runner["actions"][0]["inputs"] = runner["actions"][0]["inputs"] + ["smuggled"]
+        self.assertIn("inputs", "\n".join(self.bind(runner)))
+
+    def test_readiness_without_a_runner_baseline_fails(self):
+        failures = []
+        coverage_audit.load_runner_baseline(None, None, None, failures)
+        self.assertIn("cannot certify it", "\n".join(failures))
+
+    def test_a_development_build_must_name_its_commit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "export.json"
+            document = self.baseline()
+            document["source_sha"] = coverage_audit.DEVELOPMENT_SOURCE_SHA
+            path.write_text(json.dumps(document), encoding="utf-8")
+            failures = []
+            self.assertIsNone(coverage_audit.load_runner_baseline(path, None, None, failures))
+            self.assertIn("development build", "\n".join(failures))
+
+    def test_an_export_from_another_commit_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "export.json"
+            path.write_text(json.dumps(self.baseline()), encoding="utf-8")
+            failures = []
+            self.assertIsNone(
+                coverage_audit.load_runner_baseline(
+                    path, None, "0" * 40, failures
+                )
+            )
+            self.assertIn("different Velnor build", "\n".join(failures))
+
+
+class CitationTests(unittest.TestCase):
+    """A citation must contain what it cites."""
+
+    def row(self, evidence):
+        return {
+            "producer": [".github/scripts/audit_capability_coverage.py"],
+            "comparator": [".github/scripts/audit_capability_coverage.py"],
+            "evidence": evidence,
+        }
+
+    def test_a_workflow_that_does_not_mention_the_action_is_rejected(self):
+        failures = []
+        coverage_audit.validate_capability_mappings(
+            self.row([".github/workflows/_rust-suite.yml"]),
+            "coverage.actions[fsfe/reuse-action]",
             failures,
+            repository="fsfe/reuse-action",
         )
+        self.assertIn("does not reference fsfe/reuse-action", "\n".join(failures))
+
+    def test_a_workflow_that_does_mention_the_action_is_accepted(self):
+        failures = []
+        coverage_audit.validate_capability_mappings(
+            self.row([".github/workflows/_rust-suite.yml"]),
+            "coverage.actions[mozilla-actions/sccache-action]",
+            failures,
+            repository="mozilla-actions/sccache-action",
+        )
+        self.assertEqual(failures, [])
+
+    def test_every_checked_in_citation_contains_what_it_cites(self):
+        coverage = json.loads(
+            (ROOT / "coverage" / "fixture-coverage.json").read_text(encoding="utf-8")
+        )
+        failures = []
+        for row in coverage["actions"]:
+            coverage_audit.validate_capability_mappings(
+                row,
+                f"coverage.actions[{row['repository']}]",
+                failures,
+                repository=row["repository"],
+            )
+        self.assertEqual(failures, [])
 
 
 class WorkflowEvidenceTests(unittest.TestCase):
@@ -184,36 +293,63 @@ class WorkflowEvidenceTests(unittest.TestCase):
             )
         )
 
-    def test_recursive_identity_normalization(self):
-        value = {
-            "lane": "github",
-            "result": {
-                "runner": "hosted",
-                "items": [
-                    {"job_id": "github-job", "value": 41},
-                    {"observed_at": "2026-08-31T00:00:00Z", "value": 42},
-                ],
-            },
+    def test_semantic_payload_is_compared_verbatim(self):
+        """Nothing inside `semantic` is normalized, at any depth.
+
+        The previous implementation dropped every object key named `lane`,
+        `runner`, `run_id`, `job_id` or `observed_at` at any depth, so a
+        divergence nested under such a key vanished before comparison.
+        """
+        record = {
+            "semantic": {
+                "lane": "github",
+                "result": {"runner": "hosted", "items": [{"job_id": "a", "value": 41}]},
+            }
         }
         self.assertEqual(
-            workflow_evidence.normalize(value),
-            {"result": {"items": [{"value": 41}, {"value": 42}]}},
+            workflow_evidence.semantic_payload(record), record["semantic"]
         )
 
     def test_valid_dual_lane_evidence_comparison(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
-            self.write_evidence(
-                directory,
-                "github",
-                {"result": "success", "runner": {"name": "hosted"}},
-            )
-            self.write_evidence(
-                directory,
-                "velnor",
-                {"runner": {"name": "microvm"}, "result": "success"},
-            )
+            for lane in ("github", "velnor"):
+                self.write_evidence(directory, lane, {"result": "success"})
             self.assertEqual(self.compare(directory), 0)
+
+    def test_divergence_nested_under_a_key_named_runner_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            self.write_evidence(directory, "github", {"runner": {"exit_code": 0}})
+            self.write_evidence(directory, "velnor", {"runner": {"exit_code": 7}})
+            with self.assertRaisesRegex(
+                SystemExit, r"semantic evidence mismatch.*runner\.exit_code"
+            ):
+                self.compare(directory)
+
+    def test_a_single_lane_comparison_is_an_error(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            self.write_evidence(directory, "velnor", {"result": "success"})
+            with self.assertRaisesRegex(SystemExit, "requires at least two lanes"):
+                workflow_evidence.compare(
+                    argparse.Namespace(
+                        directory=str(directory), scenario="success", lanes=["velnor"]
+                    )
+                )
+
+    def test_diagnose_never_claims_parity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            self.write_evidence(directory, "velnor", {"result": "success"})
+            self.assertEqual(
+                workflow_evidence.diagnose(
+                    argparse.Namespace(
+                        directory=str(directory), scenario="success", lanes=["velnor"]
+                    )
+                ),
+                0,
+            )
 
     def test_missing_lane_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:

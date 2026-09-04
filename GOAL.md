@@ -61,7 +61,8 @@ Coverage is derived from GitHub Actions usage in:
 - `tailrocks/schemalane`
 
 The capability baseline is current Velnor release v0.1.250, manifest version
-10, at source commit `2fad3ffbd3f813f1b504de14163f9b57799b5e8c`. The
+11, at source commit `2858e92df0eb78df4f1a6fe2ad4cbf86f1d56355`, and is bound to
+that runner at audit time rather than pinned to constants. The
 machine-readable baseline is
 `coverage/velnor-capabilities.json`; fixture dispositions and evidence are in
 `coverage/fixture-coverage.json`; the source workflow inventory is in
@@ -69,23 +70,27 @@ machine-readable baseline is
 
 ## Readiness invariants
 
-1. Capability coverage is closed: exactly 30 admitted action repositories and
-   two admitted reusable workflows have one coverage row each.
+1. Capability coverage is closed: every action repository and reusable workflow
+   the runner under test admits has exactly one coverage row, and every coverage
+   row names an identity that runner admits. Citations must contain what they
+   cite: a coverage row may only cite a workflow that references its action.
 2. Positive workflow dispatch inputs default to `both` and automatic positive
    triggers execute both lanes.
 3. No workflow executes an action or reusable workflow from any repository named
    `velnor-actions`; admitted historical identities are admission-only fixtures.
-4. Remote identities use admitted immutable refs. Kache uses
-   `kunobi-ninja/kache-action@49398d37113c616fdb61be434cb497e3c2c8f3e6`
-   with `version: v0.14.2`.
+4. Remote identities use admitted immutable refs. The admitted set is compared
+   with the runner manifest by identity, never by cardinality: swapping one
+   admitted repository for another must fail even though the count is unchanged.
 5. `actions/deploy-pages` remains a GitHub-hosted single writer. GitHub App token
    verification is manual and secret-gated. These exceptions must never be
    represented as ordinary dual writers.
 6. MicroVM positive coverage is limited to checkout, cache, Rust cache, and
    sccache until Velnor admits more guest adapters. Every other action has an
    explicit expected-unsupported microVM disposition.
-7. Readiness requires current live evidence from both default lanes. Static
-   coverage declarations alone do not prove readiness.
+7. Readiness requires current live evidence from both default lanes, carrying
+   provenance that binds it to this run, this fixture commit and this Velnor
+   build. Static coverage declarations alone do not prove readiness, and neither
+   does evidence that cannot say which run produced it.
 
 ## Completion criteria
 

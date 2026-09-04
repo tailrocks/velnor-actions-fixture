@@ -172,7 +172,28 @@ jobs:
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
-      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" "${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}" "out/result.json"
+      # `steps` is computed by the runner, not written by this workflow, so the
+      # outcome and conclusion of every step above are the behavioural signal
+      # no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cat > "${{ runner.temp }}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: compat-public-result
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: out/result.json
+          observations: |
+            --observe-command build=cargo build --quiet --locked -p ${{ matrix.package }}
+            --observe-command run=cargo run --quiet --locked -p ${{ matrix.package }}
+            --observe-env package=FIXTURE_PACKAGE
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: result-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}-${{ matrix.package }}
@@ -280,7 +301,26 @@ jobs:
         with:
           path: artifacts
           merge-multiple: false
-      - run: python3 .github/scripts/compare-results.py artifacts
+      - name: Compare observed lane behaviour
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "${GITHUB_ENV}"
+          import json
+          from pathlib import Path
+
+          baseline = json.loads(Path("coverage/velnor-capabilities.json").read_text())
+          print(f"BASELINE_MANIFEST_VERSION={baseline['version']}")
+          print(f"BASELINE_SOURCE_SHA={baseline['source_sha']}")
+          PY
+          cargo run --quiet --locked -p verifier --bin verifier -- compare \
+            --directory artifacts \
+            --scenario compat-public-result \
+            --lanes github velnor \
+            --expect-run-id "${GITHUB_RUN_ID}" \
+            --expect-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --expect-commit "${GITHUB_SHA}" \
+            --expect-velnor-manifest-version "${BASELINE_MANIFEST_VERSION}" \
+            --expect-velnor-source-sha "${BASELINE_SOURCE_SHA}"
       - uses: ./.github/actions/aggregate-needs
         with:
           expected: success

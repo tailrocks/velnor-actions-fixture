@@ -11,7 +11,8 @@ This repository intentionally keeps normal GitHub Actions YAML. It is not a Pkl/
   velnor-target-mvp]`.
 - `lanes=github` or `lanes=velnor`: explicit diagnostic single-lane dispatch;
   it never claims parity.
-- `compare-results` requires both lane artifacts and fails on either missing lane.
+- `verifier compare` requires both lane artifacts, rejects evidence that does not
+  belong to the current run and Velnor build, and treats a single lane as an error.
 
 `ci.yml` is self-contained: `_rust-suite.yml`, `_runtime-suite.yml`,
 `_actions-suite.yml`, and `_docker-suite.yml` are local reusable workflows.
@@ -42,7 +43,7 @@ diagnostic checks, not substitutes for mandatory dual-lane proof.
 
 - `fixture-rust-check.yml` is a local reusable workflow. `reuse-caller.yml`
   calls it for `app-a` and `app-b` on explicit GitHub and Velnor lanes;
-  `result-*.json` artifacts and `compare-results.py` require every package and
+  `result-*.json` artifacts and `verifier compare` require every package and
   lane result when `lanes=both`. Single-lane dispatch is diagnostic.
 - `schedule.yml` runs the fixture harness on both lanes and compares normalized
   semantic evidence in a hosted job.
@@ -133,7 +134,7 @@ still confirm zero non-completed runs remain afterwards.
 - `actions/cache`
 - `actions/upload-artifact`
 - `actions/download-artifact`
-- local-only sccache, Kache, and compiler-cache-off selection
+- local-only sccache, Mr Boxington, and compiler-cache-off selection
 - `dorny/paths-filter`
 - local composite actions
 - job outputs and `needs`
@@ -161,9 +162,22 @@ crate. Run the complete local gate with `mise run check`.
 
 The fixture is deliberately small. It exists to verify execution semantics before running Velnor against larger repositories.
 
-The current baseline is Velnor v0.1.250, manifest v10, at source commit
-`2fad3ffbd3f813f1b504de14163f9b57799b5e8c`; see the [baseline/source workflow
+The current baseline is Velnor v0.1.250, manifest v11, at source commit
+`2858e92df0eb78df4f1a6fe2ad4cbf86f1d56355`; see the [baseline/source workflow
 inventory](coverage/source-workflow-inventory.md).
+
+`coverage/velnor-capabilities.json` is not an independent assertion: it is a
+cached copy of what `velnor-runner capabilities export` emits, and the capability
+audit re-binds it to the runner under test on every readiness run. Supply that
+runner with `VELNOR_CAPABILITIES_EXPORT` (an export document) or
+`VELNOR_SOURCE_DIR` (a Velnor checkout); without one, readiness fails rather than
+passing on a baseline nobody checked.
+
+Evidence records carry provenance the workflow cannot fabricate — run id, run
+attempt, commit, lane cross-checked against `RUNNER_ENVIRONMENT`, runner
+identity, the Velnor build identity, and a collection timestamp — and every
+compared value is measured by `verifier collect` rather than written into the
+workflow. See `VELNOR_VERIFIER_PLAN.md`.
 
 ## License
 

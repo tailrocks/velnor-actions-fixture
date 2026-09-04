@@ -12,22 +12,27 @@ from pathlib import Path
 from typing import Any
 
 
-IDENTITY_FIELDS = frozenset(
+# The normalization allowlist. These names are stripped from the evidence
+# *envelope* only — the record's own identity fields — and nothing at all is
+# stripped from the `semantic` payload.
+#
+# The previous implementation removed any object key with one of these names at
+# any depth of the document, which meant a divergence nested under a subtree
+# named `runner` or `lane` disappeared before comparison. No real producer in
+# this repository puts an identity key inside `semantic`, so there was never a
+# reason to recurse; there was only a way to lose evidence.
+ENVELOPE_IDENTITY_FIELDS = frozenset(
     {"lane", "runner", "runner_name", "run_id", "job_id", "observed_at"}
 )
 
 
-def normalize(value: Any) -> Any:
-    """Normalize JSON object ordering and remove runner-only identity fields."""
-    if isinstance(value, dict):
-        return {
-            key: normalize(item)
-            for key, item in sorted(value.items())
-            if key not in IDENTITY_FIELDS
-        }
-    if isinstance(value, list):
-        return [normalize(item) for item in value]
-    return value
+def semantic_payload(record: dict[str, Any]) -> Any:
+    """Return the payload to compare: the semantic subtree, verbatim.
+
+    No key is dropped and no depth is special. If two lanes disagree anywhere
+    inside this value, the comparison must say so.
+    """
+    return record["semantic"]
 
 
 def differing_paths(left: Any, right: Any, path: str = "$") -> list[str]:
@@ -112,21 +117,26 @@ def load_evidence(directory: Path, scenario: str, lanes: set[str]) -> dict[tuple
 
 
 def compare(args: argparse.Namespace) -> int:
+    """Compare every evidence id across at least two lanes.
+
+    One lane cannot establish parity. Reporting success for a single-lane
+    dispatch is exactly how this comparator stopped being able to fail, so it
+    is an error here; use the `diagnose` subcommand for diagnostic dispatches.
+    """
     lanes = set(args.lanes)
+    if len(lanes) < 2:
+        raise SystemExit(
+            f"compare requires at least two lanes, got {sorted(lanes)}; a single-lane "
+            "dispatch is diagnostic and cannot establish parity — use `diagnose`"
+        )
     records = load_evidence(Path(args.directory), args.scenario, lanes)
     evidence_ids = sorted({evidence_id for _, evidence_id in records})
-    if len(lanes) == 1:
-        print(
-            f"{args.scenario} single-lane diagnostic evidence verified for "
-            f"{next(iter(lanes))}; parity not claimed"
-        )
-        return 0
 
     first_lane = sorted(lanes)[0]
     for evidence_id in evidence_ids:
-        expected = normalize(records[(first_lane, evidence_id)]["semantic"])
+        expected = semantic_payload(records[(first_lane, evidence_id)])
         for lane in sorted(lanes - {first_lane}):
-            actual = normalize(records[(lane, evidence_id)]["semantic"])
+            actual = semantic_payload(records[(lane, evidence_id)])
             if actual != expected:
                 paths = ", ".join(differing_paths(expected, actual)[:8])
                 raise SystemExit(
@@ -135,7 +145,21 @@ def compare(args: argparse.Namespace) -> int:
                 )
     print(
         f"{args.scenario} semantic evidence matches for {len(lanes)} lanes "
-        f"({len(evidence_ids)} record(s))"
+        f"({len(evidence_ids)} record(s)); normalized envelope fields: "
+        f"{', '.join(sorted(ENVELOPE_IDENTITY_FIELDS))}"
+    )
+    return 0
+
+
+def diagnose(args: argparse.Namespace) -> int:
+    """Verify a single lane's evidence is structurally sound. Never parity."""
+    lanes = set(args.lanes)
+    if len(lanes) != 1:
+        raise SystemExit(f"diagnose takes exactly one lane, got {sorted(lanes)}")
+    records = load_evidence(Path(args.directory), args.scenario, lanes)
+    print(
+        f"{args.scenario} single-lane diagnostic evidence verified for "
+        f"{next(iter(lanes))} ({len(records)} record(s)); parity NOT established"
     )
     return 0
 
@@ -328,6 +352,12 @@ def parser() -> argparse.ArgumentParser:
     compare_parser.add_argument("--scenario", required=True)
     compare_parser.add_argument("--lanes", nargs="+", required=True)
     compare_parser.set_defaults(function=compare)
+
+    diagnose_parser = subparsers.add_parser("diagnose")
+    diagnose_parser.add_argument("--directory", required=True)
+    diagnose_parser.add_argument("--scenario", required=True)
+    diagnose_parser.add_argument("--lanes", nargs=1, required=True)
+    diagnose_parser.set_defaults(function=diagnose)
 
     docker_parser = subparsers.add_parser("docker-probe")
     docker_parser.add_argument("--lane", required=True, choices=("github", "velnor"))

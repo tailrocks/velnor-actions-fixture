@@ -182,7 +182,28 @@ jobs:
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
-      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" "${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}" "out/result.json"
+      # `steps` is computed by the runner, not written by this workflow, so the
+      # outcome and conclusion of every step above are the behavioural signal
+      # no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cat > "${{ runner.temp }}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: compat-result
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: out/result.json
+          observations: |
+            --observe-command build=cargo build --quiet --locked -p ${{ matrix.package }}
+            --observe-command run=cargo run --quiet --locked -p ${{ matrix.package }}
+            --observe-env package=FIXTURE_PACKAGE
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: result-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}-${{ matrix.package }}
@@ -236,8 +257,8 @@ jobs:
       - run: test "${RUSTC_WRAPPER:-}" = sccache
       - run: cargo check -p app-a --locked
 
-  cache-kache:
-    name: Cache kache (${{ matrix.config.lane }})
+  cache-mr-boxington:
+    name: Cache Mr Boxington (${{ matrix.config.lane }})
     strategy:
       fail-fast: false
       matrix:
@@ -248,15 +269,13 @@ jobs:
       CARGO_INCREMENTAL: "0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: kunobi-ninja/kache-action@49398d37113c616fdb61be434cb497e3c2c8f3e6 # v1 / manifest-v10
+      - uses: jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03 # v1.2.0 / manifest-v11
         with:
-          version: v0.14.2
-          github-cache: "false"
-          cache-executables: "false"
-          pr-comment: "false"
+          backend: local
           max-size: 20GiB
+          cache-links: "false"
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-      - run: test "$(basename "${RUSTC_WRAPPER:-}")" = kache
+      - run: test -n "${RUSTC_WRAPPER:-}"
       - run: cargo check -p app-a --locked
 
   services-postgres:
@@ -366,7 +385,26 @@ jobs:
         with:
           path: artifacts
           merge-multiple: false
-      - run: python3 .github/scripts/compare-results.py artifacts
+      - name: Compare observed lane behaviour
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "${GITHUB_ENV}"
+          import json
+          from pathlib import Path
+
+          baseline = json.loads(Path("coverage/velnor-capabilities.json").read_text())
+          print(f"BASELINE_MANIFEST_VERSION={baseline['version']}")
+          print(f"BASELINE_SOURCE_SHA={baseline['source_sha']}")
+          PY
+          cargo run --quiet --locked -p verifier --bin verifier -- compare \
+            --directory artifacts \
+            --scenario compat-result \
+            --lanes github velnor \
+            --expect-run-id "${GITHUB_RUN_ID}" \
+            --expect-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --expect-commit "${GITHUB_SHA}" \
+            --expect-velnor-manifest-version "${BASELINE_MANIFEST_VERSION}" \
+            --expect-velnor-source-sha "${BASELINE_SOURCE_SHA}"
       - uses: ./.github/actions/aggregate-needs
         with:
           expected: success
