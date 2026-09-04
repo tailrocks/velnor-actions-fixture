@@ -7,9 +7,9 @@ architecture review; the current capability baseline is manifest v12.
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Last verified fixture SHA: `6cc55a43aecdc5fcd469d4e9952a27daf82289c0`
+- Last verified fixture SHA: `ed6ddaf9c7a84f323a567c108a202459d82367ed`
 - Velnor under test: `tailrocks/velnor`, branch `perf/docker-rust-mbx`,
-  verified target SHA `ac389d64578f1dd26f210769388a22cb8e0c9eb8`
+  verified target SHA `dfa72c8a44397be8779dfea1e5bd6c21254c1058`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
   and reconcile the target remote before commits/pushes. Keep commits small,
   signed off with `git commit -s`, and include
@@ -111,8 +111,8 @@ before any code changed.
 
 | Tree | Branch | Commit |
 | --- | --- | --- |
-| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `6cc55a43aecdc5fcd469d4e9952a27daf82289c0` |
-| `velnor` (runner under test) | `perf/docker-rust-mbx` | `ac389d64578f1dd26f210769388a22cb8e0c9eb8` |
+| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `ed6ddaf9c7a84f323a567c108a202459d82367ed` |
+| `velnor` (runner under test) | `perf/docker-rust-mbx` | `dfa72c8a44397be8779dfea1e5bd6c21254c1058` |
 
 The manifest identity recorded below is the identity of the runner under test;
 refresh the checked-in export whenever that target changes.
