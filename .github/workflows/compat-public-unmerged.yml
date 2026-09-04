@@ -98,8 +98,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       # Compute MSRV from package/workspace Cargo.toml. Bare `stable` forces
       # rustup channel sync and collides with image-bundled clippy bits.
       - id: msrv
@@ -258,8 +258,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: test "${RUSTC_WRAPPER:-}" = sccache
       - run: cargo check -p app-a --locked
 

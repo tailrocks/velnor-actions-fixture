@@ -83,8 +83,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: cargo check -p "${FIXTURE_PACKAGE}" --locked
       - name: Record command-file effects
         run: |
