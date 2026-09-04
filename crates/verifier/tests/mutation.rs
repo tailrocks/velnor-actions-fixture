@@ -18,7 +18,7 @@ use verifier::record::{EvidenceRecord, EvidenceSet, Expectation};
 const RUN_ID: &str = "9001";
 const RUN_ATTEMPT: &str = "1";
 const COMMIT: &str = "5c8b57aa64dcbfd8fe6b2f6edae625ae344fc496";
-const VELNOR_SHA: &str = "2858e92df0eb78df4f1a6fe2ad4cbf86f1d56355";
+const VELNOR_SHA: &str = "9f522e5f638f15d934544c07d382afb7adf0c472";
 const MANIFEST_VERSION: &str = "11";
 
 /// Builds a well-formed record for one lane. `observed` is injected verbatim so
