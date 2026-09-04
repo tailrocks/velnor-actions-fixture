@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -586,6 +587,142 @@ class WorkflowEvidenceTests(unittest.TestCase):
                 SystemExit, r"semantic evidence mismatch.*\$\.result"
             ):
                 self.compare(directory)
+
+
+class CompareEvidenceActionTests(unittest.TestCase):
+    """The comparator binds Velnor evidence to the build that produced it."""
+
+    def action_text(self):
+        return (ROOT / ".github" / "actions" / "compare-evidence" / "action.yml").read_text()
+
+    def resolver_script(self):
+        action = self.action_text()
+        start = action.index("        python3 - ", action.index("Resolve comparison identities"))
+        body_start = action.index("\n", start) + 1
+        body_end = action.index("\n        PY", body_start)
+        return textwrap.dedent(action[body_start:body_end])
+
+    def run_resolver(self, records):
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary)
+            directory = temporary / "evidence"
+            directory.mkdir()
+            for relative, record in records:
+                path = directory / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(record), encoding="utf-8")
+            github_env = temporary / "github-env"
+            environment = os.environ.copy()
+            environment["GITHUB_ENV"] = str(github_env)
+            with github_env.open("w", encoding="utf-8") as handle:
+                result = subprocess.run(
+                    [sys.executable, "-", str(directory)],
+                    cwd=ROOT,
+                    input=self.resolver_script(),
+                    stderr=subprocess.PIPE,
+                    stdout=handle,
+                    text=True,
+                    env=environment,
+                )
+            environment_values = dict(
+                line.split("=", 1)
+                for line in github_env.read_text(encoding="utf-8").splitlines()
+                if line
+            )
+            return result, environment_values
+
+    @staticmethod
+    def record(lane, source_sha=None):
+        provenance = {"lane": lane}
+        if source_sha is not None:
+            provenance["velnor_source_sha"] = source_sha
+        return {"provenance": provenance}
+
+    def test_current_evidence_source_is_accepted_without_baseline_source_binding(self):
+        current_source = "d" * 40
+        baseline_source = json.loads(
+            (ROOT / "coverage" / "velnor-capabilities.json").read_text()
+        )["source_sha"]
+        self.assertNotEqual(current_source, baseline_source)
+        result, output = self.run_resolver(
+            [
+                ("github.json", self.record("github")),
+                ("nested/velnor-a.json", self.record("velnor", current_source)),
+                ("nested/velnor-b.json", self.record("velnor", current_source)),
+            ]
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            output,
+            {
+                "BASELINE_MANIFEST_VERSION": "12",
+                "EVIDENCE_VELNOR_SOURCE_SHA": current_source,
+            },
+        )
+
+    def test_missing_velnor_source_identity_fails_closed(self):
+        result, output = self.run_resolver(
+            [
+                ("github.json", self.record("github")),
+                ("velnor.json", self.record("velnor")),
+            ]
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(output, {})
+        self.assertIn("provenance.velnor_source_sha", result.stderr)
+
+    def test_mixed_velnor_source_identities_fail_closed(self):
+        first_source = "a" * 40
+        second_source = "b" * 40
+        result, output = self.run_resolver(
+            [
+                ("velnor-a.json", self.record("velnor", first_source)),
+                ("nested/velnor-b.json", self.record("velnor", second_source)),
+            ]
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(output, {})
+        self.assertIn("mixed provenance.velnor_source_sha", result.stderr)
+        self.assertIn(first_source, result.stderr)
+        self.assertIn(second_source, result.stderr)
+
+    def test_non_commit_velnor_source_identity_fails_closed(self):
+        result, output = self.run_resolver(
+            [("velnor.json", self.record("velnor", "development"))]
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(output, {})
+        self.assertIn("full lowercase commit SHA", result.stderr)
+
+    def test_action_passes_derived_source_to_the_verifier(self):
+        action = self.action_text()
+        self.assertIn(
+            '--expect-velnor-source-sha "${EVIDENCE_VELNOR_SOURCE_SHA}"', action
+        )
+        self.assertNotIn("BASELINE_SOURCE_SHA", action)
+        self.assertNotIn("baseline['source_sha']", action)
+
+    def test_action_wires_github_env_handoff_before_verifier_step(self):
+        action = self.action_text()
+        resolver_start = action.index("- name: Resolve comparison identities")
+        compare_start = action.index("- name: Compare observed lane behaviour")
+        self.assertLess(resolver_start, compare_start)
+        resolver = action[resolver_start:compare_start]
+        self.assertIn("COMPARE_DIRECTORY: ${{ inputs.directory }}", resolver)
+        self.assertIn(
+            'python3 - "${COMPARE_DIRECTORY}" >> "${GITHUB_ENV}" <<\'PY\'',
+            resolver,
+        )
+        self.assertIn(
+            'print(f"BASELINE_MANIFEST_VERSION={manifest_version}")', resolver
+        )
+        self.assertIn(
+            'print(f"EVIDENCE_VELNOR_SOURCE_SHA={source_sha}")', resolver
+        )
+        compare = action[compare_start:]
+        self.assertIn(
+            '--expect-velnor-source-sha "${EVIDENCE_VELNOR_SOURCE_SHA}"', compare
+        )
 
 
 if __name__ == "__main__":
