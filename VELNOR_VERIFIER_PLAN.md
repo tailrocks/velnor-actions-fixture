@@ -7,7 +7,7 @@ architecture review; the current capability baseline is manifest v12.
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Last verified fixture SHA: `0c754902493fb07b0027a2cdab20003749dae204`
+- Last verified fixture SHA: `0c2cd6a2f95424deb8911e660095649404397f7c`
 - Velnor under test: `tailrocks/velnor`, branch `perf/docker-rust-mbx`,
   verified target SHA `d81fc76b6e181dc5aa17cb92a79b8068f8101816`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
@@ -111,7 +111,7 @@ before any code changed.
 
 | Tree | Branch | Commit |
 | --- | --- | --- |
-| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `0c754902493fb07b0027a2cdab20003749dae204` |
+| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `0c2cd6a2f95424deb8911e660095649404397f7c` |
 | `velnor` (runner under test) | `perf/docker-rust-mbx` | `d81fc76b6e181dc5aa17cb92a79b8068f8101816` |
 
 The manifest identity recorded below is the identity of the runner under test;
