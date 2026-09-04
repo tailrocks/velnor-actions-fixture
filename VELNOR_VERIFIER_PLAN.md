@@ -7,9 +7,9 @@ architecture review; the current capability baseline is manifest v12.
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Last verified fixture SHA: `c761a327c62dd0249132499f5ce2365ae617e070`
+- Last verified fixture SHA: `ba69155c094e9c6758de9fb785412314c9a587bc`
 - Velnor under test: `tailrocks/velnor`, branch `perf/docker-rust-mbx`,
-  verified target SHA `cade1dfc9fe2cf0441499d4bc6bc1c57c99b0b7e`
+  verified target SHA `4d566f0e8abf2ad46aede558d95cddbc05493f1a`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
   and reconcile the target remote before commits/pushes. Keep commits small,
   signed off with `git commit -s`, and include

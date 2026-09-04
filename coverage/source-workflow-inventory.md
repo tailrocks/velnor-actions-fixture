@@ -6,9 +6,9 @@ workflow surfaces used to scope fixture coverage.
 ## Scan basis
 
 - Velnor was synchronized at commit
-  [`cade1dfc9fe2cf0441499d4bc6bc1c57c99b0b7e`](https://github.com/tailrocks/velnor/tree/cade1dfc9fe2cf0441499d4bc6bc1c57c99b0b7e).
+  [`4d566f0e8abf2ad46aede558d95cddbc05493f1a`](https://github.com/tailrocks/velnor/tree/4d566f0e8abf2ad46aede558d95cddbc05493f1a).
 - The capability baseline is manifest v12, with source identity
-  [`cade1dfc9fe2cf0441499d4bc6bc1c57c99b0b7e`](https://github.com/tailrocks/velnor/tree/cade1dfc9fe2cf0441499d4bc6bc1c57c99b0b7e).
+  [`4d566f0e8abf2ad46aede558d95cddbc05493f1a`](https://github.com/tailrocks/velnor/tree/4d566f0e8abf2ad46aede558d95cddbc05493f1a).
 - Runner scope is Linux jobs through Docker and the GitHub V2 JIT flow. It
   includes no macOS job execution and no native scheduler surface.
 - This was a read-only source scan. It does not claim live runner execution;
@@ -107,6 +107,6 @@ is dual-lane: GitHub-hosted Linux plus the configured Velnor Linux lane.
 
 ## Source documentation
 
-- [Velnor runner usage](https://github.com/tailrocks/velnor/blob/cade1dfc9fe2cf0441499d4bc6bc1c57c99b0b7e/docs/runner-usage.md)
-- [Velnor target live runbook](https://github.com/tailrocks/velnor/blob/cade1dfc9fe2cf0441499d4bc6bc1c57c99b0b7e/docs/target-live-runbook.md)
-- [Velnor roadmap and host/job scope](https://github.com/tailrocks/velnor/blob/cade1dfc9fe2cf0441499d4bc6bc1c57c99b0b7e/docs/roadmap.md)
+- [Velnor runner usage](https://github.com/tailrocks/velnor/blob/4d566f0e8abf2ad46aede558d95cddbc05493f1a/docs/runner-usage.md)
+- [Velnor target live runbook](https://github.com/tailrocks/velnor/blob/4d566f0e8abf2ad46aede558d95cddbc05493f1a/docs/target-live-runbook.md)
+- [Velnor roadmap and host/job scope](https://github.com/tailrocks/velnor/blob/4d566f0e8abf2ad46aede558d95cddbc05493f1a/docs/roadmap.md)
