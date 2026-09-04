@@ -492,3 +492,17 @@ capability-readiness, format/check, and L2 closure). This remains
 static/fixture proof. No live dual-lane run, deployed image identity,
 default-mbx end-to-end result, VelnorJob benchmark, fault suite, or soak result
 is claimed.
+
+## Continuation anchor — Cargo benchmark isolation `d29b0bf`
+
+The source capability baseline now binds to Velnor
+`a92074e4a10ab2a53e58c30787db1012120a253d`, whose benchmark driver removes
+ambient compiler-wrapper, target, flags, and offline overrides from Cargo
+measurements. The manifest v12 / crate `0.1.250` capability identity remains
+`23749db8aab50310a27021ac24ef7dff7b8480468fd26f800d4b0018b4732229`.
+
+Full proof at fixture commit `d29b0bf`: `mise run check` passes against that
+source (`44` Python tests, `53` Rust tests, workflow/actionlint,
+capability-readiness, format/check, and L2 closure). This is still
+static/fixture proof; live dual-lane, deployed-image, default-mbx,
+VelnorJob-benchmark, fault, and soak results remain unclaimed.
