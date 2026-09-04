@@ -380,7 +380,7 @@ jobs:
   # Required aggregate job — mirrors ChainArgos rust-required / Jackin ci-required
   compat-required:
     if: always()
-    needs: [changes, compat, attestation]
+    needs: [changes, compat, attestation, compare-results]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:

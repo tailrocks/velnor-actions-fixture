@@ -76,6 +76,18 @@ class WorkflowPolicyTests(unittest.TestCase):
         schedule = (ROOT / ".github" / "workflows" / "schedule.yml").read_text()
         self.assertNotIn("allow-skipped: true", schedule[schedule.index("  schedule-required:") :])
 
+    def test_every_compat_required_gate_depends_on_its_comparator(self):
+        for workflow_name in ("compat.yml", "compat-public-unmerged.yml"):
+            jobs = dict(
+                workflow_audit.top_level_jobs(
+                    (ROOT / ".github" / "workflows" / workflow_name).read_text()
+                )
+            )
+            required = jobs["compat-required"]
+            needs = next(line.strip() for line in required if line.strip().startswith("needs:"))
+            self.assertIn("compare-results", needs, workflow_name)
+            self.assertIn("if: always()", [line.strip() for line in required])
+
     def test_required_callable_lane_accepts_string_without_options_or_default(self):
         text = """on:
   workflow_call:
