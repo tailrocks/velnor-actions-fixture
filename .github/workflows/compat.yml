@@ -162,14 +162,30 @@ jobs:
           printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
           cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
           grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
+          cp "${tmp_dir}/tree.txt" "${tmp_dir}/cache.txt" "${tmp_dir}/subject.json" .
+      # `steps` is computed by the runner, not written by this workflow, so the
+      # outcome and conclusion of every step above are the behavioural signal
+      # no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
           mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario compat \
-            --lane "${LANE}" \
-            --field "package=${PACKAGE}" \
-            --field examples=command_files,artifact_tree,cache_payload,release_subject \
-            --field result=pass \
-            --output "evidence/compat-${LANE}-${PACKAGE}.json"
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: compat
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/compat-${{ matrix.config.lane }}-${{ matrix.package }}.json
+          observations: |
+            --observe-command command-files=cargo run --quiet --locked -p fixture-harness --example command_files
+            --observe-file artifact-tree=tree.txt
+            --observe-file cache-payload=cache.txt
+            --observe-file release-subject=subject.json
+            --observe-steps steps=${{ runner.temp }}/steps.json
       # Verify MSRV step with env injection — mirrors Jackin MSRV pattern
       - name: Check MSRV
         env:
@@ -385,26 +401,10 @@ jobs:
         with:
           path: artifacts
           merge-multiple: false
-      - name: Compare observed lane behaviour
-        run: |
-          set -euo pipefail
-          python3 - <<'PY' >> "${GITHUB_ENV}"
-          import json
-          from pathlib import Path
-
-          baseline = json.loads(Path("coverage/velnor-capabilities.json").read_text())
-          print(f"BASELINE_MANIFEST_VERSION={baseline['version']}")
-          print(f"BASELINE_SOURCE_SHA={baseline['source_sha']}")
-          PY
-          cargo run --quiet --locked -p verifier --bin verifier -- compare \
-            --directory artifacts \
-            --scenario compat-result \
-            --lanes github velnor \
-            --expect-run-id "${GITHUB_RUN_ID}" \
-            --expect-run-attempt "${GITHUB_RUN_ATTEMPT}" \
-            --expect-commit "${GITHUB_SHA}" \
-            --expect-velnor-manifest-version "${BASELINE_MANIFEST_VERSION}" \
-            --expect-velnor-source-sha "${BASELINE_SOURCE_SHA}"
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: compat-result
+          directory: artifacts
       - uses: ./.github/actions/aggregate-needs
         with:
           expected: success

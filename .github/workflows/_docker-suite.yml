@@ -67,19 +67,31 @@ jobs:
           file: Dockerfile.fixture
           tags: velnor-actions-fixture:${{ matrix.lane }}
           load: true
-      - name: Verify built image and write evidence
+      - name: Verify built image
         run: |
           set -euo pipefail
           test "$(docker run --rm "velnor-actions-fixture:${LANE}")" = fixture::app-a
+      # `steps` is computed by the runner, not written by this workflow, so the
+      # outcome and conclusion of every step above are the behavioural signal
+      # no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
           mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario docker \
-            --lane "${LANE}" \
-            --field adapters=setup-qemu,cosign,buildx,build-push \
-            --field examples=command_files,artifact_tree,cache_payload,release_subject \
-            --field image=fixture::app-a \
-            --field result=pass \
-            --output "evidence/docker-${LANE}.json"
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: docker
+          evidence-id: image
+          lane: ${{ matrix.lane }}
+          output: evidence/docker-${{ matrix.lane }}.json
+          observations: |
+            --observe-command image-entrypoint=docker run --rm velnor-actions-fixture:${{ matrix.lane }}
+            --observe-command examples=cargo run --quiet --locked -p fixture-harness --example command_files
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: suite-docker-${{ matrix.lane }}
@@ -93,29 +105,14 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
+      # Checkout first: it cleans the workspace, which would delete the
+      # downloaded lane artifacts if it ran after them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: suite-docker-*
           path: artifacts
-      - name: Compare deterministic Docker evidence
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          rows = {}
-          for path in Path("artifacts").rglob("*.json"):
-              payload = json.loads(path.read_text())
-              if payload.get("scenario") == "docker":
-                  rows[payload["lane"]] = payload
-          if set(rows) != {"github", "velnor"}:
-              raise SystemExit(f"missing Docker evidence lanes: {sorted(rows)}")
-          github = rows["github"]
-          velnor = rows["velnor"]
-          github.pop("lane", None)
-          velnor.pop("lane", None)
-          if github != velnor:
-              raise SystemExit("Docker evidence mismatch")
-          print("Docker lane evidence matches")
-          PY
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: docker
+          directory: artifacts

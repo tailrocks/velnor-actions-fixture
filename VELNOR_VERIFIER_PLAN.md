@@ -323,6 +323,30 @@ Per the scope limit, the whole Python verifier is **not** ported. The split:
 - **Python deleted** — `write-result.py` (literal payload author) is replaced
   by the Rust collector rather than repaired.
 
+## V-1 status
+
+All twelve tasks are complete on `codex/verifier-completion-fixes`.
+
+The `--field key=value` mechanism is deleted, not deprecated: the
+`fixture-harness` `Evidence` type and its `evidence` binary are gone, so no
+workflow can author an evidence value any more. Every one of the nine
+producers now uses `.github/actions/collect-evidence`, and every comparator
+uses `.github/actions/compare-evidence`. `write-result.py` and
+`compare-results.py` are deleted.
+
+The one deliberate exception is `backend-parity.yml`. Its execution backend
+legitimately differs between lanes — that is what the workflow exists to prove
+— so the backend is asserted per lane against its admitted set instead of being
+deleted from both records immediately before comparison, as it was. What is
+compared across lanes is the workload's observed behaviour despite the
+different backend.
+
+Gates run locally, all green: `just check` (capability readiness audit,
+actionlint, Python syntax, 31 Python tests, workflow-surface audit, `cargo fmt
+--check`, `cargo check --workspace --all-targets --locked`, 49 workspace tests
+including 16 mutation tests, L2 closure), plus `cargo clippy --workspace
+--all-targets --locked -- -D warnings`.
+
 ## Out of scope for V-1
 
 The Rust scenario matrix (`sccache` versus `mr-boxington`) is untouched. It is

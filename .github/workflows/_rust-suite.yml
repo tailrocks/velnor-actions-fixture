@@ -72,14 +72,31 @@ jobs:
           printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
           cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
           grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
+          cp "${tmp_dir}/tree.txt" "${tmp_dir}/cache.txt" "${tmp_dir}/subject.json" .
+      # `steps` is computed by the runner, not written by this workflow, so the
+      # outcome and conclusion of every step above are the behavioural signal
+      # no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
           mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario rust \
-            --lane "${LANE}" \
-            --field "package=${PACKAGE}" \
-            --field examples=command_files,artifact_tree,cache_payload,release_subject \
-            --field tests=fixture-harness-all-targets \
-            --output "evidence/rust-${LANE}-${PACKAGE}.json"
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: rust
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.lane }}
+          output: evidence/rust-${{ matrix.lane }}-${{ matrix.package }}.json
+          observations: |
+            --observe-command tests=cargo nextest run --locked -p fixture-harness --all-targets
+            --observe-command command-files=cargo run --quiet --locked -p fixture-harness --example command_files
+            --observe-file artifact-tree=tree.txt
+            --observe-file cache-payload=cache.txt
+            --observe-file release-subject=subject.json
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: suite-rust-${{ matrix.lane }}-${{ matrix.package }}
@@ -93,32 +110,14 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
+      # Checkout first: it cleans the workspace, which would delete the
+      # downloaded lane artifacts if it ran after them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: suite-rust-*
           path: artifacts
-      - name: Compare deterministic Rust evidence
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          rows = {}
-          for path in Path("artifacts").rglob("*.json"):
-              payload = json.loads(path.read_text())
-              if payload.get("scenario") == "rust":
-                  fields = payload["fields"]
-                  rows[(payload["lane"], fields["package"])] = payload
-          for package in ("app-a", "app-b"):
-              try:
-                  github = rows[("github", package)]
-                  velnor = rows[("velnor", package)]
-              except KeyError as error:
-                  raise SystemExit(f"missing Rust evidence: {error}")
-              github.pop("lane", None)
-              velnor.pop("lane", None)
-              if github != velnor:
-                  raise SystemExit(f"Rust evidence mismatch for {package}")
-          print("Rust lane evidence matches (2 package(s) compared)")
-          PY
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: rust
+          directory: artifacts

@@ -99,21 +99,35 @@ jobs:
           [[ "${image_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
           mkdir -p "${DIGEST_DIR}"
           printf '%s\n' "${image_digest}" > "${DIGEST_DIR}/${LANE}-${PLATFORM//\//-}.digest"
-          mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario multi-arch \
-            --lane "${LANE,,}" \
-            --field platform="${PLATFORM}" \
-            --field digest="${image_digest}" \
-            --field image=fixture::app-a \
-            --field result=pass \
-            --output "evidence/multi-arch-${LANE}-${PLATFORM##*/}.json"
           {
             echo "### build digest (${LANE} ${PLATFORM})"
             echo '```'
             cat "${DIGEST_DIR}/${LANE}-${PLATFORM//\//-}.digest"
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
+      # `steps` is computed by the runner, not written by this workflow, so the
+      # outcome and conclusion of every step above are the behavioural signal
+      # no workflow author can fabricate. The image digest is a measured build
+      # output, compared verbatim across lanes: two runners building the same
+      # Dockerfile at the same commit for the same platform must agree.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: multi-arch
+          evidence-id: ${{ matrix.config.platform == 'linux/amd64' && 'amd64' || matrix.config.platform == 'linux/arm64' && 'arm64' || 'unknown' }}
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/multi-arch-${{ matrix.config.lane }}-${{ matrix.config.platform == 'linux/amd64' && 'amd64' || matrix.config.platform == 'linux/arm64' && 'arm64' || 'unknown' }}.json
+          observations: |
+            --observe-file digest=${{ env.DIGEST_DIR }}/${{ matrix.config.lane }}-${{ matrix.config.platform == 'linux/amd64' && 'linux-amd64' || 'linux-arm64' }}.digest
+            --observe-command platform=echo ${{ matrix.config.platform }}
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: digest-${{ matrix.config.lane }}-${{ matrix.config.platform == 'linux/amd64' && 'amd64' || matrix.config.platform == 'linux/arm64' && 'arm64' || 'unknown' }}
@@ -136,6 +150,9 @@ jobs:
         env:
           BUILD_RESULT: ${{ needs.build.result }}
         run: test "${BUILD_RESULT}" = success
+      # Checkout first: it cleans the workspace, which would delete the
+      # downloaded lane artifacts if it ran after them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: multi-arch-evidence-GitHub-amd64
@@ -152,51 +169,10 @@ jobs:
         with:
           name: multi-arch-evidence-Velnor-arm64
           path: artifacts/velnor-arm64
-      - name: Compare normalized per-platform evidence
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          expected = {
-              ("github", "amd64"): Path("artifacts/github-amd64/multi-arch-GitHub-amd64.json"),
-              ("github", "arm64"): Path("artifacts/github-arm64/multi-arch-GitHub-arm64.json"),
-              ("velnor", "amd64"): Path("artifacts/velnor-amd64/multi-arch-Velnor-amd64.json"),
-              ("velnor", "arm64"): Path("artifacts/velnor-arm64/multi-arch-Velnor-arm64.json"),
-          }
-          rows = {}
-
-          for (lane, arch), path in expected.items():
-              if not path.is_file():
-                  raise SystemExit(f"missing {lane}/{arch} evidence: {path}")
-              files = sorted(item for item in path.parent.rglob("*") if item.is_file())
-              if files != [path]:
-                  raise SystemExit(f"unexpected {lane}/{arch} evidence files: {files}")
-              payload = json.loads(path.read_text(encoding="utf-8"))
-              if payload.get("schema") != "velnor.fixture.evidence.v1":
-                  raise SystemExit(f"invalid {lane}/{arch} evidence schema")
-              if payload.get("scenario") != "multi-arch" or payload.get("lane") != lane:
-                  raise SystemExit(f"invalid {lane}/{arch} evidence identity")
-              fields = payload.get("fields")
-              if not isinstance(fields, dict):
-                  raise SystemExit(f"invalid {lane}/{arch} evidence fields")
-              if fields.get("platform") != f"linux/{arch}" or fields.get("result") != "pass":
-                  raise SystemExit(f"invalid {lane}/{arch} platform result")
-              digest = fields.get("digest", "")
-              if not isinstance(digest, str) or len(digest) != 71 or not digest.startswith("sha256:"):
-                  raise SystemExit(f"invalid {lane}/{arch} image digest")
-              rows[(lane, arch)] = payload
-
-          for arch in ("amd64", "arm64"):
-              github = rows[("github", arch)]
-              velnor = rows[("velnor", arch)]
-              github.pop("lane")
-              velnor.pop("lane")
-              if github != velnor:
-                  raise SystemExit(f"semantic evidence mismatch for linux/{arch}")
-          print("multi-arch lane evidence matches for linux/amd64 and linux/arm64")
-          PY
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: multi-arch
+          directory: artifacts
 
   # Manifest merge — mirrors Jackin construct.yml publish-manifest pattern.
   # Downloads all platform digests and merges using merge-multiple: true.

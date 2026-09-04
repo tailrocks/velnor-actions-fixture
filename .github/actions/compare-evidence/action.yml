@@ -1,0 +1,54 @@
+name: Compare lane evidence
+description: >-
+  Verify that every evidence record belongs to this run, this fixture commit
+  and the Velnor build the capability baseline is bound to, then compare the
+  observed behaviour of every lane. A single lane is an error.
+inputs:
+  scenario:
+    required: true
+    description: Scenario whose records to compare.
+  directory:
+    required: true
+    description: Directory holding the downloaded lane artifacts.
+  lanes:
+    required: false
+    default: github velnor
+    description: Space-separated lanes. At least two; one cannot establish parity.
+runs:
+  using: composite
+  steps:
+    - name: Compare observed lane behaviour
+      shell: bash
+      env:
+        COMPARE_SCENARIO: ${{ inputs.scenario }}
+        COMPARE_DIRECTORY: ${{ inputs.directory }}
+        COMPARE_LANES: ${{ inputs.lanes }}
+      run: |
+        set -euo pipefail
+        # The baseline is bound to the runner under test by the capability
+        # audit, so binding evidence to the baseline binds it to that runner.
+        python3 - >> "${GITHUB_ENV}" <<'PY'
+        import json
+        from pathlib import Path
+
+        baseline = json.loads(
+            Path("coverage/velnor-capabilities.json").read_text(encoding="utf-8")
+        )
+        print(f"BASELINE_MANIFEST_VERSION={baseline['version']}")
+        print(f"BASELINE_SOURCE_SHA={baseline['source_sha']}")
+        PY
+        # shellcheck disable=SC2086
+        set -- ${COMPARE_LANES}
+        if [[ "$#" -lt 2 ]]; then
+          echo "compare requires at least two lanes, got: ${COMPARE_LANES}" >&2
+          exit 1
+        fi
+        cargo run --quiet --locked -p verifier --bin verifier -- compare \
+          --directory "${COMPARE_DIRECTORY}" \
+          --scenario "${COMPARE_SCENARIO}" \
+          --expect-run-id "${GITHUB_RUN_ID}" \
+          --expect-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+          --expect-commit "${GITHUB_SHA}" \
+          --expect-velnor-manifest-version "${BASELINE_MANIFEST_VERSION}" \
+          --expect-velnor-source-sha "${BASELINE_SOURCE_SHA}" \
+          --lanes "$@"

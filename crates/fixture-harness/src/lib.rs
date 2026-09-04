@@ -496,72 +496,13 @@ pub fn release_subject(
     Ok(output)
 }
 
-/// Canonical lane evidence emitted by workflow scenarios.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Evidence {
-    scenario: String,
-    lane: String,
-    fields: BTreeMap<String, String>,
-}
-
-impl Evidence {
-    /// Creates empty evidence for one scenario and runner lane.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when scenario or lane is empty or contains a newline.
-    pub fn new(scenario: &str, lane: &str) -> Result<Self, HarnessError> {
-        validate_single_line("evidence scenario", scenario)?;
-        validate_single_line("evidence lane", lane)?;
-        Ok(Self {
-            scenario: scenario.to_owned(),
-            lane: lane.to_owned(),
-            fields: BTreeMap::new(),
-        })
-    }
-
-    /// Adds one unique evidence field.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when the key is invalid or already exists.
-    pub fn insert(&mut self, key: &str, value: &str) -> Result<(), HarnessError> {
-        validate_name(key, 0)
-            .map_err(|_| HarnessError::new(format!("invalid evidence field name {key:?}")))?;
-        match self.fields.entry(key.to_owned()) {
-            Entry::Vacant(entry) => {
-                entry.insert(value.to_owned());
-                Ok(())
-            }
-            Entry::Occupied(_) => Err(HarnessError::new(format!(
-                "duplicate evidence field {key:?}"
-            ))),
-        }
-    }
-
-    /// Renders canonical JSON with sorted fields and a final newline.
-    pub fn to_json(&self) -> String {
-        let mut output = format!(
-            "{{\"schema\":\"velnor.fixture.evidence.v1\",\"scenario\":\"{}\",\"lane\":\"{}\",\"build\":\"{}\",\"fields\":{{",
-            json_escape(&self.scenario),
-            json_escape(&self.lane),
-            json_escape(BUILD_MARKER)
-        );
-        for (index, (key, value)) in self.fields.iter().enumerate() {
-            if index != 0 {
-                output.push(',');
-            }
-            let _ = write!(
-                output,
-                "\"{}\":\"{}\"",
-                json_escape(key),
-                json_escape(value)
-            );
-        }
-        output.push_str("}}\n");
-        output
-    }
-}
+// The `Evidence` type and its `evidence` binary lived here. They took
+// `--field key=value` strings from the workflow and copied them verbatim into
+// the record, which meant both lanes emitted identical documents by
+// construction and the cross-lane comparators could only fail when a lane
+// artifact was missing. The mechanism is deleted rather than discouraged: the
+// `verifier` crate collects observations instead, and offers no way to state
+// one.
 
 /// Returns a stable FNV-1a fixture fingerprint.
 pub fn stable_digest(bytes: &[u8]) -> String {
@@ -593,7 +534,7 @@ fn json_escape(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{cache_payload, parse_command_file, release_subject, Evidence, ReleaseArtifact};
+    use super::{cache_payload, parse_command_file, release_subject, ReleaseArtifact};
 
     #[test]
     fn command_file_supports_scalar_and_heredoc_values() {
@@ -626,16 +567,5 @@ mod tests {
         let subject = release_subject("0123456789abcdef0123456789abcdef01234567", &[beta, alpha])
             .expect("valid subject");
         assert!(subject.find("dist/alpha") < subject.find("dist/beta"));
-    }
-
-    #[test]
-    fn evidence_sorts_and_escapes_fields() {
-        let mut evidence = Evidence::new("cache", "github").expect("valid evidence identity");
-        evidence.insert("zeta", "line\n2").expect("unique field");
-        evidence.insert("alpha", "quoted\"").expect("unique field");
-        assert_eq!(
-            evidence.to_json(),
-            "{\"schema\":\"velnor.fixture.evidence.v1\",\"scenario\":\"cache\",\"lane\":\"github\",\"build\":\"fixture-harness-build-v1\",\"fields\":{\"alpha\":\"quoted\\\"\",\"zeta\":\"line\\n2\"}}\n"
-        );
     }
 }
