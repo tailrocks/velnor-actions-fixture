@@ -506,3 +506,16 @@ source (`44` Python tests, `53` Rust tests, workflow/actionlint,
 capability-readiness, format/check, and L2 closure). This is still
 static/fixture proof; live dual-lane, deployed-image, default-mbx,
 VelnorJob-benchmark, fault, and soak results remain unclaimed.
+
+## Continuation anchor — full source gate `a80c430`
+
+The capability baseline now binds to source `2a2b6ae` after the source plan
+verification journal was committed. The exported manifest remains v12 / crate
+`0.1.250` with capability identity
+`23749db8aab50310a27021ac24ef7dff7b8480468fd26f800d4b0018b4732229`.
+
+Full proof at fixture commit `a80c430`: `mise run check` passes against that
+exact source (`44` Python tests, `53` Rust tests, workflow/actionlint,
+capability-readiness, format/check, and L2 closure). No live dual-lane,
+deployed-image, default-mbx, VelnorJob benchmark, fault, or soak result is
+claimed.
