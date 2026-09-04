@@ -452,42 +452,6 @@
       ]
     },
     {
-      "repository": "jdx/mr-boxington-action",
-      "disposition": "covered",
-      "reason": "Mr Boxington is the compiler cache Velnor admits at manifest v11; the compatibility workflow selects the GitHub backend on both lanes.",
-      "evidence": [
-        ".github/workflows/compat.yml"
-      ],
-      "inputs": [
-        "backend",
-        "version",
-        "github-token",
-        "cache-key",
-        "restore-keys",
-        "cache-generation",
-        "save-on-workflow-dispatch",
-        "toolchain",
-        "max-size",
-        "cache-links",
-        "server-url",
-        "namespace",
-        "token",
-        "token-file",
-        "oidc-audience",
-        "server-mode"
-      ],
-      "subpaths": [],
-      "execution": "dual",
-      "fixture_status": "covered",
-      "microvm": "expected-unsupported",
-      "producer": [
-        ".github/workflows/compat.yml"
-      ],
-      "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
-      ]
-    },
-    {
       "repository": "rui314/setup-mold",
       "disposition": "covered",
       "reason": "Setup Mold action is covered by the compatibility and actions-suite workflows.",

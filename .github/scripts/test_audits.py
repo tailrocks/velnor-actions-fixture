@@ -189,15 +189,14 @@ class BaselineBindingTests(unittest.TestCase):
         self.assertNotEqual(coverage_audit.capability_identity(document), identity)
 
     def test_a_swapped_action_identity_is_rejected_at_constant_cardinality(self):
-        """The exact mutation that manifest v11 made and the audit missed."""
+        """A constant-cardinality action identity swap must fail the audit."""
         runner = self.baseline()
-        for row in runner["actions"]:
-            if row["repository"] == "jdx/mr-boxington-action":
-                row["repository"] = "kunobi-ninja/kache-action"
+        original = runner["actions"][0]["repository"]
+        runner["actions"][0]["repository"] = "example/not-admitted-action"
         self.assertEqual(len(runner["actions"]), len(self.baseline()["actions"]))
         failures = "\n".join(self.bind(runner))
-        self.assertIn("kunobi-ninja/kache-action", failures)
-        self.assertIn("jdx/mr-boxington-action", failures)
+        self.assertIn("example/not-admitted-action", failures)
+        self.assertIn(original, failures)
 
     def test_a_widened_allowed_ref_is_rejected(self):
         runner = self.baseline()
