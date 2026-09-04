@@ -7,9 +7,9 @@ architecture review; the current capability baseline is manifest v12.
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Starting/verified target SHA: `b12119624e2b663c418f6f38a3a2c8a846492bc3`
+- Last verified fixture SHA: `6f605a8252f2f83de1ea9046eff954d518d36bdc`
 - Velnor under test: `tailrocks/velnor`, branch `perf/docker-rust-mbx`,
-  starting/verified target SHA `7b0bfd7e5dfa48eba741a7a8a7141f2d31310816`
+  verified target SHA `b7635a96fb461971b85a17003f63ca2144eca014`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
   and reconcile the target remote before commits/pushes. Keep commits small,
   signed off with `git commit -s`, and include
@@ -17,13 +17,15 @@ architecture review; the current capability baseline is manifest v12.
 
 ## Current verifier evidence
 
-- `rtk cargo test --workspace --all-targets --no-fail-fast`: 20 tests across
-  15 suites passed on the exact branch.
+- `VELNOR_SOURCE_DIR=/path/to/velnor mise run check`: 49 Rust tests and 38
+  Python tests passed, with workflow, capability, actionlint, formatting,
+  workspace, and L2 closure gates green.
 - This is unit/integration evidence only. No live dual-lane readiness verdict,
   exact deployed image identity, or current Velnor capability audit has been
   accepted.
-- `GOAL.md` currently declares a stale Velnor release/manifest baseline;
-  derive the capability baseline from the exact Velnor commit under test.
+- The checked-in capability baseline is generated from the Velnor runner under
+  test; its content identity and source provenance must be revalidated whenever
+  the runner capability surface changes.
 
 ## Target verifier invariants
 
@@ -109,8 +111,8 @@ before any code changed.
 
 | Tree | Branch | Commit |
 | --- | --- | --- |
-| `velnor-actions-fixture` (this repository) | `codex/verifier-completion-fixes` | `b12119624e2b663c418f6f38a3a2c8a846492bc3` |
-| `velnor` (runner under test) | `perf/docker-rust-mbx` | `7b0bfd7e5dfa48eba741a7a8a7141f2d31310816` |
+| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `6f605a8252f2f83de1ea9046eff954d518d36bdc` |
+| `velnor` (runner under test) | `perf/docker-rust-mbx` | `b7635a96fb461971b85a17003f63ca2144eca014` |
 
 The manifest identity recorded below is the identity of the runner under test;
 refresh the checked-in export whenever that target changes.
@@ -333,9 +335,9 @@ including 16 mutation tests, L2 closure), plus `cargo clippy --workspace
 
 ## Out of scope for V-1
 
-The Rust scenario matrix (`sccache` versus `mr-boxington`) is untouched. It is
-a separate package of work; this task only removes the false all-clear that
-hid the manifest change which introduced it.
+The native Rust scenario matrix (Velnor's default acceleration versus explicit
+sccache) is untouched. It is a separate package of work; this task only
+removes the false all-clear that hid the manifest change which introduced it.
 
 # V-3 — refreshing the baseline, and the coverage it was blocking (P0)
 
@@ -395,18 +397,21 @@ action, so the audit enforced the false claim instead of catching it —
 `expected-unsupported` with the runner's own reason, and a test holds every
 microVM disposition to the supported set.
 
-## F9 — generic compiler-cache action admission (superseded)
+## F9 — generic compiler-cache action backend contract (closed)
 
-The original F9 investigated a third-party generic JavaScript compiler-cache
-action and its backend/input contract. Independent architecture review found
-that Velnor had no executable adapter for that action: generic JavaScript
-admission reached a fail-closed execution branch. T-019 therefore closes the
-generic JavaScript capability surface instead of retaining a fixture scenario
-that could not run on Velnor.
+The original F9 found that the pinned `jdx/mr-boxington-action` rejected the
+fixture's `backend: local` selection. The compatibility workflow now selects
+the supported `github` backend, while manifest v12 constrains the action to its
+pinned identity and supported backend/input contract.
 
-The fixture no longer invokes or documents that action. Mr Boxington remains a
-Velnor Docker Rust backend concern and is covered by the native Rust-suite
-scenario matrix.
+Velnor declares the action as `ActionAdapter::JavaScript`, validates the
+fetched `runs.using: node24` metadata during admission, and plans it through
+the containerized JavaScript executor with lifecycle handling. The fixture
+exercises `backend`, `max-size`, and `cache-links`; the other admitted inputs
+are recorded with explicit `expected_unsupported` dispositions whose reasons
+say they are not selected by this workflow. This keeps the surface schema's
+executable-workflow rule intact without claiming the unexercised inputs are
+unsupported by Velnor.
 
 ## V-3 status
 
@@ -417,9 +422,10 @@ Landed:
   the runner's own.
 - The sccache microVM correction (F8).
 
-The superseded generic compiler-cache action scenario and surface rows are
-removed. Mr Boxington backend coverage remains in the Rust-suite scenario
-matrix, where Velnor owns the selection and lifecycle.
+The explicit JavaScript compiler-cache action scenario and surface row are
+synchronized with the current manifest. Its workflow uses `backend: github`;
+the runner validates the fetched runtime and executes it through the
+containerized JavaScript path.
 
 The current baseline is refreshed against the synchronized Velnor commit above,
 and the complete local readiness gate passes. No check was removed, skipped, or
@@ -447,5 +453,3 @@ does not write to the runner.
    unsupported and `target_audit` bails at the `unsupported target workflow
    surface` check. A target using either input is rejected by the audit for
    using something the runner supports.
-4. The superseded generic compiler-cache action contract is absent from the
-   runner manifest and fixture surface; F9 records why.
