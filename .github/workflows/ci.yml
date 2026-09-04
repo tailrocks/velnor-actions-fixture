@@ -112,10 +112,29 @@ jobs:
           import json
           from pathlib import Path
 
+          # The Rust scenario matrix. The default Velnor Rust path is the
+          # mandatory scenario; sccache is one scenario among several.
+          rust_scenarios = {
+              "rust-default": ("package", ("app-a", "app-b")),
+              "rust-sccache": ("package", ("app-a", "app-b")),
+              "rust-accel-optout": ("package", ("app-a", "app-b")),
+              "rust-cache-interaction": (
+                  "interaction",
+                  (
+                      "cargo-source-cache",
+                      "explicit-sccache",
+                      "lockfile-change",
+                      "source-change",
+                      "target-cache",
+                  ),
+              ),
+              "rust-parallel": ("shard", ("1", "2", "3", "4")),
+          }
           expected = {
-              ("rust", lane, package)
+              (scenario, lane, key)
+              for scenario, (_, keys) in rust_scenarios.items()
               for lane in ("github", "velnor")
-              for package in ("app-a", "app-b")
+              for key in keys
           }
           expected |= {
               ("runtime", lane, package)
@@ -130,8 +149,12 @@ jobs:
           observed = set()
           for path in Path("artifacts").rglob("*.json"):
               payload = json.loads(path.read_text())
-              if payload.get("scenario") == "rust":
-                  observed.add(("rust", payload["lane"], payload["fields"]["package"]))
+              if payload.get("scenario") in rust_scenarios:
+                  scenario = payload["scenario"]
+                  field = rust_scenarios[scenario][0]
+                  observed.add(
+                      (scenario, payload["lane"], str(payload["fields"][field]))
+                  )
               elif payload.get("scenario") in {"actions", "docker"}:
                   observed.add((payload["scenario"], payload["lane"], ""))
               elif payload.get("lane") in {"github", "velnor"}:
