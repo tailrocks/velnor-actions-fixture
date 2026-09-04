@@ -4,6 +4,7 @@
 import argparse
 import importlib.util
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -220,6 +221,54 @@ class BaselineBindingTests(unittest.TestCase):
                 )
             )
             self.assertIn("different Velnor build", "\n".join(failures))
+
+
+class RunnerCheckoutStateTests(unittest.TestCase):
+    """A commit may only name a manifest the commit actually contains."""
+
+    def checkout(self, temporary):
+        directory = Path(temporary)
+        run = lambda *args: subprocess.run(  # noqa: E731
+            ["git", "-C", str(directory), *args], check=True, capture_output=True
+        )
+        run("init", "--quiet")
+        run("config", "user.email", "fixture@example.invalid")
+        run("config", "user.name", "fixture")
+        for relative in coverage_audit.MANIFEST_SOURCE_PATHS:
+            path = directory / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("committed\n", encoding="utf-8")
+        run("add", "--all")
+        run("commit", "--quiet", "-m", "fixture")
+        return directory, run
+
+    def test_a_clean_manifest_source_tree_is_accepted(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory, _ = self.checkout(temporary)
+            failures = []
+            coverage_audit.require_manifest_sources_committed(directory, "0" * 40, failures)
+            self.assertEqual(failures, [])
+
+    def test_unrelated_uncommitted_work_is_accepted(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory, _ = self.checkout(temporary)
+            (directory / "crates" / "velnor-runner" / "src" / "runner.rs").write_text(
+                "work in progress\n", encoding="utf-8"
+            )
+            failures = []
+            coverage_audit.require_manifest_sources_committed(directory, "0" * 40, failures)
+            self.assertEqual(failures, [])
+
+    def test_an_uncommitted_manifest_change_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory, _ = self.checkout(temporary)
+            (directory / "crates" / "velnor-runner" / "src" / "manifest.rs").write_text(
+                "uncommitted\n", encoding="utf-8"
+            )
+            failures = []
+            coverage_audit.require_manifest_sources_committed(directory, "0" * 40, failures)
+            self.assertIn("manifest.rs", "\n".join(failures))
+            self.assertIn("would not be the manifest of", "\n".join(failures))
 
 
 class CitationTests(unittest.TestCase):
