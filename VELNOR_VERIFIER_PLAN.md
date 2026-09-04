@@ -352,3 +352,152 @@ including 16 mutation tests, L2 closure), plus `cargo clippy --workspace
 The Rust scenario matrix (`sccache` versus `mr-boxington`) is untouched. It is
 a separate package of work; this task only removes the false all-clear that
 hid the manifest change which introduced it.
+
+# V-3 — refreshing the baseline, and the coverage it was blocking (P0)
+
+## Starting state
+
+V-1 bound the checked-in baseline to the runner under test, and the readiness
+gate was correctly failing:
+
+```
+ERROR: coverage/velnor-capabilities.json source_sha is
+'2858e92df0eb78df4f1a6fe2ad4cbf86f1d56355', but the Velnor build under test
+reports '63bbc3f48e1c0ea226cc55014e1268953f254cb3'; the baseline is stale
+```
+
+Comparing the runner's own `capabilities export` against the checked-in
+document showed the failure was **only** the commit: manifest version,
+`crate_version`, the admitted action set, the reusable workflow set and every
+row's refs, subpaths and inputs already agreed exactly. The v10 → v11 move and
+the Kache → Mr Boxington swap had already been landed by V-1: no `kache`
+reference survives in any script, coverage document or workflow, and
+`EXPECTED_KACHE_REF`, `EXPECTED_KACHE_VERSION` and `validate_kache_contract`
+are gone along with every other `EXPECTED_*` baseline constant. The one
+surviving mention is deliberate — a mutation test that replays the exact
+identity swap the old cardinality check missed.
+
+## F7 — a refresh nobody could perform without a hand edit (verified)
+
+The gate could say a baseline was stale but nothing could make it current. Three
+consecutive commits on this branch (`7bdcfcf`, `1225edc`, `378405c`) do nothing
+but retype a commit SHA in four or five files each, which is precisely the hand
+edit the gate exists to make impossible. A hand edit cannot turn a stale
+baseline into a correct one; it can only turn it into a wrong one that happens
+to satisfy one field.
+
+`just refresh-capability-baseline` replaces that. It exports the manifest from
+the build under test through the same `load_runner_baseline` the readiness gate
+uses, writes that document verbatim, carries the manifest identity into
+`coverage/fixture-coverage.json`, and re-runs readiness: a refresh that does not
+certify is not a refresh. The checked-in file is never read or merged into, so
+no value can survive a refresh that the runner does not report. Deriving the
+commit from a checkout's HEAD additionally requires `manifest.rs`, `action.rs`,
+`build.rs` and `Cargo.toml` to be committed — those four files are exactly what
+the exported document is derived from, and attributing them to a commit that
+does not contain them is the same staleness in a smaller window. Unrelated work
+in the checkout stays allowed, because a shared reference checkout under active
+development is the normal case.
+
+Two prose statements of the baseline commit (`README.md`, `GOAL.md`) are deleted
+rather than updated. A commit SHA restated in documentation is a copy that can
+only go stale; the baseline records it once.
+
+## F8 — the fixture claimed microVM supports sccache (verified)
+
+`validate_microvm_compiler_cache` (`crates/velnor-runner/src/manifest.rs`)
+refuses a microVM job that declares `mozilla-actions/sccache-action`, and
+equally one carrying any `RUSTC_WRAPPER` or `SCCACHE_*` environment. The
+coverage row recorded `microvm: supported` and `MICROVM_SUPPORTED` listed the
+action, so the audit enforced the false claim instead of catching it —
+`_rust-suite.yml` already documented the opposite in a comment. The row is now
+`expected-unsupported` with the runner's own reason, and a test holds every
+microVM disposition to the supported set.
+
+## F9 — `jdx/mr-boxington-action` cannot run with `backend: local` (verified, open)
+
+The manifest admits `backend` values `local`, `github` and `server`
+(`MR_BOXINGTON_INPUTS`), and `compat.yml`'s `cache-mr-boxington` job passes
+`backend: local`. Velnor runs this action as a pinned generic Node action —
+`native_action_adapter("jdx/mr-boxington-action")` is `None` — so the real
+action executes on both lanes, and at the admitted ref
+`adc5c234c02592f7edd008bf81d5bc0e9584dc03` it rejects that value outright:
+
+```js
+function AV(t){ if(t==="github"||t==="server") return t;
+  throw new Error(`backend must be "github" or "server", got ${JSON.stringify(t)}`) }
+```
+
+The string `local` does not appear anywhere in the action's bundle. The job as
+written must fail on both lanes, and Velnor's manifest over-admits a value the
+pinned action can never accept.
+
+This also invalidates the recommended input split for this action. `cache-key`,
+`restore-keys`, `cache-generation` and `save-on-workflow-dispatch` are
+documented by the action as GitHub-cache-backend inputs, and `github-token`
+resolves mbx release metadata rather than selecting a remote store — so the
+honest division is not local versus remote but **github backend versus server
+backend**:
+
+- exercised on `backend: github`: `backend`, `version`, `github-token`,
+  `cache-key`, `restore-keys`, `cache-generation`, `save-on-workflow-dispatch`,
+  `toolchain`, `max-size`, `cache-links`
+- `admission_only`: `server-url`, `namespace`, `token`, `token-file`,
+  `oidc-audience`, `server-mode` — the server-backend selectors; this fixture
+  runs no mbx cache server
+
+The current `action-surface-coverage.json` rows are worse than either split:
+thirteen inputs are marked `expected_unsupported` against a workflow reference,
+which asserts the fixture proved Velnor cannot support them. It proved no such
+thing; they were simply never passed. **This work is not landed.**
+
+## V-3 status
+
+Landed:
+
+- `just refresh-capability-baseline`, the dirty-manifest-source guard, and the
+  toolchain isolation that stopped this fixture's pinned toolchain overriding
+  the runner's own.
+- The sccache microVM correction (F8).
+
+Not landed, and deliberately not forced: the Mr Boxington scenario and surface
+split (F9). It needs `backend: local` replaced in `compat.yml` first, which is a
+behaviour change to an executable scenario rather than a coverage edit.
+
+Readiness is red at the pause, for the right reason. The shared runner checkout
+advanced to `59e818dd9b282cefaa124dce0f09fdfbeafa411e` and does not currently
+compile, so the baseline cannot be refreshed against it:
+
+```
+ERROR: coverage/velnor-capabilities.json source_sha is
+'75f4473e0156dd9eac1035f69fab1816275aa961', but the Velnor build under test
+reports '59e818dd9b282cefaa124dce0f09fdfbeafa411e'; the baseline is stale
+```
+
+No check was removed, skipped or loosened to hide it. Re-run
+`VELNOR_SOURCE_DIR=… just refresh-capability-baseline` once the runner builds.
+
+## Velnor-side capability surface defects (reported, not edited)
+
+Confirmed against `perf/docker-rust-mbx`. None is fixed here; this repository
+does not write to the runner.
+
+1. `crates/velnor-tools/src/main.rs:2375` lists `submodules` among the
+   `actions/checkout` inputs `target_audit` treats as supported. The manifest's
+   checkout rule set has no `submodules` entry, and `validate_inputs` raises a
+   violation for any input with no matching rule, so admission rejects it. The
+   audit greenlights a target the runner will refuse.
+2. `crates/velnor-tools/src/main.rs:2520` records `actions/setup-python` in
+   `expected_target_uses()`, the surface `target_audit` asserts and then prints
+   "target audit passed" for. No `actions/setup-python` capability exists in the
+   manifest, so that surface is unadmitted. `baptiste0928/cargo-install` and
+   `dtolnay/rust-toolchain` in the same list have the same problem.
+3. `clean` and `fetch-tags` are admitted by the manifest
+   (`InputRule::Literal("clean", …)`, `InputRule::Literal("fetch-tags", …)`) and
+   honoured by the checkout implementation (`checkout.rs:136-138`), but are
+   absent from that same supported list, so `collect_step` records them as
+   unsupported and `target_audit` bails at the `unsupported target workflow
+   surface` check. A target using either input is rejected by the audit for
+   using something the runner supports.
+4. `MR_BOXINGTON_INPUTS` admits `backend: local`, which the pinned action always
+   rejects — see F9.
