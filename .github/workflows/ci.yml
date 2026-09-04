@@ -115,52 +115,46 @@ jobs:
           # The Rust scenario matrix. The default Velnor Rust path is the
           # mandatory scenario; sccache is one scenario among several.
           rust_scenarios = {
-              "rust-default": ("package", ("app-a", "app-b")),
-              "rust-sccache": ("package", ("app-a", "app-b")),
-              "rust-accel-optout": ("package", ("app-a", "app-b")),
+              "rust-default": ("app-a", "app-b"),
+              "rust-sccache": ("app-a", "app-b"),
+              "rust-accel-optout": ("app-a", "app-b"),
               "rust-cache-interaction": (
-                  "interaction",
-                  (
-                      "cargo-source-cache",
-                      "explicit-sccache",
-                      "lockfile-change",
-                      "source-change",
-                      "target-cache",
-                  ),
+                  "cargo-source-cache",
+                  "explicit-sccache",
+                  "lockfile-change",
+                  "source-change",
+                  "target-cache",
               ),
-              "rust-parallel": ("shard", ("1", "2", "3", "4")),
+              "rust-parallel": ("1", "2", "3", "4"),
           }
           expected = {
               (scenario, lane, key)
-              for scenario, (_, keys) in rust_scenarios.items()
+              for scenario, keys in rust_scenarios.items()
               for lane in ("github", "velnor")
               for key in keys
           }
           expected |= {
-              ("runtime", lane, package)
+              ("runtime-result", lane, package)
               for lane in ("github", "velnor")
               for package in ("app-a", "app-b")
           }
           expected |= {
-              (scenario, lane, "")
-              for scenario in ("actions", "docker")
-              for lane in ("github", "velnor")
+              ("actions", lane, "probes") for lane in ("github", "velnor")
           }
+          expected |= {
+              ("docker", lane, "image") for lane in ("github", "velnor")
+          }
+          scenarios = {item[0] for item in expected}
           observed = set()
           for path in Path("artifacts").rglob("*.json"):
               payload = json.loads(path.read_text())
-              if payload.get("scenario") in rust_scenarios:
-                  scenario = payload["scenario"]
-                  field = rust_scenarios[scenario][0]
-                  observed.add(
-                      (scenario, payload["lane"], str(payload["fields"][field]))
-                  )
-              elif payload.get("scenario") in {"actions", "docker"}:
-                  observed.add((payload["scenario"], payload["lane"], ""))
-              elif payload.get("lane") in {"github", "velnor"}:
-                  harness = payload.get("evidence", {}).get("harness", {})
-                  if harness.get("scenario") == "runtime":
-                      observed.add(("runtime", payload["lane"], payload["package"]))
+              if payload.get("schema") != "velnor.fixture.evidence.v2":
+                  raise SystemExit(f"unsupported evidence schema in {path}")
+              scenario = payload["scenario"]
+              if scenario not in scenarios:
+                  raise SystemExit(f"unexpected evidence scenario in {path}: {scenario}")
+              lane = payload["provenance"]["lane"]
+              observed.add((scenario, lane, payload["evidence_id"]))
           if observed != expected:
               missing = sorted(expected - observed)
               extra = sorted(observed - expected)

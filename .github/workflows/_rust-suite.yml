@@ -101,35 +101,50 @@ jobs:
           count="$(sed -n 's/.*Summary \[[^]]*\] *\([0-9][0-9]*\) test.*/\1/p' nextest.log | tail -1)"
           test -n "${count}"
           echo "count=${count}" >> "${GITHUB_OUTPUT}"
-      - name: Record default-path evidence
+      - name: Run default-path probes
         env:
-          LANE: ${{ matrix.lane }}
           PACKAGE: ${{ matrix.package }}
-          WRAPPER: ${{ steps.acceleration.outputs.wrapper }}
-          TESTS: ${{ steps.tests.outputs.count }}
         run: |
           set -euo pipefail
           cargo nextest run --locked -p fixture-harness --all-targets
-          cargo run --quiet --locked -p fixture-harness --example command_files
+          mkdir -p probe
+          cargo run --quiet --locked -p fixture-harness --example command_files > probe/command-files.txt
           tmp_dir="$(mktemp -d)"
           mkdir -p "${tmp_dir}/tree/nested"
           printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
-          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
-          test -s "${tmp_dir}/tree.txt"
-          cargo run --quiet --locked -p fixture-harness --example cache_payload -- cargo "${LANE}-${PACKAGE}" > "${tmp_dir}/cache.txt"
-          grep -q '^velnor.fixture.cache.v1$' "${tmp_dir}/cache.txt"
+          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > probe/tree.txt
+          test -s probe/tree.txt
+          cargo run --quiet --locked -p fixture-harness --example cache_payload -- cargo "rust-default-${PACKAGE}" > probe/cache.txt
+          grep -q '^velnor.fixture.cache.v1$' probe/cache.txt
           printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
-          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
-          grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
-          mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario rust-default \
-            --lane "${LANE}" \
-            --field "package=${PACKAGE}" \
-            --field "compiler_cache_wrapper=${WRAPPER}" \
-            --field "tests=${TESTS}" \
-            --field checks=fmt,clippy,nextest,examples \
-            --output "evidence/rust-default-${LANE}-${PACKAGE}.json"
+          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > probe/subject.json
+          grep -q 'velnor.fixture.release-subject.v1' probe/subject.json
+      - name: Capture default step outcomes
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${STEPS_JSON}" > "${RUNNER_TEMP}/steps.json"
+      - name: Collect default-path evidence
+        uses: ./.github/actions/collect-evidence
+        env:
+          FIXTURE_PACKAGE: ${{ matrix.package }}
+          FIXTURE_COMPILER_CACHE_WRAPPER: ${{ steps.acceleration.outputs.wrapper }}
+          FIXTURE_TESTS: ${{ steps.tests.outputs.count }}
+        with:
+          scenario: rust-default
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.lane }}
+          output: evidence/rust-default-${{ matrix.lane }}-${{ matrix.package }}.json
+          observations: |
+            --observe-env package=FIXTURE_PACKAGE
+            --observe-env compiler_cache_wrapper=FIXTURE_COMPILER_CACHE_WRAPPER
+            --observe-env tests=FIXTURE_TESTS
+            --observe-file command-files=probe/command-files.txt
+            --observe-file artifact-tree=probe/tree.txt
+            --observe-file cache-payload=probe/cache.txt
+            --observe-file release-subject=probe/subject.json
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: suite-rust-default-${{ matrix.lane }}-${{ matrix.package }}
@@ -186,22 +201,29 @@ jobs:
           count="$(sed -n 's/.*Summary \[[^]]*\] *\([0-9][0-9]*\) test.*/\1/p' nextest.log | tail -1)"
           test -n "${count}"
           echo "count=${count}" >> "${GITHUB_OUTPUT}"
-      - name: Record sccache-compatibility evidence
+      - name: Capture sccache step outcomes
         env:
-          LANE: ${{ matrix.lane }}
-          PACKAGE: ${{ matrix.package }}
-          TESTS: ${{ steps.tests.outputs.count }}
+          STEPS_JSON: ${{ toJSON(steps) }}
         run: |
           set -euo pipefail
-          mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario rust-sccache \
-            --lane "${LANE}" \
-            --field "package=${PACKAGE}" \
-            --field "compiler_cache_wrapper=${RUSTC_WRAPPER}" \
-            --field "tests=${TESTS}" \
-            --field checks=fmt,clippy,nextest \
-            --output "evidence/rust-sccache-${LANE}-${PACKAGE}.json"
+          printf '%s\n' "${STEPS_JSON}" > "${RUNNER_TEMP}/steps.json"
+      - name: Collect sccache-compatibility evidence
+        uses: ./.github/actions/collect-evidence
+        env:
+          FIXTURE_PACKAGE: ${{ matrix.package }}
+          FIXTURE_COMPILER_CACHE_WRAPPER: ${{ env.RUSTC_WRAPPER }}
+          FIXTURE_TESTS: ${{ steps.tests.outputs.count }}
+        with:
+          scenario: rust-sccache
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.lane }}
+          output: evidence/rust-sccache-${{ matrix.lane }}-${{ matrix.package }}.json
+          observations: |
+            --observe-env package=FIXTURE_PACKAGE
+            --observe-env compiler_cache_wrapper=FIXTURE_COMPILER_CACHE_WRAPPER
+            --observe-env tests=FIXTURE_TESTS
+            --observe-command test-log=test -s nextest.log
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: suite-rust-sccache-${{ matrix.lane }}-${{ matrix.package }}
@@ -251,22 +273,30 @@ jobs:
           count="$(sed -n 's/.*Summary \[[^]]*\] *\([0-9][0-9]*\) test.*/\1/p' nextest.log | tail -1)"
           test -n "${count}"
           echo "count=${count}" >> "${GITHUB_OUTPUT}"
-      - name: Record acceleration opt-out evidence
+      - name: Capture opt-out step outcomes
         env:
-          LANE: ${{ matrix.lane }}
-          PACKAGE: ${{ matrix.package }}
-          TESTS: ${{ steps.tests.outputs.count }}
+          STEPS_JSON: ${{ toJSON(steps) }}
         run: |
           set -euo pipefail
-          mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario rust-accel-optout \
-            --lane "${LANE}" \
-            --field "package=${PACKAGE}" \
-            --field "acceleration=disabled" \
-            --field "compiler_cache_wrapper=absent" \
-            --field "tests=${TESTS}" \
-            --output "evidence/rust-accel-optout-${LANE}-${PACKAGE}.json"
+          printf '%s\n' "${STEPS_JSON}" > "${RUNNER_TEMP}/steps.json"
+      - name: Collect acceleration opt-out evidence
+        uses: ./.github/actions/collect-evidence
+        env:
+          FIXTURE_PACKAGE: ${{ matrix.package }}
+          FIXTURE_ACCELERATION: ${{ env.MBX_DISABLE }}
+          FIXTURE_TESTS: ${{ steps.tests.outputs.count }}
+        with:
+          scenario: rust-accel-optout
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.lane }}
+          output: evidence/rust-accel-optout-${{ matrix.lane }}-${{ matrix.package }}.json
+          observations: |
+            --observe-env package=FIXTURE_PACKAGE
+            --observe-env acceleration=FIXTURE_ACCELERATION
+            --observe-env compiler_cache_wrapper=RUSTC_WRAPPER
+            --observe-env tests=FIXTURE_TESTS
+            --observe-command test-log=test -s nextest.log
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: suite-rust-accel-optout-${{ matrix.lane }}-${{ matrix.package }}
@@ -368,23 +398,32 @@ jobs:
           else
             echo "output=changed" >> "${GITHUB_OUTPUT}"
           fi
-      - name: Record cache-interaction evidence
+      - name: Capture cache-interaction step outcomes
         env:
-          LANE: ${{ matrix.lane }}
-          INTERACTION: ${{ matrix.interaction }}
-          CHANGED: ${{ steps.change.outputs.changed }}
-          OUTPUT: ${{ steps.rebuild.outputs.output }}
+          STEPS_JSON: ${{ toJSON(steps) }}
         run: |
           set -euo pipefail
-          mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario rust-cache-interaction \
-            --lane "${LANE}" \
-            --field "interaction=${INTERACTION}" \
-            --field "change=${CHANGED}" \
-            --field "rebuild_output=${OUTPUT}" \
-            --field "not_executable=toolchain-change,trust-change" \
-            --output "evidence/rust-cache-interaction-${LANE}-${INTERACTION}.json"
+          printf '%s\n' "${STEPS_JSON}" > "${RUNNER_TEMP}/steps.json"
+      - name: Collect cache-interaction evidence
+        uses: ./.github/actions/collect-evidence
+        env:
+          FIXTURE_INTERACTION: ${{ matrix.interaction }}
+          FIXTURE_CHANGE: ${{ steps.change.outputs.changed }}
+          FIXTURE_REBUILD_OUTPUT: ${{ steps.rebuild.outputs.output }}
+          FIXTURE_NOT_EXECUTABLE: toolchain-change,trust-change
+        with:
+          scenario: rust-cache-interaction
+          evidence-id: ${{ matrix.interaction }}
+          lane: ${{ matrix.lane }}
+          output: evidence/rust-cache-interaction-${{ matrix.lane }}-${{ matrix.interaction }}.json
+          observations: |
+            --observe-env interaction=FIXTURE_INTERACTION
+            --observe-env change=FIXTURE_CHANGE
+            --observe-env rebuild_output=FIXTURE_REBUILD_OUTPUT
+            --observe-env not_executable=FIXTURE_NOT_EXECUTABLE
+            --observe-file baseline=baseline.txt
+            --observe-file rebuilt=rebuilt.txt
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: suite-rust-cache-interaction-${{ matrix.lane }}-${{ matrix.interaction }}
@@ -440,21 +479,32 @@ jobs:
           else
             echo "output=changed" >> "${GITHUB_OUTPUT}"
           fi
-      - name: Record cache-interaction evidence
+      - name: Capture explicit-sccache step outcomes
         env:
-          LANE: ${{ matrix.lane }}
-          OUTPUT: ${{ steps.rebuild.outputs.output }}
+          STEPS_JSON: ${{ toJSON(steps) }}
         run: |
           set -euo pipefail
-          mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario rust-cache-interaction \
-            --lane "${LANE}" \
-            --field interaction=explicit-sccache \
-            --field change=source \
-            --field "rebuild_output=${OUTPUT}" \
-            --field "not_executable=toolchain-change,trust-change" \
-            --output "evidence/rust-cache-interaction-${LANE}-explicit-sccache.json"
+          printf '%s\n' "${STEPS_JSON}" > "${RUNNER_TEMP}/steps.json"
+      - name: Collect explicit-sccache evidence
+        uses: ./.github/actions/collect-evidence
+        env:
+          FIXTURE_INTERACTION: explicit-sccache
+          FIXTURE_CHANGE: source
+          FIXTURE_REBUILD_OUTPUT: ${{ steps.rebuild.outputs.output }}
+          FIXTURE_NOT_EXECUTABLE: toolchain-change,trust-change
+        with:
+          scenario: rust-cache-interaction
+          evidence-id: explicit-sccache
+          lane: ${{ matrix.lane }}
+          output: evidence/rust-cache-interaction-${{ matrix.lane }}-explicit-sccache.json
+          observations: |
+            --observe-env interaction=FIXTURE_INTERACTION
+            --observe-env change=FIXTURE_CHANGE
+            --observe-env rebuild_output=FIXTURE_REBUILD_OUTPUT
+            --observe-env not_executable=FIXTURE_NOT_EXECUTABLE
+            --observe-file baseline=baseline.txt
+            --observe-file rebuilt=rebuilt.txt
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: suite-rust-cache-interaction-${{ matrix.lane }}-explicit-sccache
@@ -505,21 +555,27 @@ jobs:
           printf 'shard=%s\nlane=%s\nstarted=%s\nfinished=%s\ncompiled=%s\n' \
             "${SHARD}" "${{ matrix.lane }}" "${started}" "${finished}" "${compiled}" \
             > "measurements/rust-parallel-${{ matrix.lane }}-${SHARD}.txt"
-      - name: Record parallel evidence
+      - name: Capture parallel step outcomes
         env:
-          LANE: ${{ matrix.lane }}
-          SHARD: ${{ matrix.shard }}
-          TESTS: ${{ steps.shard.outputs.count }}
+          STEPS_JSON: ${{ toJSON(steps) }}
         run: |
           set -euo pipefail
-          mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario rust-parallel \
-            --lane "${LANE}" \
-            --field "shard=${SHARD}" \
-            --field "tests=${TESTS}" \
-            --field workload=workspace-build-and-nextest \
-            --output "evidence/rust-parallel-${LANE}-${SHARD}.json"
+          printf '%s\n' "${STEPS_JSON}" > "${RUNNER_TEMP}/steps.json"
+      - name: Collect parallel evidence
+        uses: ./.github/actions/collect-evidence
+        env:
+          FIXTURE_SHARD: ${{ matrix.shard }}
+          FIXTURE_TESTS: ${{ steps.shard.outputs.count }}
+        with:
+          scenario: rust-parallel
+          evidence-id: ${{ matrix.shard }}
+          lane: ${{ matrix.lane }}
+          output: evidence/rust-parallel-${{ matrix.lane }}-${{ matrix.shard }}.json
+          observations: |
+            --observe-env shard=FIXTURE_SHARD
+            --observe-env tests=FIXTURE_TESTS
+            --observe-command measurement=test -s measurements/rust-parallel-${{ matrix.lane }}-${{ matrix.shard }}.txt
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: suite-rust-parallel-${{ matrix.lane }}-${{ matrix.shard }}
@@ -551,63 +607,15 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: suite-${{ matrix.scenario }}-*
           path: artifacts
-      - name: Compare normalized lane evidence
-        env:
-          SCENARIO: ${{ matrix.scenario }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          import os
-          import sys
-          from pathlib import Path
-
-          scenario = os.environ["SCENARIO"]
-          # The field that identifies a record within one lane. Every other
-          # compared field must be identical between lanes.
-          discriminator = {
-              "rust-default": "package",
-              "rust-sccache": "package",
-              "rust-accel-optout": "package",
-              "rust-cache-interaction": "interaction",
-              "rust-parallel": "shard",
-          }[scenario]
-
-          rows = {}
-          for path in Path("artifacts").rglob("*.json"):
-              payload = json.loads(path.read_text())
-              if payload.get("scenario") != scenario:
-                  continue
-              fields = payload["fields"]
-              rows[(payload["lane"], fields[discriminator])] = payload
-
-          keys = sorted({key for _, key in rows})
-          if not keys:
-              sys.exit(f"no {scenario} evidence found")
-
-          failures = []
-          for key in keys:
-              try:
-                  github = dict(rows[("github", key)])
-                  velnor = dict(rows[("velnor", key)])
-              except KeyError as error:
-                  failures.append(f"{scenario}: missing lane evidence for {key}: {error}")
-                  continue
-              github.pop("lane", None)
-              velnor.pop("lane", None)
-              if github != velnor:
-                  failures.append(
-                      f"{scenario}: lane evidence mismatch for {discriminator}={key}: "
-                      f"github={github} velnor={velnor}"
-                  )
-          if failures:
-              sys.exit("\n".join(failures))
-          print(f"{scenario}: lane evidence matches ({len(keys)} record(s) compared)")
-          PY
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: ${{ matrix.scenario }}
+          directory: artifacts
       # Scheduling and compile deduplication are lane-dependent by design, so
       # they are reported instead of compared. Overlap is the property that
       # makes the parallel scenario meaningful, and it is asserted per lane.
