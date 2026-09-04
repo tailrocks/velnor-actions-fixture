@@ -4,8 +4,10 @@
 import argparse
 import importlib.util
 import json
+import os
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -34,6 +36,46 @@ def load_fixture(name: str):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_required_aggregate_rejects_skipped_compare_after_successful_check(self):
+        action = (ROOT / ".github" / "actions" / "aggregate-needs" / "action.yml").read_text()
+        self.assertIn("    default: 'false'", action[action.index("  allow-skipped:") :])
+        run_start = action.index("      run: |\n") + len("      run: |\n")
+        run_lines = []
+        for line in action[run_start:].splitlines():
+            if line.strip() and not line.startswith("        "):
+                break
+            run_lines.append(line[8:] if line.startswith("        ") else "")
+        script = textwrap.dedent("\n".join(run_lines))
+        needs = json.dumps(
+            {
+                "scheduled-check": {"result": "success"},
+                "compare": {"result": "skipped"},
+            }
+        )
+        for name, value in {
+            "needs-json": needs,
+            "workflow-label": "schedule",
+            "allow-skipped": "false",
+        }.items():
+            script = script.replace(f"${{{{ inputs.{name} }}}}", value)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            summary = Path(temporary) / "summary"
+            environment = os.environ.copy()
+            environment["GITHUB_STEP_SUMMARY"] = str(summary)
+            result = subprocess.run(
+                ["bash", "-c", script],
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("compare", result.stdout)
+
+        schedule = (ROOT / ".github" / "workflows" / "schedule.yml").read_text()
+        self.assertNotIn("allow-skipped: true", schedule[schedule.index("  schedule-required:") :])
+
     def test_required_callable_lane_accepts_string_without_options_or_default(self):
         text = """on:
   workflow_call:

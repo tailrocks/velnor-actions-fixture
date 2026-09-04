@@ -2,7 +2,7 @@ name: Aggregate needs
 description: >
   Mirrors the target repositories' aggregation pattern.
   Scalar mode: compares expected vs actual result values.
-  Bulk mode: receives toJSON(needs) and verifies all jobs succeeded or were skipped.
+  Bulk mode: receives toJSON(needs) and verifies all jobs succeeded by default.
 
 inputs:
   expected:
@@ -19,6 +19,10 @@ inputs:
     required: false
     description: Human label for the workflow (bulk mode).
     default: ''
+  allow-skipped:
+    required: false
+    description: Allow skipped jobs in bulk mode for intentionally filtered callers.
+    default: 'false'
 
 runs:
   using: composite
@@ -28,13 +32,19 @@ runs:
         set -euo pipefail
 
         needs_json='${{ inputs.needs-json }}'
+        allow_skipped='${{ inputs.allow-skipped }}'
 
         if [[ -n "$needs_json" && "$needs_json" != "null" ]]; then
           label="${{ inputs.workflow-label }}"
-          failed="$(python3 -c "
-        import json, sys
+          failed="$(ALLOW_SKIPPED="$allow_skipped" python3 -c "
+        import json, os
         needs = json.loads('''${needs_json}''')
-        failed = [k for k, v in needs.items() if v.get('result') not in ('success','skipped')]
+        allow_skipped = os.environ['ALLOW_SKIPPED'].lower() == 'true'
+        failed = [
+            k for k, v in needs.items()
+            if v.get('result') != 'success'
+            and not (allow_skipped and v.get('result') == 'skipped')
+        ]
         print(' '.join(failed))
         " 2>/dev/null || echo 'parse-error')"
           if [[ -n "$failed" ]]; then
