@@ -58,10 +58,14 @@ MANIFEST_SOURCE_PATHS = (
     "crates/velnor-runner/Cargo.toml",
 )
 
+# `validate_microvm_compiler_cache` (crates/velnor-runner/src/manifest.rs)
+# refuses a microVM job that declares `mozilla-actions/sccache-action`, and also
+# one carrying any `RUSTC_WRAPPER` or `SCCACHE_*` environment. sccache is
+# therefore microVM expected-unsupported, not supported; it was listed here as
+# supported, which made the fixture claim proof of something the runner rejects.
 MICROVM_SUPPORTED = {
     "actions/cache",
     "actions/checkout",
-    "mozilla-actions/sccache-action",
     "swatinem/rust-cache",
 }
 EXPECTED_RUNTIME_SEMANTICS = {

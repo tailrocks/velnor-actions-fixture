@@ -415,7 +415,7 @@
     {
       "repository": "mozilla-actions/sccache-action",
       "disposition": "covered",
-      "reason": "Sccache action is covered by the fixture workflows.",
+      "reason": "Sccache is covered by the fixture workflows on the Docker backend. MicroVM refuses it: validate_microvm_compiler_cache rejects a job that declares mozilla-actions/sccache-action, and equally one carrying a RUSTC_WRAPPER or SCCACHE_* environment, so the scenario cannot run there.",
       "evidence": [
         ".github/workflows/_rust-suite.yml",
         ".github/workflows/compat-public-unmerged.yml",
@@ -435,7 +435,7 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "supported",
+      "microvm": "expected-unsupported",
       "producer": [
         ".github/workflows/_rust-suite.yml",
         ".github/workflows/compat-public-unmerged.yml",

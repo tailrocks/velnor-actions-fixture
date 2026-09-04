@@ -33,8 +33,10 @@ only exceptions are explicit and must produce their own evidence:
   required credentials exist; otherwise the workflow reports a skipped
   prerequisite, not readiness.
 - MicroVM expected-unsupported: Velnor microVM supports positive checkout,
-  cache, Rust cache, and sccache only. Other adapters need an explicit reason
-  for expected-unsupported status.
+  cache, and Rust cache only. sccache is explicitly refused there — the runner
+  rejects a microVM job that declares the action, and equally one carrying a
+  `RUSTC_WRAPPER` or `SCCACHE_*` environment. Other adapters need an explicit
+  reason for expected-unsupported status.
 
 Velnor-only admission negatives, queue probes, and backend diagnostics are
 diagnostic checks, not substitutes for mandatory dual-lane proof.

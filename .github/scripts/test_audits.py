@@ -223,6 +223,30 @@ class BaselineBindingTests(unittest.TestCase):
             self.assertIn("different Velnor build", "\n".join(failures))
 
 
+class MicroVmDispositionTests(unittest.TestCase):
+    """A microVM claim must match what the runner will actually admit."""
+
+    def test_sccache_is_not_claimed_microvm_supported(self):
+        # crates/velnor-runner/src/manifest.rs validate_microvm_compiler_cache
+        # refuses a microVM job declaring this action, and equally one carrying
+        # a RUSTC_WRAPPER or SCCACHE_* environment.
+        self.assertNotIn(
+            "mozilla-actions/sccache-action", coverage_audit.MICROVM_SUPPORTED
+        )
+
+    def test_every_microvm_disposition_matches_the_supported_set(self):
+        coverage = json.loads(
+            (ROOT / "coverage" / "fixture-coverage.json").read_text(encoding="utf-8")
+        )
+        for row in coverage["actions"]:
+            expected = (
+                "supported"
+                if row["repository"] in coverage_audit.MICROVM_SUPPORTED
+                else "expected-unsupported"
+            )
+            self.assertEqual(row["microvm"], expected, row["repository"])
+
+
 class RunnerCheckoutStateTests(unittest.TestCase):
     """A commit may only name a manifest the commit actually contains."""
 
