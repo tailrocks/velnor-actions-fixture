@@ -1,6 +1,6 @@
 {
-  "version": 11,
-  "source_sha": "d0e085cd57dc2d1b73fe4c4f3980c2641ed0a58d",
+  "version": 12,
+  "source_sha": "3aa9cc18da4da5dc46149fefcb185b30407c4df8",
   "crate_version": "0.1.250",
   "actions": [
     {
@@ -57,7 +57,7 @@
     },
     {
       "repository": "fsfe/reuse-action",
-      "adapter": "ApprovedComposite",
+      "adapter": "ApprovedDocker",
       "allowed_refs": [
         "676e2d560c9a403aa252096d99fcab3e1132b0f5"
       ],
@@ -67,7 +67,7 @@
     },
     {
       "repository": "jdx/mr-boxington-action",
-      "adapter": "ApprovedComposite",
+      "adapter": "ApprovedJavaScript",
       "allowed_refs": [
         "adc5c234c02592f7edd008bf81d5bc0e9584dc03"
       ],
