@@ -17,7 +17,12 @@ The canonical Sunday parity schedule selects `both`. Only
 Negative fixtures preserve the exact unsupported input or missing permission
 they prove; never weaken or delete them to satisfy Velnor.
 
-Rust compile jobs use mold and local-only sccache v0.16.0 with a 20 GiB bound.
+The default Velnor Rust path is the baseline that Rust coverage must prove: ordinary
+`cargo` commands with no `RUSTC_WRAPPER`, no sccache or mbx action, and no `actions/cache`
+of `target/`. Explicit sccache is one compatibility scenario among several, never a
+requirement placed on every Rust job — mandating it disables Velnor's default acceleration
+and leaves the out-of-box path untested. Rust compile jobs use mold; a scenario that
+explicitly requests sccache pins it local-only with a 20 GiB bound.
 Use `cargo nextest run`, never `cargo test`. Every remote action is pinned to a
 full commit SHA. Every job has measured `timeout-minutes`; every executable
 workflow has intentional concurrency. Fix fixture failures in Velnor.
