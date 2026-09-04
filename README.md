@@ -163,7 +163,7 @@ crate. Run the complete local gate with `mise run check`.
 The fixture is deliberately small. It exists to verify execution semantics before running Velnor against larger repositories.
 
 The current baseline is Velnor v0.1.250, manifest v11, at source commit
-`9f522e5f638f15d934544c07d382afb7adf0c472`; see the [baseline/source workflow
+`dd939638ac9398b9b414463814a1ee9b6526989f`; see the [baseline/source workflow
 inventory](coverage/source-workflow-inventory.md).
 
 `coverage/velnor-capabilities.json` is not an independent assertion: it is a

@@ -61,7 +61,7 @@ Coverage is derived from GitHub Actions usage in:
 - `tailrocks/schemalane`
 
 The capability baseline is current Velnor release v0.1.250, manifest version
-11, at source commit `9f522e5f638f15d934544c07d382afb7adf0c472`, and is bound to
+11, at source commit `dd939638ac9398b9b414463814a1ee9b6526989f`, and is bound to
 that runner at audit time rather than pinned to constants. The
 machine-readable baseline is
 `coverage/velnor-capabilities.json`; fixture dispositions and evidence are in
