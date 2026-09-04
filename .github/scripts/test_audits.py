@@ -167,10 +167,26 @@ class BaselineBindingTests(unittest.TestCase):
         runner["version"] = runner["version"] + 1
         self.assertIn("the baseline is stale", "\n".join(self.bind(runner)))
 
-    def test_a_stale_source_sha_is_rejected(self):
+    def test_an_unrelated_source_commit_does_not_change_capability_identity(self):
         runner = self.baseline()
         runner["source_sha"] = "2fad3ffbd3f813f1b504de14163f9b57799b5e8c"
-        self.assertIn("source_sha", "\n".join(self.bind(runner)))
+        self.assertEqual(self.bind(runner), [])
+
+    def test_a_tampered_capability_identity_is_rejected(self):
+        runner = self.baseline()
+        runner[coverage_audit.CAPABILITY_ID_FIELD] = "0" * coverage_audit.CAPABILITY_ID_LENGTH
+        failures = "\n".join(self.bind(runner))
+        self.assertIn("capability_id", failures)
+
+    def test_capability_identity_excludes_only_source_commit_and_identity(self):
+        document = self.baseline()
+        identity = document[coverage_audit.CAPABILITY_ID_FIELD]
+        document["source_sha"] = "2fad3ffbd3f813f1b504de14163f9b57799b5e8c"
+        self.assertEqual(coverage_audit.capability_identity(document), identity)
+        document[coverage_audit.CAPABILITY_ID_FIELD] = "0" * coverage_audit.CAPABILITY_ID_LENGTH
+        self.assertEqual(coverage_audit.capability_identity(document), identity)
+        document["crate_version"] = "0.1.251"
+        self.assertNotEqual(coverage_audit.capability_identity(document), identity)
 
     def test_a_swapped_action_identity_is_rejected_at_constant_cardinality(self):
         """The exact mutation that manifest v11 made and the audit missed."""

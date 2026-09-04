@@ -164,37 +164,40 @@ crate. Run the complete local gate with `mise run check`.
 
 The fixture is deliberately small. It exists to verify execution semantics before running Velnor against larger repositories.
 
-The current baseline is Velnor v0.1.250, manifest v11; the source commit it was
-taken from is recorded in `coverage/velnor-capabilities.json`. See the
+The current baseline is Velnor v0.1.250, manifest v11; its content-derived
+identity is recorded in `coverage/velnor-capabilities.json`, along with the
+source commit that produced it as provenance. See the
 [baseline/source workflow inventory](coverage/source-workflow-inventory.md).
 
 `coverage/velnor-capabilities.json` is not an independent assertion: it is a
 cached copy of what `velnor-runner capabilities export` emits, and the capability
-audit re-binds it to the runner under test on every readiness run. Supply that
-runner with `VELNOR_CAPABILITIES_EXPORT` (an export document) or
+audit re-binds its content-derived identity to the runner under test on every
+readiness run. A source commit may differ when the capability content is
+unchanged. Supply that runner with `VELNOR_CAPABILITIES_EXPORT` (an export
+document) or
 `VELNOR_SOURCE_DIR` (a Velnor checkout); without one, readiness fails rather than
 passing on a baseline nobody checked.
 
 ### Refreshing the baseline
 
 Never edit `coverage/velnor-capabilities.json` by hand. The readiness gate binds
-it to the runner and rejects any content the runner does not report, so a hand
-edit can only turn a stale baseline into a wrong one. There is one command:
+its content-derived identity to the runner and rejects any content the runner
+does not report, so a hand edit can only turn a stale baseline into a wrong one.
+There is one command when capability content changed:
 
 ```
 VELNOR_SOURCE_DIR=/path/to/velnor just refresh-capability-baseline
 ```
 
-It exports the manifest from the build under test, writes that document
-verbatim, carries the same manifest identity into `coverage/fixture-coverage.json`,
-and then re-runs the readiness gate — a refresh that does not certify fails. The
-checked-in file is never read or merged into, so no value can survive a refresh
-that the runner does not report. A development build reports `source_sha`
-`development`, so the recipe names the checkout's HEAD commit for it, and
-refuses if `manifest.rs`, `action.rs`, `build.rs` or `Cargo.toml` carry
-uncommitted changes — those four files are what the exported document is derived
-from, and attributing them to a commit that does not contain them is the
-staleness this gate exists to prevent.
+It exports the manifest from the build under test, derives its content identity,
+writes the runner document plus that identity, carries the identity into
+`coverage/fixture-coverage.json`, and then re-runs the readiness gate — a
+refresh that does not certify fails. The checked-in file is never read or
+merged into, so no value can survive a refresh that the runner does not report.
+A development build reports `source_sha` `development`, so the recipe names the
+checkout's HEAD commit for provenance, and refuses if `manifest.rs`, `action.rs`,
+`build.rs` or `Cargo.toml` carry uncommitted changes — those four files are what
+the exported document is derived from.
 
 Evidence records carry provenance the workflow cannot fabricate — run id, run
 attempt, commit, lane cross-checked against `RUNNER_ENVIRONMENT`, runner

@@ -1,7 +1,7 @@
 {
   "manifest": {
     "version": 12,
-    "source_sha": "3aa9cc18da4da5dc46149fefcb185b30407c4df8"
+    "capability_id": "f1709fcbd35e0755b72d822d9ca484ed39a63914e7b65bbd5e2c92e1ab5683bc"
   },
   "actions": [
     {
