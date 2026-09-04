@@ -58,6 +58,23 @@ class WorkflowPolicyTests(unittest.TestCase):
         text = """jobs:\n  test:\n    steps:\n      - run: cargo test --locked -p another-package\n"""
         self.assertEqual(workflow_audit.cargo_policy_failures({"fixture.yml": text}), [])
 
+    def test_evidence_surface_rejects_legacy_records(self):
+        path = ROOT / ".github" / "workflows" / "_rust-suite.yml"
+        text = path.read_text()
+        self.assertEqual(workflow_audit.evidence_schema_failures({path.name: text}), [])
+
+        for marker in ("--bin evidence", 'payload["fields"]'):
+            failures = workflow_audit.evidence_schema_failures(
+                {path.name: f"{text}\n{marker}\n"}
+            )
+            self.assertIn("legacy evidence marker", "\n".join(failures))
+
+        missing_collector = text.replace(
+            "uses: ./.github/actions/collect-evidence", "uses: ./legacy-evidence"
+        )
+        failures = workflow_audit.evidence_schema_failures({path.name: missing_collector})
+        self.assertIn("shared collector", "\n".join(failures))
+
     def test_full_sha_audit_checks_list_item_uses(self):
         text = """jobs:\n  test:\n    steps:\n      - uses: actions/checkout@v7\n"""
         failures = workflow_audit.remote_sha_failures({"fixture.yml": text})

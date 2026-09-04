@@ -38,6 +38,12 @@ FIXTURE_HARNESS_TEST_RE = re.compile(
     r"(?:^|(?:&&|[;&|])\s*|\bthen\s+)cargo\s+test\b[^\n]*"
     r"(?:--package|-p)\s+['\"]?fixture-harness['\"]?(?:\s|$)"
 )
+LEGACY_EVIDENCE_MARKERS = (
+    "--bin evidence",
+    "--field ",
+    'payload["fields"]',
+    "payload['fields']",
+)
 
 
 def workflow_texts():
@@ -189,6 +195,24 @@ def cargo_policy_failures(texts):
                     f"{name}:{number}: fixture-harness commands must use `cargo nextest run`, "
                     "not `cargo test`"
                 )
+    return failures
+
+
+def evidence_schema_failures(texts):
+    """Require the provenance-bearing v2 evidence surface."""
+    failures = []
+    for name, text in sorted(texts.items()):
+        for marker in LEGACY_EVIDENCE_MARKERS:
+            if marker in text:
+                failures.append(
+                    f"{name}: legacy evidence marker {marker!r}; use the shared v2 verifier"
+                )
+
+    rust_text = texts.get("_rust-suite.yml", "")
+    if rust_text and "uses: ./.github/actions/collect-evidence" not in rust_text:
+        failures.append("_rust-suite.yml: Rust evidence must use the shared collector")
+    if rust_text and "uses: ./.github/actions/compare-evidence" not in rust_text:
+        failures.append("_rust-suite.yml: Rust evidence must use the shared comparator")
     return failures
 
 
@@ -513,6 +537,10 @@ def audit():
     # harness package so legitimate ordinary `cargo test` commands remain
     # available for unrelated diagnostic or negative fixtures.
     failures.extend(cargo_policy_failures(texts))
+
+    # Evidence must be collected and compared through the provenance-bearing
+    # v2 verifier. Authored v1 fields are claims, not observations.
+    failures.extend(evidence_schema_failures(texts))
 
     # 1. Full-SHA pins for every remote `uses:` in every workflow.
     failures.extend(remote_sha_failures(texts))
