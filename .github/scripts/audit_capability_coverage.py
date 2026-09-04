@@ -4,6 +4,9 @@
 Stdlib-only by design. ``--contract-only`` validates the two JSON contracts
 without requiring the repository's staged workflow migration to be complete.
 The default mode is the readiness gate and audits current workflow content.
+``--refresh-baseline`` rewrites the cached baseline from the runner under test
+and then re-runs that readiness gate, so refreshing is one command and never a
+hand edit.
 """
 
 from __future__ import annotations
@@ -39,6 +42,21 @@ MANIFEST_WORKFLOW_FIELDS = ("allowed_refs", "inputs", "notes")
 # A development build of the runner reports this instead of its commit, because
 # `VELNOR_SOURCE_SHA` is only baked in for release builds.
 DEVELOPMENT_SOURCE_SHA = "development"
+
+# The exported capability document is a pure function of these four files:
+# `manifest.rs` holds every admitted repository, ref, subpath and input;
+# `action.rs` names the adapter variants the export prints; `Cargo.toml`
+# supplies `crate_version`; `build.rs` decides what `source_sha` becomes. When
+# the commit is derived from a checkout's HEAD, an uncommitted change to any of
+# them would attribute a manifest to a commit that does not contain it. Other
+# uncommitted work in the checkout cannot reach the document and is allowed,
+# because a reference checkout under active development is the normal case.
+MANIFEST_SOURCE_PATHS = (
+    "crates/velnor-runner/src/manifest.rs",
+    "crates/velnor-runner/src/action.rs",
+    "crates/velnor-runner/build.rs",
+    "crates/velnor-runner/Cargo.toml",
+)
 
 MICROVM_SUPPORTED = {
     "actions/cache",
@@ -204,6 +222,10 @@ def load_runner_baseline(
             return None
         if source_sha is None:
             source_sha = git_head(runner_source, failures)
+            if source_sha is not None:
+                require_manifest_sources_committed(runner_source, source_sha, failures)
+                if failures:
+                    return None
     else:
         failures.append(
             "readiness requires the capability manifest of the Velnor build under test: "
@@ -250,12 +272,44 @@ def git_head(directory: Path, failures: list[str]) -> str | None:
     return result.stdout.strip()
 
 
+def require_manifest_sources_committed(
+    directory: Path, source_sha: str, failures: list[str]
+) -> None:
+    """Refuse to attribute a working-tree manifest to a commit that lacks it."""
+    result = subprocess.run(
+        ["git", "-C", str(directory), "status", "--porcelain", "--", *MANIFEST_SOURCE_PATHS],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        failures.append(
+            f"cannot read the runner working tree state from {directory}: "
+            f"{result.stderr.strip()}"
+        )
+        return
+    dirty = sorted(line[3:].strip() for line in result.stdout.splitlines() if line.strip())
+    if dirty:
+        failures.append(
+            f"the runner checkout has uncommitted changes to {', '.join(dirty)}; the "
+            f"exported manifest would not be the manifest of {source_sha}. Commit the "
+            "change, or export from the build under test and pass "
+            "--capabilities-export with --velnor-source-sha"
+        )
+
+
 def export_from_runner_source(directory: Path, failures: list[str]) -> dict[str, Any] | None:
     """Ask the runner checkout to export its own capability manifest."""
     manifest = directory / "crates" / "velnor-runner" / "src" / "manifest.rs"
     if not manifest.is_file():
         failures.append(f"{directory} is not a Velnor checkout: {manifest} does not exist")
         return None
+    # The runner builds with its own pinned toolchain. This fixture pins a
+    # different one, and an inherited RUSTUP_TOOLCHAIN silently overrides the
+    # runner's rust-toolchain.toml, so the export would describe a build made
+    # with the wrong compiler or fail to build at all.
+    environment = dict(os.environ)
+    environment.pop("RUSTUP_TOOLCHAIN", None)
     result = subprocess.run(
         [
             "cargo",
@@ -274,6 +328,7 @@ def export_from_runner_source(directory: Path, failures: list[str]) -> dict[str,
         capture_output=True,
         text=True,
         check=False,
+        env=environment,
     )
     if result.returncode != 0:
         failures.append(
@@ -1353,6 +1408,79 @@ def audit(
     return sorted(set(failures))
 
 
+def refresh_baseline(
+    *,
+    capabilities_export: Path | None,
+    runner_source: Path | None,
+    velnor_source_sha: str | None,
+) -> int:
+    """Rewrite the cached baseline from the Velnor build under test.
+
+    The document written is the one the runner produced about itself: it comes
+    from ``load_runner_baseline``, the same function readiness uses, and the
+    checked-in file is never read, merged into, or partially updated. There is
+    therefore no way for a refresh to preserve a value the runner does not
+    report. A refresh that produced a document readiness would reject is not a
+    refresh, so the readiness gate is re-run afterwards and its failure is this
+    command's failure.
+    """
+    failures: list[str] = []
+    baseline = load_runner_baseline(
+        capabilities_export, runner_source, velnor_source_sha, failures
+    )
+    if baseline is None or failures:
+        return report(failures or ["the runner under test produced no capability manifest"])
+
+    # The runner's own document must satisfy the shape the audit requires
+    # before it is allowed to become the baseline. A development build whose
+    # commit was never named is rejected here rather than written out.
+    validate_manifest(baseline, failures)
+    if failures:
+        return report(failures)
+
+    CAPABILITIES_PATH.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
+
+    # The coverage document records the manifest identity it was written
+    # against; readiness compares the two. Leaving it behind would only move
+    # the staleness one file across.
+    coverage = load_json(COVERAGE_PATH, failures)
+    if failures:
+        return report(failures)
+    coverage["manifest"] = {
+        "version": baseline["version"],
+        "source_sha": baseline["source_sha"],
+    }
+    COVERAGE_PATH.write_text(json.dumps(coverage, indent=2) + "\n", encoding="utf-8")
+
+    print(
+        "refreshed coverage/velnor-capabilities.json from the runner under test: "
+        f"manifest v{baseline['version']}, crate {baseline['crate_version']}, "
+        f"source {baseline['source_sha']}"
+    )
+    failures = audit(
+        contract_only=False,
+        capabilities_export=capabilities_export,
+        runner_source=runner_source,
+        velnor_source_sha=velnor_source_sha,
+    )
+    if failures:
+        print(
+            "the refreshed baseline does not establish readiness; the coverage "
+            "documents still disagree with the runner under test",
+            file=sys.stderr,
+        )
+        return report(failures)
+    print("capability coverage readiness audit passed")
+    return 0
+
+
+def report(failures: list[str]) -> int:
+    for failure in sorted(set(failures)):
+        print(f"ERROR: {failure}", file=sys.stderr)
+    print(f"capability coverage audit failed: {len(set(failures))} error(s)", file=sys.stderr)
+    return 1
+
+
 def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -1364,6 +1492,14 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         "--contract-only",
         action="store_true",
         help="validate the checked-in contracts only; does not establish readiness",
+    )
+    parser.add_argument(
+        "--refresh-baseline",
+        action="store_true",
+        help=(
+            "rewrite coverage/velnor-capabilities.json from the runner under test and "
+            "re-run the readiness audit; the only supported way to refresh the baseline"
+        ),
     )
     parser.add_argument(
         "--capabilities-export",
@@ -1392,6 +1528,19 @@ def environment_path(name: str) -> Path | None:
 
 def main() -> int:
     args = parse_arguments(sys.argv[1:])
+    if args.refresh_baseline:
+        if args.contract_only:
+            print(
+                "ERROR: --refresh-baseline and --contract-only are mutually exclusive: "
+                "a refresh is defined by the runner under test",
+                file=sys.stderr,
+            )
+            return 1
+        return refresh_baseline(
+            capabilities_export=args.capabilities_export,
+            runner_source=args.runner_source,
+            velnor_source_sha=args.velnor_source_sha,
+        )
     failures = audit(
         contract_only=args.contract_only,
         capabilities_export=args.capabilities_export,
@@ -1399,10 +1548,7 @@ def main() -> int:
         velnor_source_sha=args.velnor_source_sha,
     )
     if failures:
-        for failure in failures:
-            print(f"ERROR: {failure}", file=sys.stderr)
-        print(f"capability coverage audit failed: {len(failures)} error(s)", file=sys.stderr)
-        return 1
+        return report(failures)
     mode = "contract" if args.contract_only else "readiness"
     print(f"capability coverage {mode} audit passed")
     return 0
