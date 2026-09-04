@@ -109,6 +109,24 @@ fn honest_dual_lane_evidence_is_accepted() {
     assert!(message.contains("match across lanes"), "{message}");
 }
 
+/// A valid Velnor record whose runner environment was changed to GitHub-hosted
+/// must be rejected while loading provenance.
+#[test]
+fn a_velnor_record_changed_to_github_hosted_is_rejected() {
+    let directory = scratch("velnor-hosted");
+    write(&directory, "github", &record("github", HEALTHY_OBSERVED));
+    write(
+        &directory,
+        "velnor",
+        &record("velnor", HEALTHY_OBSERVED).replace(
+            r#""runner_environment":"self-hosted""#,
+            r#""runner_environment":"github-hosted""#,
+        ),
+    );
+    let failure = rejection(&directory);
+    assert!(failure.contains("contradicts"), "{failure}");
+}
+
 /// Stale evidence: a record produced by an earlier run of the same workflow.
 #[test]
 fn stale_evidence_from_a_previous_run_is_rejected() {

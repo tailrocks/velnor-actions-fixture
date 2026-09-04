@@ -97,6 +97,25 @@ const OPTIONAL_SOURCES: &[(&str, &str)] = &[
     ("velnor_source_sha", "VELNOR_SOURCE_SHA"),
 ];
 
+fn validate_lane_environment(lane: &str, environment: &str) -> Result<(), String> {
+    let expected_lane = match environment {
+        "github-hosted" => "github",
+        "self-hosted" => "velnor",
+        other => {
+            return Err(format!(
+                "unknown RUNNER_ENVIRONMENT {other:?}; cannot bind evidence to a lane"
+            ))
+        }
+    };
+    if expected_lane != lane {
+        return Err(format!(
+            "lane {lane:?} contradicts RUNNER_ENVIRONMENT {environment:?}, \
+             which is lane {expected_lane:?}"
+        ));
+    }
+    Ok(())
+}
+
 /// Collected provenance for one evidence record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Provenance {
@@ -157,22 +176,7 @@ impl Provenance {
             ));
         }
 
-        let environment = fields["runner_environment"].as_str();
-        let expected_lane = match environment {
-            "github-hosted" => "github",
-            "self-hosted" => "velnor",
-            other => {
-                return Err(format!(
-                    "unknown RUNNER_ENVIRONMENT {other:?}; cannot bind evidence to a lane"
-                ))
-            }
-        };
-        if expected_lane != lane {
-            return Err(format!(
-                "lane {lane:?} contradicts RUNNER_ENVIRONMENT {environment:?}, \
-                 which is lane {expected_lane:?}"
-            ));
-        }
+        validate_lane_environment(lane, fields["runner_environment"].as_str())?;
         fields.insert("lane".to_owned(), lane.to_owned());
         fields.insert("collected_at".to_owned(), now_unix_seconds.to_string());
         Ok(Self { fields })
@@ -184,7 +188,8 @@ impl Provenance {
     /// # Errors
     ///
     /// Returns an error when the value is not an object, carries an unknown
-    /// field, or omits a required one.
+    /// field, omits a required one, or carries a lane that contradicts its
+    /// runner environment.
     pub fn from_json(value: &Json) -> Result<Self, String> {
         let entries = value
             .as_object()
@@ -205,6 +210,10 @@ impl Provenance {
                 _ => return Err(format!("missing provenance field {field}")),
             }
         }
+        validate_lane_environment(
+            fields["lane"].as_str(),
+            fields["runner_environment"].as_str(),
+        )?;
         Ok(Self { fields })
     }
 
