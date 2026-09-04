@@ -144,6 +144,12 @@ AUTOMATIC_L2_WORKFLOWS = {
 AUTOMATIC_EVENTS = {"merge_group", "pull_request", "push", "schedule", "workflow_run"}
 
 USES_RE = re.compile(r"^\s*(?:-\s*)?uses:\s*['\"]?([^'\"\s#]+)")
+HOSTED_ONLY_PULL_REQUEST_GUARD = (
+    "github.event.pull_request.head.repo.full_name != github.repository"
+)
+HOSTED_ONLY_PULL_REQUEST_GUARD_RE = re.compile(
+    r"github\.event\.pull_request\.head\.repo\.full_name\s*!=\s*github\.repository"
+)
 
 
 def load_json(path: Path, failures: list[str]) -> dict[str, Any]:
@@ -1288,6 +1294,80 @@ def has_dual_lane_evidence(text: str) -> bool:
     ) or ("'both'" in lower or '"both"' in lower)
 
 
+def has_hosted_only_github_branch(lines: list[str], event: str) -> bool:
+    event_token = re.compile(
+        rf"github\.event_name\s*==\s*['\"]{re.escape(event)}['\"]"
+    )
+    for line in lines:
+        guard = HOSTED_ONLY_PULL_REQUEST_GUARD_RE.search(line)
+        if guard is None or event_token.search(line) is None:
+            continue
+        branch = line[guard.end() :]
+        if re.match(r"\s*\)?\s*&&\s*['\"]github['\"]", branch, re.IGNORECASE):
+            return True
+        literal = re.match(
+            r"\s*\)?\s*&&\s*(?:\(\s*)?(?P<quote>['\"])(?P<json>\[.*?\])(?P=quote)",
+            branch,
+        )
+        if literal is None:
+            continue
+        try:
+            selected = json.loads(literal.group("json"))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(selected, list) or len(selected) != 1:
+            continue
+        entry = selected[0]
+        lane = entry if isinstance(entry, str) else entry.get("lane") if isinstance(entry, dict) else None
+        if isinstance(lane, str) and lane.lower() == "github":
+            return True
+    return False
+
+
+def has_explicit_dual_lane_branch(lines: list[str]) -> bool:
+    for line in lines:
+        if re.search(r"(?:&&|\|\|)\s*['\"]both['\"]", line, re.IGNORECASE):
+            return True
+        for literal in re.finditer(r"'(?P<json>\[[^']*?\])'", line):
+            try:
+                selected = json.loads(literal.group("json"))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(selected, list):
+                continue
+            lanes = {
+                (entry if isinstance(entry, str) else entry.get("lane"))
+                for entry in selected
+                if isinstance(entry, str)
+                or isinstance(entry, dict)
+                and isinstance(entry.get("lane"), str)
+            }
+            if {lane.lower() for lane in lanes} >= {"github", "velnor"}:
+                return True
+    return False
+
+
+def validate_hosted_only_pull_request_exception(
+    name: str, event: str, text: str, failures: list[str]
+) -> None:
+    lines = event_condition_lines(text, event)
+    if not HOSTED_ONLY_PULL_REQUEST_GUARD_RE.search(text):
+        failures.append(
+            f"{name}: hosted-only {event} exception must explicitly include "
+            f"{HOSTED_ONLY_PULL_REQUEST_GUARD}"
+        )
+    if not has_hosted_only_github_branch(lines, event):
+        failures.append(
+            f"{name}: hosted-only {event} exception fork guard must select the "
+            "GitHub-only lane"
+        )
+    if not has_explicit_dual_lane_branch(lines):
+        failures.append(
+            f"{name}: hosted-only {event} exception must retain an explicit "
+            "dual-lane branch for trusted/default behavior"
+        )
+
+
 def validate_automatic_lane_policy(
     positive: set[str], texts: dict[str, str], failures: list[str]
 ) -> None:
@@ -1300,6 +1380,7 @@ def validate_automatic_lane_policy(
             continue
         for event in sorted(events):
             if (name, event) in AUTOMATIC_LANE_EXCEPTIONS:
+                validate_hosted_only_pull_request_exception(name, event, text, failures)
                 continue
             lines = event_condition_lines(text, event)
             if any(has_single_lane_branch(line, event) for line in lines):

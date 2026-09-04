@@ -75,6 +75,14 @@ class WorkflowPolicyTests(unittest.TestCase):
                     self.assertIn(branch, lane)
                 self.assertTrue(lane.endswith("|| 'both' }}"))
 
+    def test_hosted_only_exception_accepts_single_quoted_json_matrix(self):
+        text = (ROOT / ".github" / "workflows" / "compat-public-unmerged.yml").read_text()
+        failures = []
+        coverage_audit.validate_hosted_only_pull_request_exception(
+            "compat-public-unmerged.yml", "pull_request", text, failures
+        )
+        self.assertEqual(failures, [])
+
     def test_required_aggregate_rejects_skipped_compare_after_successful_check(self):
         action = (ROOT / ".github" / "actions" / "aggregate-needs" / "action.yml").read_text()
         self.assertIn("    default: 'false'", action[action.index("  allow-skipped:") :])
