@@ -454,7 +454,7 @@
     {
       "repository": "jdx/mr-boxington-action",
       "disposition": "covered",
-      "reason": "Mr Boxington is the compiler cache Velnor admits at manifest v11; the compatibility workflow selects the local backend on both lanes.",
+      "reason": "Mr Boxington is the compiler cache Velnor admits at manifest v11; the compatibility workflow selects the GitHub backend on both lanes.",
       "evidence": [
         ".github/workflows/compat.yml"
       ],
