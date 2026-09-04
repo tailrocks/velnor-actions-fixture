@@ -120,6 +120,9 @@ jobs:
         env:
           LANES_RESULT: ${{ needs.scheduled-check.result }}
         run: test "${LANES_RESULT}" = success
+      # Checkout first: it cleans the workspace, which would delete the
+      # downloaded lane artifacts if it ran after them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: schedule-evidence-GitHub
@@ -128,41 +131,10 @@ jobs:
         with:
           name: schedule-evidence-Velnor
           path: artifacts/velnor
-      - name: Compare deterministic scheduled evidence
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          expected = {
-              "github": Path("artifacts/github/schedule-GitHub.json"),
-              "velnor": Path("artifacts/velnor/schedule-Velnor.json"),
-          }
-
-          def load(lane, path):
-              if not path.is_file():
-                  raise SystemExit(f"missing {lane} evidence: {path}")
-              files = sorted(item for item in path.parent.rglob("*") if item.is_file())
-              if files != [path]:
-                  raise SystemExit(f"unexpected {lane} evidence files: {files}")
-              payload = json.loads(path.read_text(encoding="utf-8"))
-              if payload.get("schema") != "velnor.fixture.evidence.v1":
-                  raise SystemExit(f"invalid {lane} evidence schema")
-              if payload.get("scenario") != "schedule" or payload.get("lane") != lane:
-                  raise SystemExit(f"invalid {lane} evidence identity")
-              if payload.get("fields", {}).get("result") != "pass":
-                  raise SystemExit(f"{lane} scheduled result is not pass")
-              return payload
-
-          github = load("github", expected["github"])
-          velnor = load("velnor", expected["velnor"])
-          github.pop("lane")
-          velnor.pop("lane")
-          if github != velnor:
-              raise SystemExit("scheduled semantic evidence mismatch")
-          print("scheduled lane evidence matches")
-          PY
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: schedule
+          directory: artifacts
 
   schedule-required:
     if: always()
