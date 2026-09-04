@@ -156,6 +156,28 @@ fn evidence_from_a_previous_run_attempt_is_rejected() {
     assert!(failure.contains("run_attempt"), "{failure}");
 }
 
+#[test]
+fn malformed_numeric_provenance_is_rejected_while_loading() {
+    for (field, original) in [
+        ("run_id", RUN_ID),
+        ("run_attempt", RUN_ATTEMPT),
+        ("run_number", "12"),
+    ] {
+        let directory = scratch(&format!("malformed-{field}"));
+        write(&directory, "github", &record("github", HEALTHY_OBSERVED));
+        let mutated = record("velnor", HEALTHY_OBSERVED).replace(
+            &format!(r#""{field}":"{original}""#),
+            &format!(r#""{field}":"not-a-number""#),
+        );
+        write(&directory, "velnor", &mutated);
+
+        let error = EvidenceSet::load(&directory, "rust")
+            .expect_err("malformed numeric provenance must fail while loading");
+        let expected = format!("provenance field {field} is not a number");
+        assert!(error.contains(&expected), "{error}");
+    }
+}
+
 /// Evidence collected against a different fixture commit.
 #[test]
 fn evidence_for_a_different_fixture_commit_is_rejected() {
@@ -169,6 +191,21 @@ fn evidence_for_a_different_fixture_commit_is_rejected() {
     );
     let failure = rejection(&directory);
     assert!(failure.contains("commit_sha"), "{failure}");
+}
+
+#[test]
+fn truncated_commit_sha_is_rejected_while_loading() {
+    let directory = scratch("truncated-commit");
+    write(&directory, "github", &record("github", HEALTHY_OBSERVED));
+    let mutated = record("velnor", HEALTHY_OBSERVED).replace(COMMIT, "5c8b57a");
+    write(&directory, "velnor", &mutated);
+
+    let error = EvidenceSet::load(&directory, "rust")
+        .expect_err("truncated commit SHA must fail while loading");
+    assert!(
+        error.contains("provenance field commit_sha is not a full commit SHA"),
+        "{error}"
+    );
 }
 
 /// Evidence produced against a different Velnor build. This is the mutation

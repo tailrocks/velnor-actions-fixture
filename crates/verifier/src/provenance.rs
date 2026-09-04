@@ -161,21 +161,7 @@ impl Provenance {
             }
         }
 
-        for field in ["run_id", "run_attempt", "run_number"] {
-            let value = &fields[field];
-            if value.parse::<u64>().is_err() {
-                return Err(format!(
-                    "provenance field {field} is not a number: {value:?}"
-                ));
-            }
-        }
-        let commit = &fields["commit_sha"];
-        if commit.len() != 40 || !commit.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-            return Err(format!(
-                "provenance field commit_sha is not a full commit SHA: {commit:?}"
-            ));
-        }
-
+        validate_provenance_identity(&fields)?;
         validate_lane_environment(lane, fields["runner_environment"].as_str())?;
         fields.insert("lane".to_owned(), lane.to_owned());
         fields.insert("collected_at".to_owned(), now_unix_seconds.to_string());
@@ -210,6 +196,7 @@ impl Provenance {
                 _ => return Err(format!("missing provenance field {field}")),
             }
         }
+        validate_provenance_identity(&fields)?;
         validate_lane_environment(
             fields["lane"].as_str(),
             fields["runner_environment"].as_str(),
@@ -239,6 +226,28 @@ impl Provenance {
                 .collect(),
         )
     }
+}
+
+fn validate_provenance_identity(fields: &BTreeMap<String, String>) -> Result<(), String> {
+    for field in ["run_id", "run_attempt", "run_number"] {
+        let value = fields
+            .get(field)
+            .ok_or_else(|| format!("missing provenance field {field}"))?;
+        if value.parse::<u64>().is_err() {
+            return Err(format!(
+                "provenance field {field} is not a number: {value:?}"
+            ));
+        }
+    }
+    let commit = fields
+        .get("commit_sha")
+        .ok_or_else(|| "missing provenance field commit_sha".to_owned())?;
+    if commit.len() != 40 || !commit.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!(
+            "provenance field commit_sha is not a full commit SHA: {commit:?}"
+        ));
+    }
+    Ok(())
 }
 
 /// Reads the current wall clock as whole seconds since the Unix epoch.
