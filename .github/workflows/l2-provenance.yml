@@ -175,7 +175,7 @@ jobs:
               expected_job=produce
             elif [ "${lane}" = velnor ]; then
               expected_environment=self-hosted
-              expected_job=velnor
+              expected_job=produce
             else
               echo "unexpected producer artifact ${lane}" >&2
               exit 1
