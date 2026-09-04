@@ -7,7 +7,7 @@ architecture review; the current capability baseline is manifest v12.
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Last verified fixture SHA: `bbdf273cfa8c18bd77a3b8123b045a9d6ae75cd5`
+- Last verified fixture SHA: `a3518e3d6377cc80b81ecdc13c26a52b5a3726d6`
 - Velnor under test: `tailrocks/velnor`, branch `perf/docker-rust-mbx`,
   verified target SHA `ad97d33ee97f6512ace494ad1423c5acd83b85ed`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
