@@ -36,6 +36,45 @@ def load_fixture(name: str):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_ci_reusable_suite_lanes_isolate_fork_pull_requests(self):
+        jobs = dict(
+            workflow_audit.top_level_jobs(
+                (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+            )
+        )
+        suite_jobs = (
+            "rust",
+            "runtime",
+            "actions",
+            "docker",
+            "l2-runtime",
+            "l2-provenance",
+        )
+        fork_guard = (
+            "github.event_name == 'pull_request' && "
+            "github.event.pull_request.head.repo.full_name != github.repository"
+        )
+        fork_github_branch = f"{fork_guard} && 'github'"
+        dispatch_branch = "github.event_name == 'workflow_dispatch' && inputs.lanes"
+        automatic_both_branches = tuple(
+            f"github.event_name == '{event_name}' && 'both'"
+            for event_name in ("merge_group", "push", "schedule")
+        )
+
+        for job_name in suite_jobs:
+            with self.subTest(job=job_name):
+                lane = next(
+                    line.strip()[len("lane: ") :]
+                    for line in jobs[job_name]
+                    if line.strip().startswith("lane: ")
+                )
+                self.assertIn(fork_guard, lane)
+                self.assertTrue(lane.startswith(f"${{{{ {fork_github_branch}"))
+                self.assertIn(dispatch_branch, lane)
+                for branch in automatic_both_branches:
+                    self.assertIn(branch, lane)
+                self.assertTrue(lane.endswith("|| 'both' }}"))
+
     def test_required_aggregate_rejects_skipped_compare_after_successful_check(self):
         action = (ROOT / ".github" / "actions" / "aggregate-needs" / "action.yml").read_text()
         self.assertIn("    default: 'false'", action[action.index("  allow-skipped:") :])
