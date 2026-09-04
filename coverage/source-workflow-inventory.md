@@ -1,14 +1,14 @@
 # Source Workflow Inventory
 
-Read-only source scan date: **2026-08-31**. This inventory records the
+Source inventory synchronized: **2026-09-04**. This inventory records the
 workflow surfaces used to scope fixture coverage.
 
 ## Scan basis
 
-- Velnor main was inspected at commit
-  [`2fad3ffbd3f813f1b504de14163f9b57799b5e8c`](https://github.com/tailrocks/velnor/tree/2fad3ffbd3f813f1b504de14163f9b57799b5e8c).
-- The capability baseline is manifest v10, with source identity
-  [`2fad3ffbd3f813f1b504de14163f9b57799b5e8c`](https://github.com/tailrocks/velnor/tree/2fad3ffbd3f813f1b504de14163f9b57799b5e8c).
+- Velnor was synchronized at commit
+  [`7b0bfd7e5dfa48eba741a7a8a7141f2d31310816`](https://github.com/tailrocks/velnor/tree/7b0bfd7e5dfa48eba741a7a8a7141f2d31310816).
+- The capability baseline is manifest v12, with source identity
+  [`7b0bfd7e5dfa48eba741a7a8a7141f2d31310816`](https://github.com/tailrocks/velnor/tree/7b0bfd7e5dfa48eba741a7a8a7141f2d31310816).
 - Runner scope is Linux jobs through Docker and the GitHub V2 JIT flow. It
   includes no macOS job execution and no native scheduler surface.
 - This was a read-only source scan. It does not claim live runner execution;
@@ -44,7 +44,7 @@ mold `7e4f20ad28a2e8ca6fd0892ccf72e2abb706b9c3`, download-artifact
 `dbcb813823bdd20940b903addbd779551569679f`, and Docker build/push
 `53b7df96c91f9c12dcc8a07bcb9ccacbed38856a`; Renovate uses
 `5402b206248e5a8c8427a15102702eb9c1793efc`. The JSON contract retains every
-full SHA, input, and subpath admitted by manifest v10.
+full SHA, input, and subpath admitted by manifest v12.
 
 ## Source revisions
 
@@ -107,6 +107,6 @@ is dual-lane: GitHub-hosted Linux plus the configured Velnor Linux lane.
 
 ## Source documentation
 
-- [Velnor runner usage](https://github.com/tailrocks/velnor/blob/2fad3ffbd3f813f1b504de14163f9b57799b5e8c/docs/runner-usage.md)
-- [Velnor target live runbook](https://github.com/tailrocks/velnor/blob/2fad3ffbd3f813f1b504de14163f9b57799b5e8c/docs/target-live-runbook.md)
-- [Velnor roadmap and host/job scope](https://github.com/tailrocks/velnor/blob/2fad3ffbd3f813f1b504de14163f9b57799b5e8c/docs/roadmap.md)
+- [Velnor runner usage](https://github.com/tailrocks/velnor/blob/7b0bfd7e5dfa48eba741a7a8a7141f2d31310816/docs/runner-usage.md)
+- [Velnor target live runbook](https://github.com/tailrocks/velnor/blob/7b0bfd7e5dfa48eba741a7a8a7141f2d31310816/docs/target-live-runbook.md)
+- [Velnor roadmap and host/job scope](https://github.com/tailrocks/velnor/blob/7b0bfd7e5dfa48eba741a7a8a7141f2d31310816/docs/roadmap.md)

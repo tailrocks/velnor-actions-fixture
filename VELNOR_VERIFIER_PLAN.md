@@ -1,15 +1,15 @@
 # Velnor verifier rearchitecture plan
 
-Status: aligned to the exact verifier branch; coverage redesign waits for the
-Velnor capability model and independent architecture review.
+Status: synchronized to the Velnor capability model and independent
+architecture review; the current capability baseline is manifest v12.
 
 ## Branch and evidence identity
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Starting/verified target SHA: `5c8b57aa64dcbfd8fe6b2f6edae625ae344fc496`
+- Starting/verified target SHA: `b12119624e2b663c418f6f38a3a2c8a846492bc3`
 - Velnor under test: `tailrocks/velnor`, branch `perf/docker-rust-mbx`,
-  starting/verified target SHA `2858e92df0eb78df4f1a6fe2ad4cbf86f1d56355`
+  starting/verified target SHA `7b0bfd7e5dfa48eba741a7a8a7141f2d31310816`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
   and reconcile the target remote before commits/pushes. Keep commits small,
   signed off with `git commit -s`, and include
@@ -105,16 +105,15 @@ This section is the concrete, finding-level execution plan for work package V0
 and the evidence half of V2. Every claim below was verified against both trees
 before any code changed.
 
-## Starting state
+## Current synchronized state
 
 | Tree | Branch | Commit |
 | --- | --- | --- |
-| `velnor-actions-fixture` (this repository) | `codex/verifier-completion-fixes` | `5c8b57aa64dcbfd8fe6b2f6edae625ae344fc496` |
-| `velnor` (runner under test) | `perf/docker-rust-mbx` | `2858e92df0eb78df4f1a6fe2ad4cbf86f1d56355` |
+| `velnor-actions-fixture` (this repository) | `codex/verifier-completion-fixes` | `b12119624e2b663c418f6f38a3a2c8a846492bc3` |
+| `velnor` (runner under test) | `perf/docker-rust-mbx` | `7b0bfd7e5dfa48eba741a7a8a7141f2d31310816` |
 
-`crates/velnor-runner/src/manifest.rs` is byte-identical between
-`2858e92d` and the current tip of `perf/docker-rust-mbx`, so the manifest
-identity recorded below is the identity of the runner under test.
+The manifest identity recorded below is the identity of the runner under test;
+refresh the checked-in export whenever that target changes.
 
 ## Problem statement
 
@@ -158,35 +157,20 @@ no commit, no timestamp and no API call anywhere in the audit. Evidence
 produced by any past run, or against any other Velnor build, certifies the
 current one.
 
-### F3 — the capability baseline is stale and cannot detect it (verified)
+### F3 — the capability baseline was stale and could not detect it (closed)
 
-`audit_capability_coverage.py:25-26` pins `EXPECTED_MANIFEST_VERSION = 10` and
-`EXPECTED_SOURCE_SHA = 2fad3ffbd3f813f1b504de14163f9b57799b5e8c`;
-`coverage/velnor-capabilities.json:2-3` agrees. The runner under test is
-manifest **v11** (`crates/velnor-runner/src/manifest.rs:18`).
-`crate_version` is `0.1.250` on both sides
-(`crates/velnor-runner/Cargo.toml:3`), so the version pin gives a false
-all-clear. `validate_manifest`
-(`audit_capability_coverage.py:167-232`) compares the checked-in JSON against
-Python constants; it never reads Velnor.
+The original audit pinned a manifest version and source SHA in Python while
+never reading Velnor. It now requires a live export or runner source, binds the
+checked-in JSON to that identity, and fails closed when the source is absent or
+stale. The current checked-in export is manifest v12 at the synchronized runner
+commit recorded above.
 
-### F4 — cardinality cannot detect identity drift (verified)
+### F4 — cardinality cannot detect identity drift (closed)
 
-`kunobi-ninja/kache-action` no longer exists in the runner manifest — the only
-surviving mention at `2858e92d` is the changelog comment on
-`crates/velnor-runner/src/manifest.rs:17`. The runner admits
-`jdx/mr-boxington-action` in its place. Both sides hold exactly 30 admitted
-action repositories, so `EXPECTED_ACTION_COUNT = 30`
-(`audit_capability_coverage.py:27`) passed straight through a breaking change:
-
-```
-only in fixture baseline: kunobi-ninja/kache-action
-only in runner manifest:  jdx/mr-boxington-action
-```
-
-`compat.yml:239-260` still runs the removed action and
-`audit_capability_coverage.py:666-693` still enforces it as a hard contract
-(`EXPECTED_KACHE_REF`, `EXPECTED_KACHE_VERSION`).
+The audit now binds the checked-in export to the runner under test by action
+and reusable-workflow identity, refs, subpaths, and inputs. Its mutation test
+replaces one admitted action with an absent identity while preserving row
+count; the audit reports both sides of the drift.
 
 ### F5 — false-coverage rows (verified, and larger than reported)
 
@@ -236,8 +220,8 @@ runner under test at audit time.
   `EXPECTED_ACTION_COUNT` and `EXPECTED_REUSABLE_WORKFLOW_COUNT` are deleted.
 - `EXPECTED_MANIFEST_VERSION` and `EXPECTED_SOURCE_SHA` are deleted; identity
   comes from the export and mismatch is a loud failure naming both sides.
-- The Kache contract is removed together with the `compat.yml` step that
-  exercises it, because the runner no longer admits that identity.
+- Obsolete generic compiler-cache action coverage is removed because the
+  runner no longer admits that identity.
 
 ### B. Collected evidence with provenance (fixes F1, F2, F5)
 
@@ -295,9 +279,9 @@ fabricated provenance, drifted manifest identity, false citation.
 | ID | Task | Complete when |
 | --- | --- | --- |
 | V-1.a | This plan, committed and pushed first | On `origin/codex/verifier-completion-fixes` |
-| V-1.b1 | Delete `EXPECTED_MANIFEST_VERSION`, `EXPECTED_SOURCE_SHA`, `EXPECTED_ACTION_COUNT`, `EXPECTED_REUSABLE_WORKFLOW_COUNT`; bind the baseline to a live export or runner source | Audit fails loudly against a v10 baseline and passes against a v11 one derived from the runner |
+| V-1.b1 | Delete `EXPECTED_MANIFEST_VERSION`, `EXPECTED_SOURCE_SHA`, `EXPECTED_ACTION_COUNT`, `EXPECTED_REUSABLE_WORKFLOW_COUNT`; bind the baseline to a live export or runner source | Audit fails loudly against a stale baseline and passes against a current export derived from the runner |
 | V-1.b2 | Replace cardinality with set identity for actions and reusable workflows | Swapping one repository for another in either document fails the audit |
-| V-1.b3 | Remove the Kache contract and its `compat.yml` step; refresh the baseline to v11 identity | No `kache` reference remains in scripts, coverage or workflows |
+| V-1.b3 | Remove the obsolete compiler-cache action contract and its `compat.yml` step; refresh the baseline to current identity | No removed-action reference remains in scripts, coverage or workflows |
 | V-1.c1 | Typed `EvidenceRecord` v2 with collected provenance in Rust | `evidence collect` refuses to emit outside a job context |
 | V-1.c2 | Observations are collected, not stated | No `--field` literal path remains for observed values |
 | V-1.c3 | Readiness rejects stale / wrong-commit / provenance-free records | Mutation tests V-1.e pass |
@@ -355,7 +339,7 @@ hid the manifest change which introduced it.
 
 # V-3 — refreshing the baseline, and the coverage it was blocking (P0)
 
-## Starting state
+## Historical starting state
 
 V-1 bound the checked-in baseline to the runner under test, and the readiness
 gate was correctly failing:
@@ -369,13 +353,10 @@ reports '63bbc3f48e1c0ea226cc55014e1268953f254cb3'; the baseline is stale
 Comparing the runner's own `capabilities export` against the checked-in
 document showed the failure was **only** the commit: manifest version,
 `crate_version`, the admitted action set, the reusable workflow set and every
-row's refs, subpaths and inputs already agreed exactly. The v10 → v11 move and
-the Kache → Mr Boxington swap had already been landed by V-1: no `kache`
-reference survives in any script, coverage document or workflow, and
-`EXPECTED_KACHE_REF`, `EXPECTED_KACHE_VERSION` and `validate_kache_contract`
-are gone along with every other `EXPECTED_*` baseline constant. The one
-surviving mention is deliberate — a mutation test that replays the exact
-identity swap the old cardinality check missed.
+row's refs, subpaths and inputs already agreed exactly. The old capability
+identity transition had already been landed by V-1. The baseline now comes
+from the runner export, and the mutation test deliberately replaces one
+action identity to prove cardinality alone cannot certify it.
 
 ## F7 — a refresh nobody could perform without a hand edit (verified)
 
@@ -414,42 +395,18 @@ action, so the audit enforced the false claim instead of catching it —
 `expected-unsupported` with the runner's own reason, and a test holds every
 microVM disposition to the supported set.
 
-## F9 — `jdx/mr-boxington-action` cannot run with `backend: local` (verified, open)
+## F9 — generic compiler-cache action admission (superseded)
 
-The manifest admits `backend` values `local`, `github` and `server`
-(`MR_BOXINGTON_INPUTS`), and `compat.yml`'s `cache-mr-boxington` job passes
-`backend: local`. Velnor runs this action as a pinned generic Node action —
-`native_action_adapter("jdx/mr-boxington-action")` is `None` — so the real
-action executes on both lanes, and at the admitted ref
-`adc5c234c02592f7edd008bf81d5bc0e9584dc03` it rejects that value outright:
+The original F9 investigated a third-party generic JavaScript compiler-cache
+action and its backend/input contract. Independent architecture review found
+that Velnor had no executable adapter for that action: generic JavaScript
+admission reached a fail-closed execution branch. T-019 therefore closes the
+generic JavaScript capability surface instead of retaining a fixture scenario
+that could not run on Velnor.
 
-```js
-function AV(t){ if(t==="github"||t==="server") return t;
-  throw new Error(`backend must be "github" or "server", got ${JSON.stringify(t)}`) }
-```
-
-The string `local` does not appear anywhere in the action's bundle. The job as
-written must fail on both lanes, and Velnor's manifest over-admits a value the
-pinned action can never accept.
-
-This also invalidates the recommended input split for this action. `cache-key`,
-`restore-keys`, `cache-generation` and `save-on-workflow-dispatch` are
-documented by the action as GitHub-cache-backend inputs, and `github-token`
-resolves mbx release metadata rather than selecting a remote store — so the
-honest division is not local versus remote but **github backend versus server
-backend**:
-
-- exercised on `backend: github`: `backend`, `version`, `github-token`,
-  `cache-key`, `restore-keys`, `cache-generation`, `save-on-workflow-dispatch`,
-  `toolchain`, `max-size`, `cache-links`
-- `admission_only`: `server-url`, `namespace`, `token`, `token-file`,
-  `oidc-audience`, `server-mode` — the server-backend selectors; this fixture
-  runs no mbx cache server
-
-The current `action-surface-coverage.json` rows are worse than either split:
-thirteen inputs are marked `expected_unsupported` against a workflow reference,
-which asserts the fixture proved Velnor cannot support them. It proved no such
-thing; they were simply never passed. **This work is not landed.**
+The fixture no longer invokes or documents that action. Mr Boxington remains a
+Velnor Docker Rust backend concern and is covered by the native Rust-suite
+scenario matrix.
 
 ## V-3 status
 
@@ -460,22 +417,13 @@ Landed:
   the runner's own.
 - The sccache microVM correction (F8).
 
-Not landed, and deliberately not forced: the Mr Boxington scenario and surface
-split (F9). It needs `backend: local` replaced in `compat.yml` first, which is a
-behaviour change to an executable scenario rather than a coverage edit.
+The superseded generic compiler-cache action scenario and surface rows are
+removed. Mr Boxington backend coverage remains in the Rust-suite scenario
+matrix, where Velnor owns the selection and lifecycle.
 
-Readiness is red at the pause, for the right reason. The shared runner checkout
-advanced to `59e818dd9b282cefaa124dce0f09fdfbeafa411e` and does not currently
-compile, so the baseline cannot be refreshed against it:
-
-```
-ERROR: coverage/velnor-capabilities.json source_sha is
-'75f4473e0156dd9eac1035f69fab1816275aa961', but the Velnor build under test
-reports '59e818dd9b282cefaa124dce0f09fdfbeafa411e'; the baseline is stale
-```
-
-No check was removed, skipped or loosened to hide it. Re-run
-`VELNOR_SOURCE_DIR=… just refresh-capability-baseline` once the runner builds.
+The current baseline is refreshed against the synchronized Velnor commit above,
+and the complete local readiness gate passes. No check was removed, skipped, or
+loosened to hide stale identity.
 
 ## Velnor-side capability surface defects (reported, not edited)
 
@@ -499,5 +447,5 @@ does not write to the runner.
    unsupported and `target_audit` bails at the `unsupported target workflow
    surface` check. A target using either input is rejected by the audit for
    using something the runner supports.
-4. `MR_BOXINGTON_INPUTS` admits `backend: local`, which the pinned action always
-   rejects — see F9.
+4. The superseded generic compiler-cache action contract is absent from the
+   runner manifest and fixture surface; F9 records why.

@@ -164,7 +164,7 @@ crate. Run the complete local gate with `mise run check`.
 
 The fixture is deliberately small. It exists to verify execution semantics before running Velnor against larger repositories.
 
-The current baseline is Velnor v0.1.250, manifest v11; its content-derived
+The current baseline is Velnor v0.1.250, manifest v12; its content-derived
 identity is recorded in `coverage/velnor-capabilities.json`, along with the
 source commit that produced it as provenance. See the
 [baseline/source workflow inventory](coverage/source-workflow-inventory.md).
