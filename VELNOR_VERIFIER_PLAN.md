@@ -453,3 +453,26 @@ does not write to the runner.
    unsupported and `target_audit` bails at the `unsupported target workflow
    surface` check. A target using either input is rejected by the audit for
    using something the runner supports.
+
+## Continuation anchor — verifier identity refresh `3d08299`
+
+The fixture baseline and source inventory are now regenerated against the
+current shared Velnor branch tip `dfc5777b963fc2494f6939e2b0d631b43b5f606b`.
+The capability export remains manifest v12 / crate `0.1.250`, with content
+identity
+`23749db8aab50310a27021ac24ef7dff7b8480468fd26f800d4b0018b4732229` and source
+provenance bound to that exact Velnor commit. The inventory records all six
+current Velnor workflow files, including `docs.yml` and the base-owned
+`velnor-workflow-policy.yml`, plus their immutable action/runtime pins.
+
+The baseline binding regression now mutates an admitted action subpath,
+recomputes a valid content-derived `capability_id`, and proves the audit still
+rejects the changed surface. A well-formed forged identity cannot bypass exact
+set/row comparison.
+
+Focused proof at this anchor: `just refresh-capability-baseline` and readiness
+pass against source `dfc5777`; `python3 .github/scripts/test_audits.py` passes
+44 tests; `python3 .github/scripts/audit_capability_coverage.py --contract-only`
+passes. No live dual-lane run, deployed image identity, or hosted policy
+execution is claimed. The source-side lifecycle, Docker, benchmark, fault/soak,
+and mixed post-order gaps remain open under the shared ownership boundaries.
