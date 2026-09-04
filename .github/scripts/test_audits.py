@@ -328,6 +328,19 @@ class BaselineBindingTests(unittest.TestCase):
         runner["actions"][0]["inputs"] = runner["actions"][0]["inputs"] + ["smuggled"]
         self.assertIn("inputs", "\n".join(self.bind(runner)))
 
+    def test_content_drift_with_a_recomputed_identity_is_rejected(self):
+        """A forged well-formed identity cannot authorize a changed surface."""
+        runner = self.baseline()
+        runner["actions"][0]["allowed_subpaths"] = runner["actions"][0][
+            "allowed_subpaths"
+        ] + ["actions/not-admitted"]
+        runner[coverage_audit.CAPABILITY_ID_FIELD] = coverage_audit.capability_identity(
+            runner
+        )
+        failures = "\n".join(self.bind(runner))
+        self.assertIn("allowed_subpaths", failures)
+        self.assertIn("actions/not-admitted", failures)
+
     def test_readiness_without_a_runner_baseline_fails(self):
         failures = []
         coverage_audit.load_runner_baseline(None, None, None, failures)

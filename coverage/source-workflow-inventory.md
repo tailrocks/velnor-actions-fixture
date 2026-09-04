@@ -6,9 +6,9 @@ workflow surfaces used to scope fixture coverage.
 ## Scan basis
 
 - Velnor was synchronized at commit
-  [`6c0c1af6db984e53fa33608a82927cebee1553a4`](https://github.com/tailrocks/velnor/tree/6c0c1af6db984e53fa33608a82927cebee1553a4).
+  [`dfc5777b963fc2494f6939e2b0d631b43b5f606b`](https://github.com/tailrocks/velnor/tree/dfc5777b963fc2494f6939e2b0d631b43b5f606b).
 - The capability baseline is manifest v12, with source identity
-  [`6c0c1af6db984e53fa33608a82927cebee1553a4`](https://github.com/tailrocks/velnor/tree/6c0c1af6db984e53fa33608a82927cebee1553a4).
+  [`dfc5777b963fc2494f6939e2b0d631b43b5f606b`](https://github.com/tailrocks/velnor/tree/dfc5777b963fc2494f6939e2b0d631b43b5f606b).
 - Runner scope is Linux jobs through Docker and the GitHub V2 JIT flow. It
   includes no macOS job execution and no native scheduler surface.
 - This was a read-only source scan. It does not claim live runner execution;
@@ -16,15 +16,17 @@ workflow surfaces used to scope fixture coverage.
 
 ## Velnor main workflow inventory
 
-At the source commit above, `.github/workflows` contains exactly these four
+At the source commit above, `.github/workflows` contains exactly these six
 workflow files:
 
 | Workflow | Current source surfaces | Fixture mapping |
 | --- | --- | --- |
 | `ci.yml` | Pull request, `main`/tag push, `merge_group`, weekly schedule, and manual `lanes` plus recovery/benchmark/cache-proof inputs; three owner-gated server-side `velnor-actions` `ci-code.yml` calls; `ci-required` runs on `ubuntu-26.04` or `self-hosted,velnor-target-mvp`. | Local `ci.yml` preserves the dual-lane contract and maps execution to `_rust-suite.yml`, `_runtime-suite.yml`, `_actions-suite.yml`, `_docker-suite.yml`, `l2-runtime.yml`, and `l2-provenance.yml`; the external `ci-code.yml` calls remain admission-only. |
+| `docs.yml` | Main push/PR and manual `lanes`; dual-lane documentation build, static-tree migration checks, Pages artifact/deployment, and hosted deployment verification. | Local `pages.yml` provides Pages parity; hosted Pages deployment remains an external hosted-only mutation/verification path. |
 | `guest-image.yml` | Pull requests scoped to `microvm/**` and guest-image sources, manual `lanes`, and `v*` tag push; fail-closed lane admission; x86_64/amd64 and aarch64/arm64 guest kernel/rootfs matrix; checkout, mise, sccache, cache, guest-agent embedding, and artifact upload. | No positive local guest-image build is claimed. `backend-parity.yml` and `control-plane.yml` record the microVM expected-unsupported boundary; the missing user-namespace/CAP_SYS_ADMIN capability is an explicit negative disposition. |
 | `release.yml` | `v*` tag push and manual `lanes`/`tag`; identity and final default-branch/tag gates; amd64/arm64 guest images, OCI image, runner tarballs/debs, checksums, release record/publication, and four hosted package-signer calls at `tailrocks/velnor-actions@2d045521be342284cd567b7058a0e635dc74b37c`. | Local `docker.yml`, `multi-arch.yml`, `_docker-suite.yml`, and `l2-provenance.yml` cover the build, artifact, image, and provenance surfaces. Release mutation and hosted package signing stay external-admission-only; no local workflow executes the signer. |
 | `renovate.yml` | Weekly schedule and manual `lanes`; Velnor/GitHub writer/read-only matrix; checkout, cache, and `renovatebot/github-action`. | Local `renovate.yml` mirrors the writer/read-only matrix and admits the action surface; mutation remains lane-controlled. |
+| `velnor-workflow-policy.yml` | Base-owned reusable `workflow_call` requiring a full `policy-revision`; hosted checkout of workflow data, pinned Velnor workflow-runtime installation, and fail-closed policy execution. | Local workflow audits validate the structural policy contract; hosted policy execution and its protected-branch check remain external admission evidence, not a local positive runtime claim. |
 
 The source workflow action identities are immutable pins. `ci.yml` calls
 `jackin-project/velnor-actions/.github/workflows/ci-code.yml@796dfcd26d4110319c8363155d2eae6885114893`,
@@ -44,7 +46,14 @@ mold `7e4f20ad28a2e8ca6fd0892ccf72e2abb706b9c3`, download-artifact
 `dbcb813823bdd20940b903addbd779551569679f`, and Docker build/push
 `53b7df96c91f9c12dcc8a07bcb9ccacbed38856a`; Renovate uses
 `5402b206248e5a8c8427a15102702eb9c1793efc`. The JSON contract retains every
-full SHA, input, and subpath admitted by manifest v12.
+full SHA, input, and subpath admitted by manifest v12. `docs.yml` additionally
+uses checkout `3d3c42e5aac5ba805825da76410c181273ba90b1`, setup-bun
+`0c5077e51419868618aeaa5fe8019c62421857d6`, configure-pages
+`45bfe0192ca1faeb007ade9deae92b16b8254a0d`, upload-pages-artifact
+`fc324d3547104276b827a68afc52ff2a11cc49c9`, and deploy-pages
+`cd2ce8fcbc39b97be8ca5fce6e763baed58fa128`. The policy workflow uses checkout
+`3d3c42e5aac5ba805825da76410c181273ba90b1` and installs the Velnor workflow
+runtime from commit `8859e3c537cfc2d6e44a92d0c4c0f7ca071e92e0`.
 
 ## Source revisions
 
@@ -107,6 +116,6 @@ is dual-lane: GitHub-hosted Linux plus the configured Velnor Linux lane.
 
 ## Source documentation
 
-- [Velnor runner usage](https://github.com/tailrocks/velnor/blob/6c0c1af6db984e53fa33608a82927cebee1553a4/docs/runner-usage.md)
-- [Velnor target live runbook](https://github.com/tailrocks/velnor/blob/6c0c1af6db984e53fa33608a82927cebee1553a4/docs/target-live-runbook.md)
-- [Velnor roadmap and host/job scope](https://github.com/tailrocks/velnor/blob/6c0c1af6db984e53fa33608a82927cebee1553a4/docs/roadmap.md)
+- [Velnor runner usage](https://github.com/tailrocks/velnor/blob/dfc5777b963fc2494f6939e2b0d631b43b5f606b/docs/runner-usage.md)
+- [Velnor target live runbook](https://github.com/tailrocks/velnor/blob/dfc5777b963fc2494f6939e2b0d631b43b5f606b/docs/target-live-runbook.md)
+- [Velnor roadmap and host/job scope](https://github.com/tailrocks/velnor/blob/dfc5777b963fc2494f6939e2b0d631b43b5f606b/docs/roadmap.md)
