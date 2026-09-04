@@ -1,8 +1,7 @@
 {
   "version": 12,
-  "source_sha": "7b0bfd7e5dfa48eba741a7a8a7141f2d31310816",
+  "source_sha": "0bcc3045c4f7e6309eba94a1873ca9656666da20",
   "crate_version": "0.1.250",
-  "capability_id": "f1709fcbd35e0755b72d822d9ca484ed39a63914e7b65bbd5e2c92e1ab5683bc",
   "actions": [
     {
       "repository": "tailrocks/velnor-actions",
@@ -65,6 +64,33 @@
       "allowed_subpaths": [],
       "inputs": [],
       "notes": "pinned Docker action; generic Docker execution with a closed identity and input surface"
+    },
+    {
+      "repository": "jdx/mr-boxington-action",
+      "adapter": "JavaScript",
+      "allowed_refs": [
+        "adc5c234c02592f7edd008bf81d5bc0e9584dc03"
+      ],
+      "allowed_subpaths": [],
+      "inputs": [
+        "backend",
+        "version",
+        "github-token",
+        "cache-key",
+        "restore-keys",
+        "cache-generation",
+        "save-on-workflow-dispatch",
+        "toolchain",
+        "max-size",
+        "cache-links",
+        "server-url",
+        "namespace",
+        "token",
+        "token-file",
+        "oidc-audience",
+        "server-mode"
+      ],
+      "notes": "pinned Node24 main/post action; generic fetched-action execution with a closed identity and input surface"
     },
     {
       "repository": "actions/checkout",
@@ -549,5 +575,6 @@
       ],
       "notes": "hosted package signer; full-SHA and closed inputs admitted"
     }
-  ]
+  ],
+  "capability_id": "23749db8aab50310a27021ac24ef7dff7b8480468fd26f800d4b0018b4732229"
 }

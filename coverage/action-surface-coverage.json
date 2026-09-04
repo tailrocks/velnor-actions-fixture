@@ -733,6 +733,123 @@
       "admission_only": []
     },
     {
+      "repository": "jdx/mr-boxington-action",
+      "exercised": [
+        {
+          "kind": "input",
+          "name": "backend",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03"
+        },
+        {
+          "kind": "input",
+          "name": "max-size",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03"
+        },
+        {
+          "kind": "input",
+          "name": "cache-links",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03"
+        }
+      ],
+      "expected_unsupported": [
+        {
+          "kind": "input",
+          "name": "version",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "github-token",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "cache-key",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "restore-keys",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "cache-generation",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "save-on-workflow-dispatch",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "toolchain",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "server-url",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "namespace",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "token",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "token-file",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "oidc-audience",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        },
+        {
+          "kind": "input",
+          "name": "server-mode",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
+          "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
+        }
+      ],
+      "admission_only": []
+    },
+    {
       "repository": "rui314/setup-mold",
       "exercised": [],
       "expected_unsupported": [],

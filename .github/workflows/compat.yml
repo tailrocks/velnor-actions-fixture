@@ -273,6 +273,27 @@ jobs:
       - run: test "${RUSTC_WRAPPER:-}" = sccache
       - run: cargo check -p app-a --locked
 
+  cache-mr-boxington:
+    name: Cache Mr Boxington (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON((github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 15
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03 # v1.2.0 / manifest-v12
+        with:
+          backend: github
+          max-size: 20GiB
+          cache-links: "false"
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - run: test -n "${RUSTC_WRAPPER:-}"
+      - run: cargo check -p app-a --locked
+
   services-postgres:
     name: Postgres service (${{ matrix.config.lane }})
     strategy:
