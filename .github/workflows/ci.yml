@@ -43,24 +43,24 @@ jobs:
   rust:
     uses: ./.github/workflows/_rust-suite.yml
     with:
-      lane: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'pull_request' && 'both' || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || 'both' }}
   runtime:
     uses: ./.github/workflows/_runtime-suite.yml
     with:
-      lane: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'pull_request' && 'both' || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || 'both' }}
   actions:
     uses: ./.github/workflows/_actions-suite.yml
     with:
-      lane: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'pull_request' && 'both' || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || 'both' }}
   docker:
     uses: ./.github/workflows/_docker-suite.yml
     with:
-      lane: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'pull_request' && 'both' || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || 'both' }}
 
   l2-runtime:
     uses: ./.github/workflows/l2-runtime.yml
     with:
-      lane: ${{ inputs.lanes || 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || 'both' }}
 
   l2-provenance:
     uses: ./.github/workflows/l2-provenance.yml
@@ -70,7 +70,7 @@ jobs:
       attestations: write
     secrets: inherit
     with:
-      lane: ${{ inputs.lanes || 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || 'both' }}
       signer-workflow: github.com/${{ github.repository }}/.github/workflows/ci.yml
 
   lane-verdict:
