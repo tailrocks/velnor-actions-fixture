@@ -8,12 +8,16 @@ on:
         type: choice
         default: both
         options: [velnor, github, both]
+  workflow_call:
+    inputs:
+      lane: {type: string, required: false, default: both}
+      signer-workflow: {type: string, required: false, default: github.com/tailrocks/velnor-actions-fixture/.github/workflows/l2-provenance.yml}
 
 permissions:
   contents: read
 
 concurrency:
-  group: l2-provenance-${{ github.ref }}-${{ inputs.lanes }}
+  group: l2-provenance-${{ github.ref }}-${{ inputs.lanes || inputs.lane }}
   cancel-in-progress: false
 
 defaults:
@@ -26,6 +30,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Require current default-branch head
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -42,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
+        lane: ${{ fromJSON((inputs.lanes || inputs.lane) == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes || inputs.lane)) }}
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 25
     env:
@@ -62,9 +67,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: l2-provenance-target-${{ matrix.lane }}-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: l2-provenance-target-${{ matrix.lane }}-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: l2-provenance-target-${{ matrix.lane }}-${{ runner.os }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: l2-provenance-target-${{ matrix.lane }}-${{ runner.os }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - name: Prove log masking
+        if: env.MASK_SENTINEL != ''
         env:
           MASK_SENTINEL: ${{ secrets.FIXTURE_MASK_SENTINEL }}
         run: |
@@ -73,6 +79,11 @@ jobs:
           echo "masking-marker-${{ matrix.lane }}-begin"
           printf 'masked-sentinel=%s\n' "${MASK_SENTINEL}"
           echo "masking-marker-${{ matrix.lane }}-end"
+      - name: Record missing masking prerequisite
+        if: env.MASK_SENTINEL == ''
+        env:
+          MASK_SENTINEL: ${{ secrets.FIXTURE_MASK_SENTINEL }}
+        run: echo "L2P_MASKING prerequisite=missing status=not-run lane=${{ matrix.lane }}"
       - name: Build and test exact subject
         run: |
           cargo nextest run --workspace --locked
@@ -121,10 +132,10 @@ jobs:
       - name: Reconstruct and compare exact subjects before attestation
         run: |
           mapfile -t subjects < <(find evidence -name l2-subject.json -type f | sort)
-          if [ "${{ inputs.lanes }}" = both ]; then
+          if [ "${{ inputs.lanes || inputs.lane }}" = both ]; then
             expected_lanes='["github","velnor"]'
           else
-            expected_lanes='["${{ inputs.lanes }}"]'
+            expected_lanes='["${{ inputs.lanes || inputs.lane }}"]'
           fi
           mapfile -t producers < <(find evidence -name 'l2-*.producer.json' -type f | sort)
           test "${#producers[@]}" -eq "${#subjects[@]}"
@@ -148,6 +159,7 @@ jobs:
       - name: Verify exact source and signer
         env:
           GH_TOKEN: ${{ github.token }}
+          SIGNER_WORKFLOW: ${{ inputs.signer-workflow || format('github.com/{0}/.github/workflows/l2-provenance.yml', github.repository) }}
         run: |
           while IFS= read -r producer; do
             lane="$(jq -er .lane "${producer}")"
@@ -163,16 +175,16 @@ jobs:
               expected_job=produce
             elif [ "${lane}" = velnor ]; then
               expected_environment=self-hosted
-              expected_job=velnor
+              expected_job=produce
             else
               echo "unexpected producer artifact ${lane}" >&2
               exit 1
             fi
             gh attestation verify "${subject}" --bundle "${bundle}" "${args[@]}" \
-              --repo tailrocks/velnor-actions-fixture \
-              --source-ref refs/heads/main \
+              --repo "${GITHUB_REPOSITORY}" \
+              --source-ref "${GITHUB_REF}" \
               --source-digest "${GITHUB_SHA}" \
-              --signer-workflow github.com/tailrocks/velnor-actions-fixture/.github/workflows/l2-provenance.yml \
+              --signer-workflow "${SIGNER_WORKFLOW}" \
               --signer-digest "${GITHUB_SHA}" \
               --predicate-type https://slsa.dev/provenance/v1 \
               --format json > "verification-${lane}.json"
@@ -192,7 +204,7 @@ jobs:
           done < <(find evidence -name 'l2-*.producer.json' -type f | sort)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: l2-verification-${{ inputs.lanes }}
+          name: l2-verification-${{ inputs.lanes || inputs.lane }}
           path: |
             verification-*.json
             consumer-l2-*-subject.json.sha256

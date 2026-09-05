@@ -1,7 +1,7 @@
 {
   "manifest": {
-    "version": 10,
-    "source_sha": "9578bb09b72e1d5ba638bf33415d34218f89f933"
+    "version": 12,
+    "capability_id": "23749db8aab50310a27021ac24ef7dff7b8480468fd26f800d4b0018b4732229"
   },
   "actions": [
     {
@@ -40,15 +40,21 @@
       ],
       "execution": "external-admission-only",
       "fixture_status": "external-admission-only",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        "coverage/velnor-capabilities.json"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "jackin-project/jackin-role-action",
       "disposition": "external-admission-only",
-      "reason": "Admitted remote action is checked for admission only; self-contained runtime forbids external execution.",
+      "reason": "Admitted remote action is proven by manifest admission only; no fixture workflow references it, so no workflow may be cited as evidence that it does.",
       "evidence": [
         "GOAL.md",
-        ".github/workflows/_actions-suite.yml"
+        "coverage/velnor-capabilities.json"
       ],
       "inputs": [
         "path",
@@ -59,21 +65,33 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        "coverage/velnor-capabilities.json"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "fsfe/reuse-action",
       "disposition": "external-admission-only",
-      "reason": "Remote action is admitted without fixture runtime execution.",
+      "reason": "Admitted remote action is proven by manifest admission only; no fixture workflow references it, so no workflow may be cited as evidence that it does.",
       "evidence": [
-        ".github/workflows/_rust-suite.yml",
-        "GOAL.md"
+        "GOAL.md",
+        "coverage/velnor-capabilities.json"
       ],
       "inputs": [],
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        "coverage/velnor-capabilities.json"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/checkout",
@@ -97,7 +115,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "supported"
+      "microvm": "supported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/cache",
@@ -120,15 +144,23 @@
       ],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "supported"
+      "microvm": "supported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/attest-build-provenance",
       "disposition": "covered",
       "reason": "Attestation action is covered by the fixture workflow; hosted adapter coverage is not microVM proof.",
       "evidence": [
-        ".github/workflows/_actions-suite.yml",
-        "GOAL.md"
+        "GOAL.md",
+        ".github/workflows/attestation-negative.yml",
+        ".github/workflows/compat.yml",
+        ".github/workflows/l2-provenance.yml"
       ],
       "inputs": [
         "subject-path"
@@ -136,15 +168,23 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/attestation-negative.yml",
+        ".github/workflows/compat.yml",
+        ".github/workflows/l2-provenance.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/create-github-app-token",
       "disposition": "hosted-only",
       "reason": "GitHub App token creation requires hosted GitHub service context.",
       "evidence": [
-        ".github/workflows/_actions-suite.yml",
-        "GOAL.md"
+        "GOAL.md",
+        ".github/workflows/app-token-probe.yml"
       ],
       "inputs": [
         "client-id",
@@ -158,7 +198,13 @@
       "subpaths": [],
       "execution": "secret-gated-dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/app-token-probe.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/upload-artifact",
@@ -180,7 +226,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/github-script",
@@ -197,7 +249,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/download-artifact",
@@ -216,15 +274,20 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/upload-pages-artifact",
       "disposition": "covered",
       "reason": "Pages artifact upload action is covered by the Pages fixture workflow.",
       "evidence": [
-        ".github/workflows/pages.yml",
-        ".github/workflows/_actions-suite.yml"
+        ".github/workflows/pages.yml"
       ],
       "inputs": [
         "path",
@@ -233,14 +296,19 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/pages.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/configure-pages",
       "disposition": "covered",
       "reason": "Pages configuration action is covered by the Pages fixture workflow.",
       "evidence": [
-        ".github/workflows/pages.yml",
         ".github/workflows/_actions-suite.yml"
       ],
       "inputs": [
@@ -252,15 +320,20 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "actions/deploy-pages",
       "disposition": "hosted-only",
       "reason": "Pages deployment requires the hosted GitHub Pages service context.",
       "evidence": [
-        ".github/workflows/pages.yml",
-        ".github/workflows/_actions-suite.yml"
+        ".github/workflows/pages.yml"
       ],
       "inputs": [
         "token",
@@ -273,15 +346,21 @@
       "subpaths": [],
       "execution": "hosted-only",
       "fixture_status": "hosted-only",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/pages.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "dorny/paths-filter",
       "disposition": "covered",
       "reason": "Paths filter action is covered by the fixture workflows.",
       "evidence": [
-        ".github/workflows/_actions-suite.yml",
-        ".github/workflows/_rust-suite.yml"
+        ".github/workflows/compat-public-unmerged.yml",
+        ".github/workflows/compat.yml"
       ],
       "inputs": [
         "filters",
@@ -294,7 +373,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/compat-public-unmerged.yml",
+        ".github/workflows/compat.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "jdx/mise-action",
@@ -317,15 +403,29 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml",
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "mozilla-actions/sccache-action",
       "disposition": "covered",
-      "reason": "Sccache action is covered by the fixture workflows.",
+      "reason": "Sccache is covered by the fixture workflows on the Docker backend. MicroVM refuses it: validate_microvm_compiler_cache rejects a job that declares mozilla-actions/sccache-action, and equally one carrying a RUSTC_WRAPPER or SCCACHE_* environment, so the scenario cannot run there.",
       "evidence": [
-        ".github/workflows/_actions-suite.yml",
-        ".github/workflows/_rust-suite.yml"
+        ".github/workflows/_rust-suite.yml",
+        ".github/workflows/compat-public-unmerged.yml",
+        ".github/workflows/compat.yml",
+        ".github/workflows/fixture-rust-check.yml",
+        ".github/workflows/l2-negative.yml",
+        ".github/workflows/l2-provenance.yml",
+        ".github/workflows/l2-runtime.yml",
+        ".github/workflows/pages.yml",
+        ".github/workflows/schedule.yml"
       ],
       "inputs": [
         "version",
@@ -335,70 +435,108 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "supported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml",
+        ".github/workflows/compat-public-unmerged.yml",
+        ".github/workflows/compat.yml",
+        ".github/workflows/fixture-rust-check.yml",
+        ".github/workflows/l2-negative.yml",
+        ".github/workflows/l2-provenance.yml",
+        ".github/workflows/l2-runtime.yml",
+        ".github/workflows/pages.yml",
+        ".github/workflows/schedule.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
-      "repository": "kunobi-ninja/kache-action",
+      "repository": "jdx/mr-boxington-action",
       "disposition": "covered",
-      "reason": "Kache action is covered by the compatibility and actions-suite workflows.",
+      "reason": "Mr Boxington is the pinned generic JavaScript compiler-cache action admitted by manifest v12; the compatibility workflow selects the GitHub backend on both lanes.",
       "evidence": [
-        ".github/workflows/compat.yml",
-        ".github/workflows/_actions-suite.yml"
+        ".github/workflows/compat.yml"
       ],
       "inputs": [
+        "backend",
         "version",
-        "github-cache",
-        "cache-executables",
-        "pr-comment",
+        "github-token",
+        "cache-key",
+        "restore-keys",
+        "cache-generation",
+        "save-on-workflow-dispatch",
+        "toolchain",
         "max-size",
-        "token",
-        "sync",
-        "warm",
-        "manifest-key",
+        "cache-links",
+        "server-url",
         "namespace",
-        "min-compile-ms",
-        "cache-key-prefix"
+        "token",
+        "token-file",
+        "oidc-audience",
+        "server-mode"
       ],
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/compat.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "rui314/setup-mold",
       "disposition": "covered",
       "reason": "Setup Mold action is covered by the compatibility and actions-suite workflows.",
       "evidence": [
-        ".github/workflows/compat.yml",
-        ".github/workflows/_actions-suite.yml"
+        ".github/workflows/_rust-suite.yml",
+        ".github/workflows/compat-public-unmerged.yml",
+        ".github/workflows/compat.yml"
       ],
       "inputs": [],
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_rust-suite.yml",
+        ".github/workflows/compat-public-unmerged.yml",
+        ".github/workflows/compat.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "extractions/setup-just",
       "disposition": "covered",
       "reason": "Setup Just action is covered by the compatibility and actions-suite workflows.",
       "evidence": [
-        ".github/workflows/compat.yml",
-        ".github/workflows/_actions-suite.yml"
+        ".github/workflows/_actions-suite.yml",
+        ".github/workflows/_rust-suite.yml"
       ],
       "inputs": [],
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml",
+        ".github/workflows/_rust-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "swatinem/rust-cache",
       "disposition": "covered",
       "reason": "Rust cache adapter is covered by the Rust suite fixture.",
       "evidence": [
-        ".github/workflows/_rust-suite.yml",
-        ".github/workflows/renovate.yml"
+        ".github/workflows/_actions-suite.yml"
       ],
       "inputs": [
         "shared-key",
@@ -408,28 +546,40 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "supported"
+      "microvm": "supported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "crazy-max/ghaction-github-runtime",
       "disposition": "covered",
       "reason": "GitHub runtime export adapter is covered by the fixture workflow coverage; microVM execution is unsupported.",
       "evidence": [
-        ".github/workflows/_rust-suite.yml",
-        ".github/workflows/renovate.yml"
+        ".github/workflows/docker.yml",
+        ".github/workflows/multi-arch.yml"
       ],
       "inputs": [],
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/docker.yml",
+        ".github/workflows/multi-arch.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "renovatebot/github-action",
       "disposition": "covered",
       "reason": "Renovate action is covered by the Renovate workflow dry-run lane.",
       "evidence": [
-        ".github/workflows/_rust-suite.yml",
         ".github/workflows/renovate.yml"
       ],
       "inputs": [
@@ -440,7 +590,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/renovate.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/setup-buildx-action",
@@ -461,15 +617,22 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/login-action",
       "disposition": "covered",
       "reason": "Docker registry login is covered by the Docker workflow suite.",
       "evidence": [
-        ".github/workflows/_docker-suite.yml",
-        ".github/workflows/docker.yml"
+        ".github/workflows/docker.yml",
+        ".github/workflows/multi-arch.yml"
       ],
       "inputs": [
         "registry",
@@ -479,15 +642,22 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/docker.yml",
+        ".github/workflows/multi-arch.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/metadata-action",
       "disposition": "covered",
       "reason": "Docker image metadata generation is covered by the Docker workflow suite.",
       "evidence": [
-        ".github/workflows/_docker-suite.yml",
-        ".github/workflows/docker.yml"
+        ".github/workflows/docker.yml",
+        ".github/workflows/multi-arch.yml"
       ],
       "inputs": [
         "images",
@@ -496,7 +666,14 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/docker.yml",
+        ".github/workflows/multi-arch.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/build-push-action",
@@ -523,14 +700,20 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/bake-action",
       "disposition": "covered",
       "reason": "Docker Bake is covered by the Docker workflow suite.",
       "evidence": [
-        ".github/workflows/_docker-suite.yml",
         ".github/workflows/docker.yml"
       ],
       "inputs": [
@@ -542,15 +725,20 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/docker.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "hadolint/hadolint-action",
       "disposition": "covered",
       "reason": "Hadolint validation is covered by the Docker workflow suite.",
       "evidence": [
-        ".github/workflows/_docker-suite.yml",
-        ".github/workflows/docker.yml"
+        ".github/workflows/_actions-suite.yml"
       ],
       "inputs": [
         "dockerfile",
@@ -572,7 +760,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_actions-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "docker/setup-qemu-action",
@@ -580,7 +774,7 @@
       "reason": "Docker QEMU setup is covered by the Docker workflow suite.",
       "evidence": [
         ".github/workflows/_docker-suite.yml",
-        ".github/workflows/docker.yml"
+        ".github/workflows/multi-arch.yml"
       ],
       "inputs": [
         "image",
@@ -590,14 +784,20 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml",
+        ".github/workflows/multi-arch.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "sigstore/cosign-installer",
       "disposition": "covered",
       "reason": "Cosign installation is exercised by the Docker/security suite",
       "evidence": [
-        ".github/workflows/_actions-suite.yml",
         ".github/workflows/_docker-suite.yml"
       ],
       "inputs": [
@@ -607,7 +807,13 @@
       "subpaths": [],
       "execution": "dual",
       "fixture_status": "covered",
-      "microvm": "expected-unsupported"
+      "microvm": "expected-unsupported",
+      "producer": [
+        ".github/workflows/_docker-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     }
   ],
   "reusable_workflows": [
@@ -631,7 +837,13 @@
       "subpaths": [],
       "execution": "external-admission-only",
       "fixture_status": "external-admission-only",
-      "microvm": "not-applicable-server-expanded"
+      "microvm": "not-applicable-server-expanded",
+      "producer": [
+        "coverage/velnor-capabilities.json"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     },
     {
       "repository": "tailrocks/velnor-actions",
@@ -650,7 +862,13 @@
       "subpaths": [],
       "execution": "external-admission-only",
       "fixture_status": "external-admission-only",
-      "microvm": "not-applicable-server-expanded"
+      "microvm": "not-applicable-server-expanded",
+      "producer": [
+        "coverage/velnor-capabilities.json"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
+      ]
     }
   ],
   "runtime_semantics": [
@@ -658,8 +876,13 @@
       "id": "command-files-env-path-output-summary",
       "fixture_status": "covered",
       "evidence": [
-        "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
+      ],
+      "producer": [
+        ".github/workflows/_runtime-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -668,14 +891,26 @@
       "evidence": [
         "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
+      ],
+      "producer": [
+        "crates/fixture-harness/src/lib.rs",
+        ".github/workflows/_runtime-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
       "id": "outcome-conclusion-continue-on-error",
       "fixture_status": "covered",
       "evidence": [
-        "crates/fixture-harness/src/lib.rs",
         ".github/workflows/_runtime-suite.yml"
+      ],
+      "producer": [
+        ".github/workflows/_runtime-suite.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -685,24 +920,40 @@
         ".github/workflows/docker.yml",
         ".github/workflows/docker-lease-probe.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/docker.yml",
+        ".github/workflows/docker-lease-probe.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
       "id": "job-container",
       "fixture_status": "covered",
       "evidence": [
-        ".github/workflows/docker.yml",
-        ".github/workflows/docker-lease-probe.yml",
-        "crates/fixture-harness/src/lib.rs"
+        ".github/workflows/compat.yml"
+      ],
+      "producer": [
+        ".github/workflows/compat.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
       "id": "service-container",
       "fixture_status": "covered",
       "evidence": [
-        ".github/workflows/docker.yml",
-        ".github/workflows/docker-lease-probe.yml",
-        "crates/fixture-harness/src/lib.rs"
+        ".github/workflows/compat.yml"
+      ],
+      "producer": [
+        ".github/workflows/compat.yml"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -713,6 +964,14 @@
         ".github/workflows/backend-parity.yml",
         ".github/workflows/control-plane.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/backend-parity.yml",
+        ".github/workflows/control-plane.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -722,6 +981,14 @@
         ".github/workflows/backend-parity.yml",
         ".github/workflows/control-plane.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/backend-parity.yml",
+        ".github/workflows/control-plane.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -732,6 +999,14 @@
         ".github/workflows/backend-parity.yml",
         ".github/workflows/control-plane.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/backend-parity.yml",
+        ".github/workflows/control-plane.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -741,14 +1016,17 @@
         ".github/workflows/backend-parity.yml",
         ".github/workflows/control-plane.yml",
         "crates/fixture-harness/src/lib.rs"
+      ],
+      "producer": [
+        ".github/workflows/backend-parity.yml",
+        ".github/workflows/control-plane.yml",
+        "crates/fixture-harness/src/lib.rs"
+      ],
+      "comparator": [
+        ".github/scripts/audit_capability_coverage.py"
       ]
     }
   ],
-  "kache_contract": {
-    "repository": "kunobi-ninja/kache-action",
-    "ref": "49398d37113c616fdb61be434cb497e3c2c8f3e6",
-    "version": "v0.14.2"
-  },
   "workflow_policy": {
     "positive": [
       "_actions-suite.yml",

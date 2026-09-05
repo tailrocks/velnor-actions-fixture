@@ -43,24 +43,40 @@ jobs:
   rust:
     uses: ./.github/workflows/_rust-suite.yml
     with:
-      lane: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'pull_request' && 'both' || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' || 'both' }}
   runtime:
     uses: ./.github/workflows/_runtime-suite.yml
     with:
-      lane: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'pull_request' && 'both' || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' || 'both' }}
   actions:
     uses: ./.github/workflows/_actions-suite.yml
     with:
-      lane: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'pull_request' && 'both' || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' || 'both' }}
   docker:
     uses: ./.github/workflows/_docker-suite.yml
     with:
-      lane: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'pull_request' && 'both' || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' }}
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' || 'both' }}
+
+  l2-runtime:
+    uses: ./.github/workflows/l2-runtime.yml
+    with:
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' || 'both' }}
+
+  l2-provenance:
+    uses: ./.github/workflows/l2-provenance.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    secrets: inherit
+    with:
+      lane: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'github' || github.event_name == 'workflow_dispatch' && inputs.lanes || github.event_name == 'merge_group' && 'both' || github.event_name == 'push' && 'both' || github.event_name == 'schedule' && 'both' || 'both' }}
+      signer-workflow: github.com/${{ github.repository }}/.github/workflows/ci.yml
 
   lane-verdict:
     name: exact two-lane evidence verdict
     if: always()
-    needs: [contract-audit, rust, runtime, actions, docker]
+    needs: [contract-audit, rust, runtime, actions, docker, l2-runtime, l2-provenance]
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     concurrency:
@@ -96,32 +112,49 @@ jobs:
           import json
           from pathlib import Path
 
+          # The Rust scenario matrix. The default Velnor Rust path is the
+          # mandatory scenario; sccache is one scenario among several.
+          rust_scenarios = {
+              "rust-default": ("app-a", "app-b"),
+              "rust-sccache": ("app-a", "app-b"),
+              "rust-accel-optout": ("app-a", "app-b"),
+              "rust-cache-interaction": (
+                  "cargo-source-cache",
+                  "explicit-sccache",
+                  "lockfile-change",
+                  "source-change",
+                  "target-cache",
+              ),
+              "rust-parallel": ("1", "2", "3", "4"),
+          }
           expected = {
-              ("rust", lane, package)
+              (scenario, lane, key)
+              for scenario, keys in rust_scenarios.items()
+              for lane in ("github", "velnor")
+              for key in keys
+          }
+          expected |= {
+              ("runtime-result", lane, package)
               for lane in ("github", "velnor")
               for package in ("app-a", "app-b")
           }
           expected |= {
-              ("runtime", lane, package)
-              for lane in ("github", "velnor")
-              for package in ("app-a", "app-b")
+              ("actions", lane, "probes") for lane in ("github", "velnor")
           }
           expected |= {
-              (scenario, lane, "")
-              for scenario in ("actions", "docker")
-              for lane in ("github", "velnor")
+              ("docker", lane, "image") for lane in ("github", "velnor")
           }
+          scenarios = {item[0] for item in expected}
           observed = set()
           for path in Path("artifacts").rglob("*.json"):
               payload = json.loads(path.read_text())
-              if payload.get("scenario") == "rust":
-                  observed.add(("rust", payload["lane"], payload["fields"]["package"]))
-              elif payload.get("scenario") in {"actions", "docker"}:
-                  observed.add((payload["scenario"], payload["lane"], ""))
-              elif payload.get("lane") in {"github", "velnor"}:
-                  harness = payload.get("evidence", {}).get("harness", {})
-                  if harness.get("scenario") == "runtime":
-                      observed.add(("runtime", payload["lane"], payload["package"]))
+              if payload.get("schema") != "velnor.fixture.evidence.v2":
+                  raise SystemExit(f"unsupported evidence schema in {path}")
+              scenario = payload["scenario"]
+              if scenario not in scenarios:
+                  raise SystemExit(f"unexpected evidence scenario in {path}: {scenario}")
+              lane = payload["provenance"]["lane"]
+              observed.add((scenario, lane, payload["evidence_id"]))
           if observed != expected:
               missing = sorted(expected - observed)
               extra = sorted(observed - expected)
@@ -131,7 +164,7 @@ jobs:
 
   ci-required:
     if: always()
-    needs: [contract-audit, rust, runtime, actions, docker, lane-verdict]
+    needs: [contract-audit, rust, runtime, actions, docker, l2-runtime, l2-provenance, lane-verdict]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     concurrency:

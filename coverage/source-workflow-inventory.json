@@ -1,0 +1,227 @@
+{
+  "schema": "velnor.fixture.source-workflow-inventory.v1",
+  "source_sha": "e8223f5574a10ea8076e682a29495e2bee8ff1c8",
+  "workflows": [
+    {
+      "path": ".github/workflows/ci-bun-velnor.yml",
+      "sha256": "122c97ff444d73a0cda42cf82ce298b3406564a59d60c54fab90e1182331f089",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "oven-sh/setup-bun"],
+      "fixture_workflows": ["_runtime-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-docker-crates-velnor-workflow-tests-fixtures-polyglot.yml",
+      "sha256": "ada828f3aebc46827d2c23a16bf5da542d451f6a50f2d49c765d2b6d303715d7",
+      "uses": ["actions/checkout", "docker/setup-buildx-action"],
+      "fixture_workflows": ["_docker-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-docker-docker.yml",
+      "sha256": "ff3ab8ad574067ba43175cb12799e98331eea353c73439012450372bcb7e2a33",
+      "uses": ["actions/checkout", "docker/setup-buildx-action"],
+      "fixture_workflows": ["_docker-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-docs-docs.yml",
+      "sha256": "3f02cd059f9efeded31086431b39a05c88d0a9b727e0524757db150eacbd7bce",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout"],
+      "fixture_workflows": ["pages.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-gradle-crates-velnor-workflow-tests-fixtures-polyglot.yml",
+      "sha256": "ce33d5ee869fbb0a680c8eff4c3b0340d6c490c9fd3a22ffac7a4d8172d25002",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "gradle/actions/setup-gradle"],
+      "fixture_workflows": ["_docker-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-main.yml",
+      "sha256": "8019c354f76f9bdf040fbd6f81d0dd6c3454cb805e32b41cd56a0536a910237f",
+      "uses": [
+        "actions/checkout",
+        "local:./.github/workflows/ci-bun-velnor.yml",
+        "local:./.github/workflows/ci-docker-crates-velnor-workflow-tests-fixtures-polyglot.yml",
+        "local:./.github/workflows/ci-docker-docker.yml",
+        "local:./.github/workflows/ci-docs-docs.yml",
+        "local:./.github/workflows/ci-gradle-crates-velnor-workflow-tests-fixtures-polyglot.yml",
+        "local:./.github/workflows/ci-node-fixture.yml",
+        "local:./.github/workflows/ci-opentofu-opentofu.yml",
+        "local:./.github/workflows/ci-rust-fixture.yml",
+        "local:./.github/workflows/ci-rust-policy.yml",
+        "local:./.github/workflows/ci-rust-unit-collector.yml",
+        "local:./.github/workflows/ci-rust-velnor-bench.yml",
+        "local:./.github/workflows/ci-rust-velnor-client.yml",
+        "local:./.github/workflows/ci-rust-velnor-control.yml",
+        "local:./.github/workflows/ci-rust-velnor-model.yml",
+        "local:./.github/workflows/ci-rust-velnor-render.yml",
+        "local:./.github/workflows/ci-rust-velnor-runner.yml",
+        "local:./.github/workflows/ci-rust-velnor-tools.yml",
+        "local:./.github/workflows/ci-rust-velnor-workflow.yml",
+        "local:./.github/workflows/ci-rust-velnorctl.yml",
+        "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml"
+      ],
+      "fixture_workflows": ["ci.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-node-fixture.yml",
+      "sha256": "68823ea0029281a990ec75a4ff9ecd7c91a0519774613dd6266d3be7b8943dd6",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "actions/setup-node"],
+      "fixture_workflows": ["_runtime-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-opentofu-opentofu.yml",
+      "sha256": "7679e11e2557733e4d00feae1d271aa33225774508268435446222fd17db122f",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "opentofu/setup-opentofu"],
+      "fixture_workflows": ["_docker-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-policy.yml",
+      "sha256": "92132219705fcace00253a42bdb4a9d2b609971fa21ecaf4e09b3e8363a06d27",
+      "uses": ["tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml"],
+      "fixture_workflows": ["ci.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-pr.yml",
+      "sha256": "94a8c9d308776dbcd27c4aa2c0bfcee26fa28179567882f612be8fee17326109",
+      "uses": [
+        "actions/checkout",
+        "local:./.github/workflows/ci-bun-velnor.yml",
+        "local:./.github/workflows/ci-docker-crates-velnor-workflow-tests-fixtures-polyglot.yml",
+        "local:./.github/workflows/ci-docker-docker.yml",
+        "local:./.github/workflows/ci-docs-docs.yml",
+        "local:./.github/workflows/ci-gradle-crates-velnor-workflow-tests-fixtures-polyglot.yml",
+        "local:./.github/workflows/ci-node-fixture.yml",
+        "local:./.github/workflows/ci-opentofu-opentofu.yml",
+        "local:./.github/workflows/ci-rust-fixture.yml",
+        "local:./.github/workflows/ci-rust-policy.yml",
+        "local:./.github/workflows/ci-rust-unit-collector.yml",
+        "local:./.github/workflows/ci-rust-velnor-bench.yml",
+        "local:./.github/workflows/ci-rust-velnor-client.yml",
+        "local:./.github/workflows/ci-rust-velnor-control.yml",
+        "local:./.github/workflows/ci-rust-velnor-model.yml",
+        "local:./.github/workflows/ci-rust-velnor-render.yml",
+        "local:./.github/workflows/ci-rust-velnor-runner.yml",
+        "local:./.github/workflows/ci-rust-velnor-tools.yml",
+        "local:./.github/workflows/ci-rust-velnor-workflow.yml",
+        "local:./.github/workflows/ci-rust-velnorctl.yml"
+      ],
+      "fixture_workflows": ["ci.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-fixture.yml",
+      "sha256": "df6ca040dce1f5cafad19c6cf0aa5bb103f6b741e2f463fcffd4ba6391aa1076",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-policy.yml",
+      "sha256": "f1f0cf94358bb85c808c21c4868dd6beadcc187986c0860bb5a3cb9ae4a9a456",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-unit-collector.yml",
+      "sha256": "cf23cccdf822c37dd4bc6d09995e2ba993f1a151c562aadef717b4f56c4aaa92",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-bench.yml",
+      "sha256": "108fdf45752670434d5fe660297300b8051e1a279c0d9091eacd5c88f491d099",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-client.yml",
+      "sha256": "ff0350c4f6d8b33c97b69a48d92222bec7fae3e229e3f1ae11836b8fdec1aaae",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-control.yml",
+      "sha256": "fe4b27f36de9aa63121ab28f540493e70a8154af6fd6c01b7bae733636e0174c",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-model.yml",
+      "sha256": "f6db1a46401004e67aa492620b4b3917d9e909c97b1b79325d1d887d8577b97e",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-render.yml",
+      "sha256": "9b3fd4d939d3c82b3be386a8e86450b90d24f666cbe73a47ee787114827386af",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-runner.yml",
+      "sha256": "cb6ccbad51c91f4c71127692d21c1a445d75d7dfc0a70f6b40dedef34170aab7",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-tools.yml",
+      "sha256": "45ae4ba4845ab8299ad485e39258f216db2c2208695ac3a7db6da02cce27e8cb",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-workflow.yml",
+      "sha256": "249ba1062e4f3293cc3e6d6b07503ab88cc23a786383ccb19c9f842ec124a2d0",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnorctl.yml",
+      "sha256": "3142acc5ff0dac97c989f47c7ecab1e30f173544e5be0c4969a0b5e7a658886c",
+      "uses": ["actions/cache/restore", "actions/cache/save", "actions/checkout", "jdx/mise-action", "mozilla-actions/sccache-action", "rui314/setup-mold", "taiki-e/install-action"],
+      "fixture_workflows": ["_rust-suite.yml"]
+    },
+    {
+      "path": ".github/workflows/maintenance.yml",
+      "sha256": "57bd737767e4a9c17155e64e1212dad67d3fa6f04338eaeee3a00c89a9944371",
+      "uses": [],
+      "fixture_workflows": ["schedule.yml"]
+    },
+    {
+      "path": ".github/workflows/nightly.yml",
+      "sha256": "006e593e1450bf2cb0aa49ce0727905ee6b0c94d0b1e01f63febd853fbde4206",
+      "uses": ["actions/checkout", "local:./.github/workflows/ci-bun-velnor.yml", "local:./.github/workflows/ci-docker-crates-velnor-workflow-tests-fixtures-polyglot.yml", "local:./.github/workflows/ci-docker-docker.yml", "local:./.github/workflows/ci-docs-docs.yml", "local:./.github/workflows/ci-gradle-crates-velnor-workflow-tests-fixtures-polyglot.yml", "local:./.github/workflows/ci-node-fixture.yml", "local:./.github/workflows/ci-opentofu-opentofu.yml", "local:./.github/workflows/ci-rust-fixture.yml", "local:./.github/workflows/ci-rust-policy.yml", "local:./.github/workflows/ci-rust-unit-collector.yml", "local:./.github/workflows/ci-rust-velnor-bench.yml", "local:./.github/workflows/ci-rust-velnor-client.yml", "local:./.github/workflows/ci-rust-velnor-control.yml", "local:./.github/workflows/ci-rust-velnor-model.yml", "local:./.github/workflows/ci-rust-velnor-render.yml", "local:./.github/workflows/ci-rust-velnor-runner.yml", "local:./.github/workflows/ci-rust-velnor-tools.yml", "local:./.github/workflows/ci-rust-velnor-workflow.yml", "local:./.github/workflows/ci-rust-velnorctl.yml", "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml"],
+      "fixture_workflows": ["schedule.yml"]
+    }
+  ],
+  "action_mappings": [
+    {"uses": "actions/cache/restore", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "actions/cache/save", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "actions/checkout", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "actions/setup-node", "disposition": "hosted-only", "fixture_workflows": [], "reason": "The fixture has no positive Node setup lane yet."},
+    {"uses": "docker/setup-buildx-action", "disposition": "covered", "fixture_workflows": ["_docker-suite.yml"]},
+    {"uses": "gradle/actions/setup-gradle", "disposition": "hosted-only", "fixture_workflows": [], "reason": "The fixture has no positive Gradle setup lane yet."},
+    {"uses": "jdx/mise-action", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-bun-velnor.yml", "disposition": "covered", "fixture_workflows": ["_runtime-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-docker-crates-velnor-workflow-tests-fixtures-polyglot.yml", "disposition": "covered", "fixture_workflows": ["_docker-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-docker-docker.yml", "disposition": "covered", "fixture_workflows": ["_docker-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-docs-docs.yml", "disposition": "covered", "fixture_workflows": ["pages.yml"]},
+    {"uses": "local:./.github/workflows/ci-gradle-crates-velnor-workflow-tests-fixtures-polyglot.yml", "disposition": "hosted-only", "fixture_workflows": [], "reason": "The fixture has no positive Gradle workflow lane yet."},
+    {"uses": "local:./.github/workflows/ci-node-fixture.yml", "disposition": "hosted-only", "fixture_workflows": [], "reason": "The fixture has no positive Node workflow lane yet."},
+    {"uses": "local:./.github/workflows/ci-opentofu-opentofu.yml", "disposition": "hosted-only", "fixture_workflows": [], "reason": "The fixture has no positive OpenTofu workflow lane yet."},
+    {"uses": "local:./.github/workflows/ci-rust-fixture.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-policy.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-unit-collector.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-velnor-bench.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-velnor-client.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-velnor-control.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-velnor-model.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-velnor-render.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-velnor-runner.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-velnor-tools.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-velnor-workflow.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "local:./.github/workflows/ci-rust-velnorctl.yml", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "mozilla-actions/sccache-action", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "opentofu/setup-opentofu", "disposition": "hosted-only", "fixture_workflows": [], "reason": "The fixture has no positive OpenTofu setup lane yet."},
+    {"uses": "oven-sh/setup-bun", "disposition": "hosted-only", "fixture_workflows": [], "reason": "The fixture has no positive Bun setup lane yet."},
+    {"uses": "rui314/setup-mold", "disposition": "covered", "fixture_workflows": ["_rust-suite.yml"]},
+    {"uses": "taiki-e/install-action", "disposition": "hosted-only", "fixture_workflows": [], "reason": "The fixture installs its Rust tools through its own pinned toolchain lane."},
+    {"uses": "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml", "disposition": "external-admission-only", "fixture_workflows": [], "reason": "The policy workflow is a base-owned external reusable workflow; local policy structure is audited, not executed here."}
+  ]
+}

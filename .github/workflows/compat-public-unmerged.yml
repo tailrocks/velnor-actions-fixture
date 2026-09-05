@@ -64,7 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         package: [app-a, app-b]
-        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || github.event_name == 'pull_request' && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 20
     permissions:
@@ -98,8 +98,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       # Compute MSRV from package/workspace Cargo.toml. Bare `stable` forces
       # rustup channel sync and collides with image-bundled clippy bits.
       - id: msrv
@@ -140,7 +140,7 @@ jobs:
           PACKAGE: ${{ matrix.package }}
         run: |
           set -euo pipefail
-          cargo test --locked -p fixture-harness --all-targets
+          cargo nextest run --locked -p fixture-harness --all-targets
           cargo run --quiet --locked -p fixture-harness --example command_files
           tmp_dir="$(mktemp -d)"
           mkdir -p "${tmp_dir}/tree/nested"
@@ -152,14 +152,30 @@ jobs:
           printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
           cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
           grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
+          cp "${tmp_dir}/tree.txt" "${tmp_dir}/cache.txt" "${tmp_dir}/subject.json" .
+      # `steps` is computed by the runner, not written by this workflow, so the
+      # outcome and conclusion of every step above are the behavioural signal
+      # no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
           mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario compat-public \
-            --lane "${LANE}" \
-            --field "package=${PACKAGE}" \
-            --field examples=command_files,artifact_tree,cache_payload,release_subject \
-            --field result=pass \
-            --output "evidence/compat-public-${LANE}-${PACKAGE}.json"
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: compat-public
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/compat-public-${{ matrix.config.lane }}-${{ matrix.package }}.json
+          observations: |
+            --observe-command command-files=cargo run --quiet --locked -p fixture-harness --example command_files
+            --observe-file artifact-tree=tree.txt
+            --observe-file cache-payload=cache.txt
+            --observe-file release-subject=subject.json
+            --observe-steps steps=${{ runner.temp }}/steps.json
       # Verify MSRV step with env injection — mirrors Jackin MSRV pattern
       - name: Check MSRV
         env:
@@ -172,7 +188,28 @@ jobs:
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
-      - run: python3 .github/scripts/write-result.py "${{ matrix.package }}" "${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}" "out/result.json"
+      # `steps` is computed by the runner, not written by this workflow, so the
+      # outcome and conclusion of every step above are the behavioural signal
+      # no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cat > "${{ runner.temp }}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: compat-public-result
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: out/result.json
+          observations: |
+            --observe-command build=cargo build --quiet --locked -p ${{ matrix.package }}
+            --observe-command run=cargo run --quiet --locked -p ${{ matrix.package }}
+            --observe-env package=FIXTURE_PACKAGE
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: result-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}-${{ matrix.package }}
@@ -189,7 +226,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || github.event_name == 'pull_request' && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     steps:
@@ -203,7 +240,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || github.event_name == 'pull_request' && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     env:
@@ -221,8 +258,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: test "${RUSTC_WRAPPER:-}" = sccache
       - run: cargo check -p app-a --locked
 
@@ -231,7 +268,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || github.event_name == 'pull_request' && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
+        config: ${{ fromJSON((github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && ('[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":false},{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && ('[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]') || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     container: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
@@ -258,7 +295,7 @@ jobs:
   # Required aggregate job — mirrors ChainArgos rust-required / Jackin ci-required
   compat-required:
     if: always()
-    needs: [changes, compat]
+    needs: [changes, compat, compare-results]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
@@ -280,7 +317,10 @@ jobs:
         with:
           path: artifacts
           merge-multiple: false
-      - run: python3 .github/scripts/compare-results.py artifacts
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: compat-public-result
+          directory: artifacts
       - uses: ./.github/actions/aggregate-needs
         with:
           expected: success

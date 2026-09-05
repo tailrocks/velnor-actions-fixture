@@ -53,9 +53,55 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: cargo check --workspace --locked
+      - name: Run fixture-harness tests and emit evidence
+        env:
+          LANE: ${{ matrix.config.lane }}
+        run: |
+          set -euo pipefail
+          cargo nextest run --locked -p fixture-harness --all-targets
+          cargo run --quiet --locked -p fixture-harness --example command_files
+          tmp_dir="$(mktemp -d)"
+          mkdir -p "${tmp_dir}/tree/nested"
+          printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
+          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
+          test -s "${tmp_dir}/tree.txt"
+          cargo run --quiet --locked -p fixture-harness --example cache_payload -- schedule "${LANE,,}" > "${tmp_dir}/cache.txt"
+          grep -q '^velnor.fixture.cache.v1$' "${tmp_dir}/cache.txt"
+          printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
+          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
+          grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
+          cp "${tmp_dir}/tree.txt" "${tmp_dir}/cache.txt" "${tmp_dir}/subject.json" .
+      # `steps` is computed by the runner, not written by this workflow, so the
+      # outcome and conclusion of every step above are the behavioural signal
+      # no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: schedule
+          evidence-id: harness
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/schedule-${{ matrix.config.lane }}.json
+          observations: |
+            --observe-command command-files=cargo run --quiet --locked -p fixture-harness --example command_files
+            --observe-file artifact-tree=tree.txt
+            --observe-file cache-payload=cache.txt
+            --observe-file release-subject=subject.json
+            --observe-steps steps=${{ runner.temp }}/steps.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: schedule-evidence-${{ matrix.config.lane }}
+          path: evidence/schedule-${{ matrix.config.lane }}.json
+          if-no-files-found: error
       - run: |
           {
             echo "### scheduled-check (${{ matrix.config.lane }})"
@@ -63,9 +109,36 @@ jobs:
             echo "- ref: ${{ github.ref }}"
           } >> "${GITHUB_STEP_SUMMARY}"
 
+  compare:
+    name: compare scheduled lanes
+    needs: [scheduled-check]
+    if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: Require both scheduled lanes to pass
+        env:
+          LANES_RESULT: ${{ needs.scheduled-check.result }}
+        run: test "${LANES_RESULT}" = success
+      # Checkout first: it cleans the workspace, which would delete the
+      # downloaded lane artifacts if it ran after them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: schedule-evidence-GitHub
+          path: artifacts/github
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: schedule-evidence-Velnor
+          path: artifacts/velnor
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: schedule
+          directory: artifacts
+
   schedule-required:
     if: always()
-    needs: [scheduled-check]
+    needs: [scheduled-check, compare]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:

@@ -8,6 +8,9 @@ on:
         type: choice
         default: both
         options: [velnor, github, both]
+  workflow_call:
+    inputs:
+      lane: {type: string, required: false, default: both}
 
 permissions:
   contents: read
@@ -18,7 +21,7 @@ env:
   EXPLICIT_MISE_VERSION: 2026.8.2
 
 concurrency:
-  group: l2-runtime-${{ github.ref }}-${{ inputs.lanes }}
+  group: l2-runtime-${{ github.ref }}-${{ inputs.lanes || inputs.lane }}
   cancel-in-progress: false
 
 defaults:
@@ -31,6 +34,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Require current default-branch head
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -43,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
+        lane: ${{ fromJSON((inputs.lanes || inputs.lane) == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes || inputs.lane)) }}
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 25
     env:
@@ -65,8 +69,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: l2-runtime-target-${{ matrix.lane }}-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
-          restore-keys: l2-runtime-target-${{ matrix.lane }}-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
+          key: l2-runtime-target-${{ matrix.lane }}-${{ runner.os }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: l2-runtime-target-${{ matrix.lane }}-${{ runner.os }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - name: Validate recursive closure and non-empty corpus
         run: |
           cargo run --locked -p l2-contract -- validate
@@ -139,7 +143,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
+        lane: ${{ fromJSON((inputs.lanes || inputs.lane) == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes || inputs.lane)) }}
         writer: [1, 2]
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 15
@@ -168,7 +172,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON(inputs.lanes == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes)) }}
+        lane: ${{ fromJSON((inputs.lanes || inputs.lane) == 'both' && '["github","velnor"]' || format('["{0}"]', inputs.lanes || inputs.lane)) }}
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 20
     env:
@@ -231,6 +235,33 @@ jobs:
             test "$(sha256sum /opt/mise/bin/mise | awk '{print $1}')" = "$(cat .l2-seed/bootstrap-sha256)"
           fi
 
+      - name: Write canonical runtime evidence
+        run: |
+          set -euo pipefail
+          mkdir -p l2-runtime-evidence
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = {
+              "schema": "velnor.fixture.l2-runtime.v1",
+              "lane": "${{ matrix.lane }}",
+              "result": "pass",
+              "closure": "root,nested,remote",
+              "cache": "root,save-only,contention-hit",
+              "mise": "explicit-version-differs-and-persists",
+          }
+          Path("l2-runtime-evidence/runtime-${{ matrix.lane }}.json").write_text(
+              json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: l2-runtime-${{ matrix.lane }}
+          path: l2-runtime-evidence/runtime-${{ matrix.lane }}.json
+          if-no-files-found: error
+
   runtime-required:
     if: always()
     needs: [seed, contend, verify]
@@ -243,3 +274,37 @@ jobs:
           CONTEND: ${{ needs.contend.result }}
           VERIFY: ${{ needs.verify.result }}
         run: test "${SEED}/${CONTEND}/${VERIFY}" = success/success/success
+
+  compare-runtime-evidence:
+    if: always() && needs.runtime-required.result == 'success' && (inputs.lanes || inputs.lane) == 'both'
+    needs: [runtime-required]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: l2-runtime-*
+          path: evidence
+      - name: Compare canonical runtime evidence
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          paths = sorted(Path("evidence").rglob("runtime-*.json"))
+          if len(paths) != 2:
+              raise SystemExit(f"expected 2 L2 runtime evidence files, got {len(paths)}")
+          rows = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
+          if {row.get("lane") for row in rows} != {"github", "velnor"}:
+              raise SystemExit(f"missing L2 runtime lanes: {rows}")
+          normalized = []
+          for row in rows:
+              lane = row.pop("lane", None)
+              if lane not in {"github", "velnor"}:
+                  raise SystemExit(f"invalid L2 runtime lane: {lane!r}")
+              normalized.append(row)
+          if normalized[0] != normalized[1]:
+              raise SystemExit(f"L2 runtime evidence mismatch: {normalized}")
+          print("L2 runtime evidence matches across GitHub and Velnor")
+          PY

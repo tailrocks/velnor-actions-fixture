@@ -93,6 +93,8 @@ jobs:
         config: ${{ fromJSON(inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 10
+    env:
+      LANE_ID: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
     concurrency:
       group: cp-${{ github.run_id }}-success-${{ matrix.config.lane }}
       cancel-in-progress: false
@@ -114,6 +116,29 @@ jobs:
           echo "::notice::CP_MARKER scenario=success phase=done lane=${LANE_NAME}"
           echo "CP_PHASE=done"
           echo "### control-plane success (${LANE_NAME}): deterministic green" >> "${GITHUB_STEP_SUMMARY}"
+      - name: Emit deterministic semantic evidence
+        run: |
+          set -euo pipefail
+          mkdir -p cp-evidence
+          LANE_ID="${LANE_ID}" python3 -c '
+          import json, os
+          from pathlib import Path
+          Path("cp-evidence/evidence.json").write_text(json.dumps({
+              "schema": "velnor.fixture.control-plane.v1",
+              "scenario": "success",
+              "evidence_id": "default",
+              "lane": os.environ["LANE_ID"],
+              "runner_name": os.environ.get("RUNNER_NAME", ""),
+              "semantic": {"status": "passed", "deterministic_result": 42},
+          }, sort_keys=True) + "\n")
+          '
+      - name: Upload per-lane semantic evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cp-evidence-${{ matrix.config.lane }}
+          path: cp-evidence/
+          if-no-files-found: error
 
   scenario-failure:
     if: inputs.scenario == 'failure'
@@ -124,6 +149,8 @@ jobs:
         config: ${{ fromJSON(inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 10
+    env:
+      LANE_ID: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
     concurrency:
       group: cp-${{ github.run_id }}-failure-${{ matrix.config.lane }}
       cancel-in-progress: false
@@ -164,7 +191,31 @@ jobs:
             echo "::error::CP_MARKER scenario=failure phase=mismatch lane=${LANE_NAME} reason=controlled-failure-did-not-fail"
             exit 1
           fi
+          mkdir -p cp-evidence
+          LANE_ID="${LANE_ID}" python3 -c '
+          import json, os
+          from pathlib import Path
+          Path("cp-evidence/evidence.json").write_text(json.dumps({
+              "schema": "velnor.fixture.control-plane.v1",
+              "scenario": "failure",
+              "evidence_id": "default",
+              "lane": os.environ["LANE_ID"],
+              "runner_name": os.environ.get("RUNNER_NAME", ""),
+              "semantic": {
+                  "status": "expected-failure",
+                  "failure_step": "controlled-failure",
+                  "terminal_outcome": "failure",
+              },
+          }, sort_keys=True) + "\n")
+          '
           echo "### control-plane failure (${LANE_NAME}): failed exactly at controlled-failure" >> "${GITHUB_STEP_SUMMARY}"
+      - name: Upload per-lane expected-failure evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cp-evidence-${{ matrix.config.lane }}
+          path: cp-evidence/
+          if-no-files-found: error
 
   scenario-hold:
     if: inputs.scenario == 'hold'
@@ -175,6 +226,8 @@ jobs:
         config: ${{ fromJSON(inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
+    env:
+      LANE_ID: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
     concurrency:
       group: cp-${{ github.run_id }}-hold-${{ matrix.config.lane }}
       cancel-in-progress: false
@@ -197,6 +250,35 @@ jobs:
           echo "CP_PHASE=ready"
           echo "::notice::CP_MARKER scenario=hold phase=done lane=${LANE_NAME}"
           echo "CP_PHASE=done"
+      - name: Emit deterministic semantic evidence
+        env:
+          HOLD_SECONDS: ${{ inputs.hold_seconds }}
+        run: |
+          set -euo pipefail
+          mkdir -p cp-evidence
+          LANE_ID="${LANE_ID}" HOLD_SECONDS="${HOLD_SECONDS}" python3 -c '
+          import json, os
+          from pathlib import Path
+          Path("cp-evidence/evidence.json").write_text(json.dumps({
+              "schema": "velnor.fixture.control-plane.v1",
+              "scenario": "hold",
+              "evidence_id": "default",
+              "lane": os.environ["LANE_ID"],
+              "runner_name": os.environ.get("RUNNER_NAME", ""),
+              "semantic": {
+                  "status": "passed",
+                  "cancellable": True,
+                  "hold_seconds": int(os.environ["HOLD_SECONDS"]),
+              },
+          }, sort_keys=True) + "\n")
+          '
+      - name: Upload per-lane semantic evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cp-evidence-${{ matrix.config.lane }}
+          path: cp-evidence/
+          if-no-files-found: error
 
   # Queue isolation guard: hosted watchdog for the queue scenario. Without the
   # dedicated validation instance the isolated job below would stay QUEUED
@@ -251,7 +333,9 @@ jobs:
   # queue-guard above bounds the wait. See README.md.
   scenario-queue:
     if: inputs.scenario == 'queue'
-    needs: [validate-inputs, queue-guard]
+    # Explicit queue exception: run independently so the guard can observe
+    # this job while it waits for the dedicated validation runner.
+    needs: [validate-inputs]
     runs-on: [self-hosted, velnor-cp-queue-validation]
     timeout-minutes: 10
     concurrency:
@@ -279,6 +363,8 @@ jobs:
         config: ${{ fromJSON(inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
+    env:
+      LANE_ID: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
     concurrency:
       group: cp-${{ github.run_id }}-concurrent-${{ matrix.config.lane }}-${{ matrix.slot }}
       cancel-in-progress: false
@@ -307,11 +393,44 @@ jobs:
             "${LANE_NAME}" "${SLOT}" "${start_epoch}" "${end_epoch}" \
             > "cp-intervals/cp-concurrent-${LANE_NAME}-${SLOT}.json"
 
+      - name: Emit deterministic slot evidence
+        env:
+          SLOT: ${{ matrix.slot }}
+        run: |
+          set -euo pipefail
+          mkdir -p cp-evidence
+          LANE_ID="${LANE_ID}" SLOT="${SLOT}" python3 -c '
+          import json, os
+          from pathlib import Path
+          slot = int(os.environ["SLOT"])
+          Path("cp-evidence/evidence.json").write_text(json.dumps({
+              "schema": "velnor.fixture.control-plane.v1",
+              "scenario": "concurrent",
+              "evidence_id": f"slot-{slot}",
+              "lane": os.environ["LANE_ID"],
+              "runner_name": os.environ.get("RUNNER_NAME", ""),
+              "semantic": {
+                  "status": "passed",
+                  "slot": slot,
+                  "requested_slots": 2,
+                  "overlap_required": True,
+              },
+          }, sort_keys=True) + "\n")
+          '
+
       - name: Upload slot interval evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cp-concurrent-${{ matrix.config.lane }}-${{ matrix.slot }}
           path: cp-intervals/
+          if-no-files-found: error
+
+      - name: Upload per-lane slot semantic evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cp-evidence-${{ matrix.config.lane }}-${{ matrix.slot }}
+          path: cp-evidence/
           if-no-files-found: error
 
   scenario-artifacts:
@@ -323,6 +442,8 @@ jobs:
         config: ${{ fromJSON(inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
+    env:
+      LANE_ID: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
     concurrency:
       group: cp-${{ github.run_id }}-artifacts-${{ matrix.config.lane }}
       cancel-in-progress: false
@@ -355,6 +476,25 @@ jobs:
           done
           echo "artifact_list=${names}" >> "${GITHUB_OUTPUT}"
           echo "CP_ARTIFACT_LIST=${names}"
+          mkdir -p cp-evidence
+          LANE_ID="${LANE_ID}" ARTIFACT_COUNT="${ARTIFACT_COUNT}" python3 -c '
+          import json, os
+          from pathlib import Path
+          count = int(os.environ["ARTIFACT_COUNT"])
+          Path("cp-evidence/evidence.json").write_text(json.dumps({
+              "schema": "velnor.fixture.control-plane.v1",
+              "scenario": "artifacts",
+              "evidence_id": "default",
+              "lane": os.environ["LANE_ID"],
+              "runner_name": os.environ.get("RUNNER_NAME", ""),
+              "semantic": {
+                  "status": "passed",
+                  "artifact_count": count,
+                  "distinct_artifact_count": count,
+                  "max_artifact_bytes": 256,
+              },
+          }, sort_keys=True) + "\n")
+          '
 
       - name: Upload distinct sanitized artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -369,8 +509,15 @@ jobs:
         run: |
           echo "::notice::CP_MARKER scenario=artifacts phase=done lane=${LANE_NAME}"
           echo "CP_PHASE=done"
+      - name: Upload per-lane semantic evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cp-evidence-${{ matrix.config.lane }}
+          path: cp-evidence/
+          if-no-files-found: error
 
-  scenario-cache:
+  scenario-cache-writer:
     if: inputs.scenario == 'cache'
     needs: [validate-inputs]
     strategy:
@@ -379,39 +526,112 @@ jobs:
         config: ${{ fromJSON(inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
+    env:
+      LANE_ID: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
     concurrency:
-      group: cp-${{ github.run_id }}-cache-${{ matrix.config.lane }}
+      group: cp-${{ github.run_id }}-cache-writer-${{ matrix.config.lane }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Restore fixed-key cache
+      - name: Restore fixed-key cache before writing
         id: cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cp-cache
           key: cp-control-plane-${{ runner.os }}-fixed-v1
-      - name: Report hit state and expectation
+      - name: Seed fixed-key cache payload
         env:
           LANE_NAME: ${{ matrix.config.lane }}
           CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
           CACHE_KEY: ${{ steps.cache.outputs.cache-primary-key }}
         run: |
           set -euo pipefail
-          echo "::notice::CP_MARKER scenario=cache phase=restore lane=${LANE_NAME} cache_hit=${CACHE_HIT} key=${CACHE_KEY}"
+          expected_key="cp-control-plane-${RUNNER_OS}-fixed-v1"
+          test "${CACHE_KEY}" = "${expected_key}"
+          echo "::notice::CP_MARKER scenario=cache phase=writer lane=${LANE_NAME} cache_hit=${CACHE_HIT} key=${CACHE_KEY}"
           echo "CP_SCENARIO=cache"
-          echo "CP_PHASE=restore"
+          echo "CP_PHASE=writer"
+          echo "CP_LANE=${LANE_NAME}"
+          echo "CP_CACHE_WRITER_HIT=${CACHE_HIT}"
+          echo "CP_CACHE_PRIMARY_KEY=${CACHE_KEY}"
+          mkdir -p .cp-cache
+          printf 'control-plane fixed-key cache seed v1\n' > .cp-cache/cache-contract
+          echo "::notice::CP_MARKER scenario=cache phase=writer-complete lane=${LANE_NAME} key=${CACHE_KEY}"
+          echo "CP_PHASE=writer-complete"
+
+  scenario-cache-rerun:
+    if: inputs.scenario == 'cache'
+    needs: [validate-inputs, scenario-cache-writer]
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}},{"lane":"GitHub","runner":"ubuntu-26.04"}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04"}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 15
+    env:
+      LANE_ID: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+    concurrency:
+      group: cp-${{ github.run_id }}-cache-rerun-${{ matrix.config.lane }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore fixed-key cache from completed writer
+        id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cp-cache
+          key: cp-control-plane-${{ runner.os }}-fixed-v1
+      - name: Require unchanged-rerun cache hit
+        env:
+          LANE_NAME: ${{ matrix.config.lane }}
+          CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+          CACHE_KEY: ${{ steps.cache.outputs.cache-primary-key }}
+        run: |
+          set -euo pipefail
+          expected_key="cp-control-plane-${RUNNER_OS}-fixed-v1"
+          test "${CACHE_KEY}" = "${expected_key}"
+          test "${CACHE_HIT}" = true
+          test -f .cp-cache/cache-contract
+          test "$(cat .cp-cache/cache-contract)" = 'control-plane fixed-key cache seed v1'
+          echo "::notice::CP_MARKER scenario=cache phase=rerun lane=${LANE_NAME} cache_hit=${CACHE_HIT} key=${CACHE_KEY} asserted=true"
+          echo "CP_SCENARIO=cache"
+          echo "CP_PHASE=rerun"
           echo "CP_LANE=${LANE_NAME}"
           echo "CP_CACHE_HIT=${CACHE_HIT}"
           echo "CP_CACHE_PRIMARY_KEY=${CACHE_KEY}"
-          echo "CP_CACHE_EXPECTATION=an unchanged rerun of this scenario expects CP_CACHE_HIT=true"
-          mkdir -p .cp-cache
-          date +%s > .cp-cache/last-touch
+          echo "CP_CACHE_RERUN_ASSERTED=true"
+          mkdir -p cp-evidence
+          LANE_ID="${LANE_ID}" CACHE_HIT="${CACHE_HIT}" python3 -c '
+          import json, os
+          from pathlib import Path
+          Path("cp-evidence/evidence.json").write_text(json.dumps({
+              "schema": "velnor.fixture.control-plane.v1",
+              "scenario": "cache",
+              "evidence_id": "rerun",
+              "lane": os.environ["LANE_ID"],
+              "runner_name": os.environ.get("RUNNER_NAME", ""),
+              "semantic": {
+                  "status": "passed",
+                  "cache_hit": os.environ["CACHE_HIT"] == "true",
+                  "fixed_key_contract": True,
+                  "unchanged_rerun_asserted": True,
+                  "payload_restored": True,
+              },
+          }, sort_keys=True) + "\n")
+          '
       - name: Done markers
         env:
           LANE_NAME: ${{ matrix.config.lane }}
         run: |
           echo "::notice::CP_MARKER scenario=cache phase=done lane=${LANE_NAME}"
           echo "CP_PHASE=done"
+      - name: Upload per-lane semantic evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cp-cache-rerun-evidence-${{ matrix.config.lane }}
+          path: cp-evidence/
+          if-no-files-found: error
 
   scenario-load:
     if: inputs.scenario == 'load'
@@ -422,6 +642,8 @@ jobs:
         config: ${{ fromJSON(inputs.lanes == 'both' && '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true},{"lane":"GitHub","runner":"ubuntu-26.04","writer":false}]' || inputs.lanes == 'github' && '[{"lane":"GitHub","runner":"ubuntu-26.04","writer":true}]' || '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"},"writer":true}]') }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 20
+    env:
+      LANE_ID: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
     concurrency:
       group: cp-${{ github.run_id }}-load-${{ matrix.config.lane }}
       cancel-in-progress: false
@@ -461,6 +683,25 @@ jobs:
           # Disk: bounded 64 MiB temp file, checksummed, deleted in teardown.
           dd if=/dev/zero of="${RUNNER_TEMP}/cp-load-disk.bin" bs=1M count=64 status=none
           sha256sum "${RUNNER_TEMP}/cp-load-disk.bin" > "${RUNNER_TEMP}/cp-load-disk.sha256"
+          mkdir -p cp-evidence
+          LANE_ID="${LANE_ID}" python3 -c '
+          import json, os
+          from pathlib import Path
+          Path("cp-evidence/evidence.json").write_text(json.dumps({
+              "schema": "velnor.fixture.control-plane.v1",
+              "scenario": "load",
+              "evidence_id": "default",
+              "lane": os.environ["LANE_ID"],
+              "runner_name": os.environ.get("RUNNER_NAME", ""),
+              "semantic": {
+                  "status": "passed",
+                  "cpu_target_seconds": 10,
+                  "memory_target_mib": 256,
+                  "disk_target_mib": 64,
+                  "teardown_required": True,
+              },
+          }, sort_keys=True) + "\n")
+          '
           echo "::notice::CP_MARKER scenario=load phase=done lane=${LANE_NAME}"
           echo "CP_PHASE=done"
       - name: Guaranteed teardown
@@ -472,15 +713,23 @@ jobs:
           echo "::notice::CP_MARKER scenario=load phase=teardown lane=${LANE_NAME} complete=true"
           echo "CP_PHASE=teardown"
 
-  # Hosted aggregation: reports requested versus observed terminal state.
-  # Exits nonzero only on an unexpected mismatch; the failure scenario's
-  # controlled failure is the requested terminal state, not a mismatch. For
-  # the failure scenario it additionally parses each scenario-failure job log
-  # (CP_MARKER lines) to prove exactly one error marker was emitted and that
-  # it came from the named `controlled-failure` step. See README.md.
+      - name: Upload per-lane semantic evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cp-evidence-${{ matrix.config.lane }}
+          path: cp-evidence/
+          if-no-files-found: error
+
+  # Hosted aggregation: reports requested versus observed terminal state and
+  # compares normalized semantic evidence from every selected lane. The
+  # queue scenario is an explicit Velnor-only queue exception; hold is an
+  # externally cancellable diagnostic (a cancelled run has no verdict); and
+  # failure is an expected failing scenario whose evidence and logs must prove
+  # exactly one named controlled failure. See README.md.
   aggregator:
     if: always()
-    needs: [validate-inputs, scenario-success, scenario-failure, scenario-hold, scenario-queue, queue-guard, scenario-concurrent, scenario-artifacts, scenario-cache, scenario-load]
+    needs: [validate-inputs, scenario-success, scenario-failure, scenario-hold, scenario-queue, queue-guard, scenario-concurrent, scenario-artifacts, scenario-cache-writer, scenario-cache-rerun, scenario-load]
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
@@ -497,6 +746,44 @@ jobs:
       ARTIFACT_LIST: ${{ needs.scenario-artifacts.outputs.artifact_list }}
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: Checkout repository-local evidence comparator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download selected lane semantic evidence
+        if: inputs.scenario != 'queue' && inputs.scenario != 'cache'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: cp-evidence-*
+          path: cp-evidence
+
+      - name: Download cache rerun semantic evidence
+        if: inputs.scenario == 'cache'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: cp-cache-rerun-evidence-*
+          path: cp-evidence
+
+      - name: Compare normalized semantic evidence
+        if: inputs.scenario != 'queue'
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.lanes }}" == "both" ]]; then
+            expected_lanes=(github velnor)
+          else
+            expected_lanes=("${{ inputs.lanes }}")
+          fi
+          # A single-lane dispatch is diagnostic: it uses `diagnose`, which never
+          # claims parity. `compare` refuses a single lane outright.
+          if [[ "${#expected_lanes[@]}" -eq 1 ]]; then
+            verb=diagnose
+          else
+            verb=compare
+          fi
+          python3 .github/scripts/workflow_evidence.py "${verb}" \
+            --directory cp-evidence \
+            --scenario "${SCENARIO}" \
+            --lanes "${expected_lanes[@]}"
+
       - name: Download concurrent interval evidence
         if: inputs.scenario == 'concurrent'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -511,7 +798,7 @@ jobs:
           echo "::notice::CP_MARKER scenario=${SCENARIO} phase=aggregator"
           echo "CP_SCENARIO=${SCENARIO}"
           echo "CP_PHASE=aggregator"
-          jobs=(scenario-success scenario-failure scenario-hold scenario-queue scenario-concurrent scenario-artifacts scenario-cache scenario-load)
+          jobs=(scenario-success scenario-failure scenario-hold scenario-queue queue-guard scenario-concurrent scenario-artifacts scenario-cache-writer scenario-cache-rerun scenario-load)
           for job in "${jobs[@]}"; do
             echo "CP_OBSERVED ${job}=$(result_of "${job}")"
           done
@@ -532,8 +819,10 @@ jobs:
               expect scenario-queue skipped
               expect scenario-concurrent skipped
               expect scenario-artifacts skipped
-              expect scenario-cache skipped
+              expect scenario-cache-writer skipped
+              expect scenario-cache-rerun skipped
               expect scenario-load skipped
+              expect queue-guard skipped
               ;;
             failure)
               expect scenario-failure failure
@@ -542,8 +831,10 @@ jobs:
               expect scenario-queue skipped
               expect scenario-concurrent skipped
               expect scenario-artifacts skipped
-              expect scenario-cache skipped
+              expect scenario-cache-writer skipped
+              expect scenario-cache-rerun skipped
               expect scenario-load skipped
+              expect queue-guard skipped
               ;;
             hold)
               expect scenario-hold success
@@ -552,8 +843,10 @@ jobs:
               expect scenario-queue skipped
               expect scenario-concurrent skipped
               expect scenario-artifacts skipped
-              expect scenario-cache skipped
+              expect scenario-cache-writer skipped
+              expect scenario-cache-rerun skipped
               expect scenario-load skipped
+              expect queue-guard skipped
               ;;
             queue)
               expect scenario-queue success
@@ -562,8 +855,10 @@ jobs:
               expect scenario-hold skipped
               expect scenario-concurrent skipped
               expect scenario-artifacts skipped
-              expect scenario-cache skipped
+              expect scenario-cache-writer skipped
+              expect scenario-cache-rerun skipped
               expect scenario-load skipped
+              expect queue-guard success
               ;;
             concurrent)
               expect scenario-concurrent success
@@ -572,12 +867,21 @@ jobs:
               expect scenario-hold skipped
               expect scenario-queue skipped
               expect scenario-artifacts skipped
-              expect scenario-cache skipped
+              expect scenario-cache-writer skipped
+              expect scenario-cache-rerun skipped
               expect scenario-load skipped
+              expect queue-guard skipped
               overlap_proofs=0
               test -n "$(find cp-intervals -name 'cp-concurrent-*.json' -print -quit)"
               intervals_json="$(jq -sc . cp-intervals/cp-concurrent-*.json)"
-              for lane in Velnor GitHub; do
+              if [[ "${{ inputs.lanes }}" == "both" ]]; then
+                overlap_lanes=(Velnor GitHub)
+              elif [[ "${{ inputs.lanes }}" == "github" ]]; then
+                overlap_lanes=(GitHub)
+              else
+                overlap_lanes=(Velnor)
+              fi
+              for lane in "${overlap_lanes[@]}"; do
                 overlap="$(jq -r --arg lane "${lane}" '
                   [ .[] | select(.lane == $lane) ] | sort_by(.slot) |
                   if length == 2 then
@@ -602,8 +906,10 @@ jobs:
               expect scenario-hold skipped
               expect scenario-queue skipped
               expect scenario-concurrent skipped
-              expect scenario-cache skipped
+              expect scenario-cache-writer skipped
+              expect scenario-cache-rerun skipped
               expect scenario-load skipped
+              expect queue-guard skipped
               count="$(awk -F',' '{print NF}' <<< "${ARTIFACT_LIST}")"
               [[ "${count}" -eq "${ARTIFACT_COUNT}" ]] || mismatch "scenario-artifacts" "artifact_count=${count}" "artifact_count=${ARTIFACT_COUNT}"
               distinct="$(tr ',' '\n' <<< "${ARTIFACT_LIST}" | sort -u | wc -l | tr -d ' ')"
@@ -612,7 +918,8 @@ jobs:
               echo "CP_ARTIFACTS_VERIFIED count=${count} distinct=${distinct}"
               ;;
             cache)
-              expect scenario-cache success
+              expect scenario-cache-writer success
+              expect scenario-cache-rerun success
               expect scenario-success skipped
               expect scenario-failure skipped
               expect scenario-hold skipped
@@ -620,8 +927,9 @@ jobs:
               expect scenario-concurrent skipped
               expect scenario-artifacts skipped
               expect scenario-load skipped
-              echo "::notice::CP_MARKER scenario=cache phase=aggregator-note note=unchanged-rerun-expects-cache-hit"
-              echo "CP_CACHE_AGGREGATOR_NOTE=unchanged rerun expects CP_CACHE_HIT=true"
+              expect queue-guard skipped
+              echo "::notice::CP_MARKER scenario=cache phase=aggregator-verified rerun_asserted=true"
+              echo "CP_CACHE_RERUN_VERIFIED=true"
               ;;
             load)
               expect scenario-load success
@@ -631,7 +939,9 @@ jobs:
               expect scenario-queue skipped
               expect scenario-concurrent skipped
               expect scenario-artifacts skipped
-              expect scenario-cache skipped
+              expect scenario-cache-writer skipped
+              expect scenario-cache-rerun skipped
+              expect queue-guard skipped
               ;;
             *)
               mismatch "validate-inputs" "unknown-scenario=${SCENARIO}" "one of the eight scenarios"

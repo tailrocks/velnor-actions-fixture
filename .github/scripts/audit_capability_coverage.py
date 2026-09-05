@@ -4,12 +4,19 @@
 Stdlib-only by design. ``--contract-only`` validates the two JSON contracts
 without requiring the repository's staged workflow migration to be complete.
 The default mode is the readiness gate and audits current workflow content.
+``--refresh-baseline`` rewrites the cached baseline from the runner under test
+and then re-runs that readiness gate, so refreshing is one command and never a
+hand edit.
 """
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -18,20 +25,53 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 CAPABILITIES_PATH = ROOT / "coverage" / "velnor-capabilities.json"
 COVERAGE_PATH = ROOT / "coverage" / "fixture-coverage.json"
+SURFACE_COVERAGE_PATH = ROOT / "coverage" / "action-surface-coverage.json"
+SOURCE_WORKFLOW_INVENTORY_PATH = ROOT / "coverage" / "source-workflow-inventory.json"
 WORKFLOWS = ROOT / ".github" / "workflows"
 ACTIONS = ROOT / ".github" / "actions"
+SOURCE_WORKFLOW_INVENTORY_SCHEMA = "velnor.fixture.source-workflow-inventory.v1"
 
-EXPECTED_MANIFEST_VERSION = 10
-EXPECTED_SOURCE_SHA = "9578bb09b72e1d5ba638bf33415d34218f89f933"
-EXPECTED_ACTION_COUNT = 30
-EXPECTED_REUSABLE_WORKFLOW_COUNT = 2
-EXPECTED_KACHE_REF = "49398d37113c616fdb61be434cb497e3c2c8f3e6"
-EXPECTED_KACHE_VERSION = "v0.14.2"
+# There are deliberately no EXPECTED_MANIFEST_VERSION / EXPECTED_SOURCE_SHA /
+# EXPECTED_ACTION_COUNT constants here. Pinning the baseline to constants is
+# what let a v10 baseline certify a v11 runner, and what let one admitted
+# action be swapped for another without the audit noticing, because the count
+# stayed at 30 across the change. The baseline is now bound to the runner under
+# test at audit time and compared by content identity, never by cardinality.
+#
+# Fields of the `velnor capabilities export` document that must agree exactly.
+MANIFEST_ACTION_FIELDS = ("adapter", "allowed_refs", "allowed_subpaths", "inputs", "notes")
+MANIFEST_WORKFLOW_FIELDS = ("allowed_refs", "inputs", "notes")
+CAPABILITY_ID_FIELD = "capability_id"
+CAPABILITY_ID_LENGTH = hashlib.sha256().digest_size * 2
+CAPABILITY_ID_EXCLUDED_FIELDS = frozenset({"source_sha", CAPABILITY_ID_FIELD})
 
+# A development build of the runner reports this instead of its commit, because
+# `VELNOR_SOURCE_SHA` is only baked in for release builds.
+DEVELOPMENT_SOURCE_SHA = "development"
+
+# The exported capability document is a pure function of these four files:
+# `manifest.rs` holds every admitted repository, ref, subpath and input;
+# `action.rs` names the adapter variants the export prints; `Cargo.toml`
+# supplies `crate_version`; `build.rs` decides what `source_sha` becomes. When
+# the commit is derived from a checkout's HEAD, an uncommitted change to any of
+# them would attribute a manifest to a commit that does not contain it. Other
+# uncommitted work in the checkout cannot reach the document and is allowed,
+# because a reference checkout under active development is the normal case.
+MANIFEST_SOURCE_PATHS = (
+    "crates/velnor-runner/src/manifest.rs",
+    "crates/velnor-runner/src/action.rs",
+    "crates/velnor-runner/build.rs",
+    "crates/velnor-runner/Cargo.toml",
+)
+
+# `validate_microvm_compiler_cache` (crates/velnor-runner/src/manifest.rs)
+# refuses a microVM job that declares `mozilla-actions/sccache-action`, and also
+# one carrying any `RUSTC_WRAPPER` or `SCCACHE_*` environment. sccache is
+# therefore microVM expected-unsupported, not supported; it was listed here as
+# supported, which made the fixture claim proof of something the runner rejects.
 MICROVM_SUPPORTED = {
     "actions/cache",
     "actions/checkout",
-    "mozilla-actions/sccache-action",
     "swatinem/rust-cache",
 }
 EXPECTED_RUNTIME_SEMANTICS = {
@@ -84,6 +124,8 @@ READINESS_ACTION_STATUSES = {
     "hosted-only",
 }
 READINESS_RUNTIME_STATUSES = {"covered", "expected-unsupported"}
+SURFACE_STATUSES = ("exercised", "expected_unsupported", "admission_only")
+SURFACE_KINDS = {"input", "subpath"}
 
 # These are policy exceptions, not alternate defaults. They must stay named
 # here so an automatic single-lane path cannot silently become acceptable.
@@ -97,9 +139,19 @@ AUTOMATIC_LANE_EXCEPTIONS = {
 SECRET_GATED_WORKFLOWS = {
     "app-token-probe.yml": "GitHub App credentials are optional secrets",
 }
+AUTOMATIC_L2_WORKFLOWS = {
+    "l2-runtime.yml": "l2-runtime",
+    "l2-provenance.yml": "l2-provenance",
+}
 AUTOMATIC_EVENTS = {"merge_group", "pull_request", "push", "schedule", "workflow_run"}
 
 USES_RE = re.compile(r"^\s*(?:-\s*)?uses:\s*['\"]?([^'\"\s#]+)")
+HOSTED_ONLY_PULL_REQUEST_GUARD = (
+    "github.event.pull_request.head.repo.full_name != github.repository"
+)
+HOSTED_ONLY_PULL_REQUEST_GUARD_RE = re.compile(
+    r"github\.event\.pull_request\.head\.repo\.full_name\s*!=\s*github\.repository"
+)
 
 
 def load_json(path: Path, failures: list[str]) -> dict[str, Any]:
@@ -112,6 +164,204 @@ def load_json(path: Path, failures: list[str]) -> dict[str, Any]:
         failures.append(f"{path.relative_to(ROOT)}: root must be an object")
         return {}
     return value
+
+
+def normalize_source_use(value: str) -> str:
+    """Return the action or reusable-workflow identity without its ref."""
+    value = value.strip().strip("'\"")
+    if value.startswith("./"):
+        return f"local:{value}"
+    return value.split("@", 1)[0]
+
+
+def source_workflow_snapshot(
+    runner_source: Path, failures: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Read the exact workflow files from the Velnor checkout under test."""
+    workflow_root = runner_source / ".github" / "workflows"
+    if not workflow_root.is_dir():
+        failures.append(
+            f"runner source {runner_source}: .github/workflows is missing; "
+            "source workflow parity cannot be checked"
+        )
+        return {}
+
+    snapshot: dict[str, dict[str, Any]] = {}
+    for path in sorted(workflow_root.rglob("*")):
+        if not path.is_file() or path.suffix not in {".yml", ".yaml"}:
+            continue
+        relative = path.relative_to(runner_source).as_posix()
+        try:
+            raw = path.read_bytes()
+            text = raw.decode("utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            failures.append(f"cannot read source workflow {relative}: {error}")
+            continue
+        uses = sorted(
+            {
+                normalize_source_use(match.group(1))
+                for line in text.splitlines()
+                if (match := USES_RE.match(line))
+            }
+        )
+        snapshot[relative] = {
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "uses": uses,
+        }
+    if not snapshot:
+        failures.append(
+            f"runner source {runner_source}: .github/workflows contains no YAML workflows"
+        )
+    return snapshot
+
+
+def validate_fixture_workflow_paths(
+    values: list[str], label: str, failures: list[str], *, nonempty: bool
+) -> None:
+    """Ensure an inventory mapping names only fixture workflows."""
+    if nonempty and not values:
+        failures.append(f"{label}: must map to at least one fixture workflow")
+    for value in values:
+        path = Path(value)
+        if path.is_absolute() or ".." in path.parts:
+            failures.append(f"{label}: unsafe fixture workflow path {value!r}")
+            continue
+        if not (WORKFLOWS / path).is_file():
+            failures.append(f"{label}: fixture workflow {value!r} does not exist")
+
+
+def validate_source_workflow_inventory(
+    inventory: dict[str, Any],
+    *,
+    runner_source: Path | None,
+    source_sha: str | None,
+    failures: list[str],
+) -> None:
+    """Bind the checked-in source scan to the exact Velnor checkout under test."""
+    if inventory.get("schema") != SOURCE_WORKFLOW_INVENTORY_SCHEMA:
+        failures.append(
+            f"coverage/source-workflow-inventory.json.schema: expected "
+            f"{SOURCE_WORKFLOW_INVENTORY_SCHEMA!r}, got {inventory.get('schema')!r}"
+        )
+
+    inventory_sha = inventory.get("source_sha")
+    if not is_full_sha(inventory_sha):
+        failures.append(
+            "coverage/source-workflow-inventory.json.source_sha: must be a full "
+            f"lowercase commit SHA, got {inventory_sha!r}"
+        )
+    if source_sha and inventory_sha != source_sha:
+        failures.append(
+            "coverage/source-workflow-inventory.json is from Velnor "
+            f"{inventory_sha!r}, but the runner under test is {source_sha!r}; "
+            "regenerate the source inventory"
+        )
+
+    workflow_rows = rows_by_key(
+        inventory.get("workflows"),
+        ("path",),
+        "source workflow inventory.workflows",
+        failures,
+    )
+    for path, row in workflow_rows.items():
+        label = f"source workflow inventory {path[0]}"
+        digest = row.get("sha256")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            failures.append(f"{label}.sha256: must be a lowercase SHA-256 digest")
+        uses = check_string_list(row, "uses", label, failures, nonempty=False)
+        if uses != sorted(set(uses)):
+            failures.append(f"{label}.uses: values must be unique and sorted")
+        fixture_workflows = check_string_list(
+            row, "fixture_workflows", label, failures, nonempty=True
+        )
+        validate_fixture_workflow_paths(
+            fixture_workflows, f"{label}.fixture_workflows", failures, nonempty=True
+        )
+
+    action_rows = rows_by_key(
+        inventory.get("action_mappings"),
+        ("uses",),
+        "source workflow inventory.action_mappings",
+        failures,
+    )
+    mapped_uses: set[str] = set()
+    for uses_key, row in action_rows.items():
+        uses = uses_key[0]
+        if uses != normalize_source_use(uses):
+            failures.append(
+                f"source workflow inventory action mapping {uses!r}: uses must be normalized"
+            )
+        mapped_uses.add(uses)
+        disposition = row.get("disposition")
+        if disposition not in DISPOSITION_VALUES:
+            failures.append(
+                f"source workflow inventory action mapping {uses!r}.disposition: "
+                f"unsupported value {disposition!r}"
+            )
+        fixture_workflows = check_string_list(
+            row,
+            "fixture_workflows",
+            f"source workflow inventory action mapping {uses}",
+            failures,
+            nonempty=disposition == "covered",
+        )
+        validate_fixture_workflow_paths(
+            fixture_workflows,
+            f"source workflow inventory action mapping {uses}.fixture_workflows",
+            failures,
+            nonempty=disposition == "covered",
+        )
+        if disposition != "covered" and not isinstance(row.get("reason"), str):
+            failures.append(
+                f"source workflow inventory action mapping {uses!r}: an explicit "
+                f"{disposition!r} disposition requires a reason"
+            )
+
+    observed_uses = {
+        use
+        for row in workflow_rows.values()
+        for use in row.get("uses", [])
+        if isinstance(use, str)
+    }
+    missing_mappings = sorted(observed_uses - mapped_uses)
+    extra_mappings = sorted(mapped_uses - observed_uses)
+    if missing_mappings:
+        failures.append(
+            "source workflow inventory: observed workflow/action surfaces lack "
+            f"explicit mappings: {', '.join(missing_mappings)}"
+        )
+    if extra_mappings:
+        failures.append(
+            "source workflow inventory: action mappings name surfaces absent from "
+            f"the source scan: {', '.join(extra_mappings)}"
+        )
+
+    if runner_source is None:
+        return
+    actual = source_workflow_snapshot(runner_source, failures)
+    expected_paths = {path[0] for path in workflow_rows}
+    actual_paths = set(actual)
+    for path in sorted(actual_paths - expected_paths):
+        failures.append(
+            f"source workflow inventory: new source workflow {path!r} has no inventory mapping"
+        )
+    for path in sorted(expected_paths - actual_paths):
+        failures.append(
+            f"source workflow inventory: recorded workflow {path[0]!r} is absent from the runner source"
+        )
+    for path in sorted(actual_paths & expected_paths):
+        row = workflow_rows[(path,)]
+        observed = actual[path]
+        if row.get("sha256") != observed["sha256"]:
+            failures.append(
+                f"source workflow inventory: {path} changed at the runner source; "
+                "regenerate the inventory"
+            )
+        if row.get("uses") != observed["uses"]:
+            failures.append(
+                f"source workflow inventory: {path} action/reusable-workflow surface "
+                "changed; regenerate the inventory and add mappings for new uses"
+            )
 
 
 def rows_by_key(
@@ -157,55 +407,354 @@ def check_string_list(
     return values
 
 
+def capability_identity(document: dict[str, Any]) -> str:
+    """Return a stable identity for capability content, not its source commit.
+
+    ``source_sha`` identifies the build that emitted the document, but it is
+    deliberately not capability content: a runner commit may change without
+    changing the admitted surface. The identity field is excluded to avoid a
+    self-referential hash. Every other exported field participates in the
+    canonical JSON representation, so newly added capability fields cannot be
+    silently ignored by this audit.
+    """
+    content = {
+        key: value
+        for key, value in document.items()
+        if key not in CAPABILITY_ID_EXCLUDED_FIELDS
+    }
+    encoded = json.dumps(
+        content,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def is_full_sha(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 40
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def validate_source_sha(document: dict[str, Any], label: str, failures: list[str]) -> None:
+    source_sha = document.get("source_sha")
+    if not is_full_sha(source_sha):
+        failures.append(
+            f"{label}.source_sha: must be a full lowercase commit SHA naming the "
+            f"Velnor build, got {source_sha!r}"
+        )
+
+
+def validate_capability_identity(
+    document: dict[str, Any], label: str, failures: list[str]
+) -> None:
+    identity = document.get(CAPABILITY_ID_FIELD)
+    if (
+        not isinstance(identity, str)
+        or len(identity) != CAPABILITY_ID_LENGTH
+        or not all(character in "0123456789abcdef" for character in identity)
+    ):
+        failures.append(
+            f"{label}.{CAPABILITY_ID_FIELD}: must be a full lowercase SHA-256 digest, "
+            f"got {identity!r}"
+        )
+        return
+    expected = capability_identity(document)
+    if identity != expected:
+        failures.append(
+            f"{label}.{CAPABILITY_ID_FIELD}: does not match capability content; "
+            f"expected {expected}, got {identity}"
+        )
+
+
+def attach_capability_identity(document: dict[str, Any], failures: list[str]) -> None:
+    """Derive the identity from a runner export before it enters the audit."""
+    computed = capability_identity(document)
+    declared = document.get(CAPABILITY_ID_FIELD)
+    if declared is not None and declared != computed:
+        failures.append(
+            f"capabilities export.{CAPABILITY_ID_FIELD}: declared {declared!r} "
+            f"does not match capability content; expected {computed}"
+        )
+    document[CAPABILITY_ID_FIELD] = computed
+
+
+def load_runner_baseline(
+    export_path: Path | None,
+    runner_source: Path | None,
+    source_sha: str | None,
+    failures: list[str],
+) -> dict[str, Any] | None:
+    """Produce the capability manifest of the Velnor build under test.
+
+    Either a ``velnor-runner capabilities export`` document is supplied
+    directly, or a runner checkout is supplied and the export is produced from
+    it. Both paths end at the same artefact: a document Velnor wrote about
+    itself. Nothing here reads the fixture's checked-in baseline, which is the
+    thing being audited.
+    """
+    if export_path is not None and runner_source is not None:
+        failures.append("--capabilities-export and --runner-source are mutually exclusive")
+        return None
+    if export_path is not None:
+        try:
+            document = json.loads(export_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            failures.append(f"unreadable capabilities export {export_path}: {error}")
+            return None
+    elif runner_source is not None:
+        checkout_sha = git_head(runner_source, failures)
+        if checkout_sha is None:
+            return None
+        if source_sha is not None and source_sha != checkout_sha:
+            failures.append(
+                f"the supplied Velnor source SHA {source_sha!r} does not match runner "
+                f"source {runner_source} HEAD {checkout_sha!r}"
+            )
+            return None
+        source_sha = checkout_sha
+        require_manifest_sources_committed(runner_source, source_sha, failures)
+        if failures:
+            return None
+        document = export_from_runner_source(runner_source, failures)
+        if document is None:
+            return None
+    else:
+        failures.append(
+            "readiness requires the capability manifest of the Velnor build under test: "
+            "pass --capabilities-export PATH (a `velnor-runner capabilities export` "
+            "document), or --runner-source DIR (a Velnor checkout), or set "
+            "VELNOR_CAPABILITIES_EXPORT / VELNOR_SOURCE_DIR. An audit that cannot see "
+            "the runner cannot certify it."
+        )
+        return None
+
+    if not isinstance(document, dict):
+        failures.append("capabilities export: root must be an object")
+        return None
+
+    exported_sha = document.get("source_sha")
+    if exported_sha == DEVELOPMENT_SOURCE_SHA:
+        if not source_sha:
+            failures.append(
+                "the runner under test is a development build and reports "
+                f"source_sha={DEVELOPMENT_SOURCE_SHA!r}; pass --velnor-source-sha SHA "
+                "so the baseline is bound to a named commit"
+            )
+            return None
+        document["source_sha"] = source_sha
+    elif source_sha and exported_sha != source_sha:
+        failures.append(
+            f"capabilities export source_sha is {exported_sha!r}, but the commit under "
+            f"test is {source_sha!r}; this export came from a different Velnor build"
+        )
+        return None
+    validate_source_sha(document, "capabilities export", failures)
+    if failures:
+        return None
+    attach_capability_identity(document, failures)
+    return document
+
+
+def git_head(directory: Path, failures: list[str]) -> str | None:
+    result = subprocess.run(
+        ["git", "-C", str(directory), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        failures.append(f"cannot read the runner commit from {directory}: {result.stderr.strip()}")
+        return None
+    return result.stdout.strip()
+
+
+def require_manifest_sources_committed(
+    directory: Path, source_sha: str, failures: list[str]
+) -> None:
+    """Refuse to attribute a working-tree manifest to a commit that lacks it."""
+    result = subprocess.run(
+        ["git", "-C", str(directory), "status", "--porcelain", "--", *MANIFEST_SOURCE_PATHS],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        failures.append(
+            f"cannot read the runner working tree state from {directory}: "
+            f"{result.stderr.strip()}"
+        )
+        return
+    dirty = sorted(line[3:].strip() for line in result.stdout.splitlines() if line.strip())
+    if dirty:
+        failures.append(
+            f"the runner checkout has uncommitted changes to {', '.join(dirty)}; the "
+            f"exported manifest would not be the manifest of {source_sha}. Commit the "
+            "change, or export from the build under test and pass "
+            "--capabilities-export with --velnor-source-sha"
+        )
+
+
+def export_from_runner_source(directory: Path, failures: list[str]) -> dict[str, Any] | None:
+    """Ask the runner checkout to export its own capability manifest."""
+    manifest = directory / "crates" / "velnor-runner" / "src" / "manifest.rs"
+    if not manifest.is_file():
+        failures.append(f"{directory} is not a Velnor checkout: {manifest} does not exist")
+        return None
+    # The runner builds with its own pinned toolchain. This fixture pins a
+    # different one, and an inherited RUSTUP_TOOLCHAIN silently overrides the
+    # runner's rust-toolchain.toml, so the export would describe a build made
+    # with the wrong compiler or fail to build at all.
+    environment = dict(os.environ)
+    environment.pop("RUSTUP_TOOLCHAIN", None)
+    result = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "--locked",
+            "-p",
+            "velnor-runner",
+            "--bin",
+            "velnor-runner",
+            "--",
+            "capabilities",
+            "export",
+        ],
+        cwd=directory,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=environment,
+    )
+    if result.returncode != 0:
+        failures.append(
+            f"`velnor-runner capabilities export` failed in {directory}: "
+            f"{result.stderr.strip()[-2000:]}"
+        )
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        failures.append(f"`velnor-runner capabilities export` emitted invalid JSON: {error}")
+        return None
+
+
+def bind_baseline(
+    capabilities: dict[str, Any], baseline: dict[str, Any], failures: list[str]
+) -> None:
+    """Fail loudly on any drift between the checked-in baseline and the runner.
+
+    The content-derived identity ignores only the source commit, which is build
+    provenance rather than capability content. The admitted action *set* is
+    still compared directly, not by size: swapping one repository for another
+    leaves the count unchanged and must still fail.
+    """
+    validate_source_sha(baseline, "runner capabilities", failures)
+    validate_capability_identity(baseline, "runner capabilities", failures)
+    for field in ("version", "crate_version", CAPABILITY_ID_FIELD):
+        expected = baseline.get(field)
+        actual = capabilities.get(field)
+        if actual != expected:
+            failures.append(
+                f"coverage/velnor-capabilities.json {field} is {actual!r}, but the Velnor "
+                f"build under test reports {expected!r}; the baseline is stale"
+            )
+
+    expected_actions = index_export(baseline.get("actions"), ("repository",))
+    actual_actions = index_export(capabilities.get("actions"), ("repository",))
+    if expected_actions is None or actual_actions is None:
+        failures.append("capabilities.actions: both documents must list action objects")
+        return
+    compare_identity(
+        actual_actions, expected_actions, MANIFEST_ACTION_FIELDS, "capabilities.actions", failures
+    )
+
+    expected_workflows = index_export(
+        baseline.get("reusable_workflows"), ("repository", "path")
+    )
+    actual_workflows = index_export(
+        capabilities.get("reusable_workflows"), ("repository", "path")
+    )
+    if expected_workflows is None or actual_workflows is None:
+        failures.append(
+            "capabilities.reusable_workflows: both documents must list workflow objects"
+        )
+        return
+    compare_identity(
+        actual_workflows,
+        expected_workflows,
+        MANIFEST_WORKFLOW_FIELDS,
+        "capabilities.reusable_workflows",
+        failures,
+    )
+
+
+def index_export(
+    rows: Any, key_fields: tuple[str, ...]
+) -> dict[tuple[str, ...], dict[str, Any]] | None:
+    if not isinstance(rows, list):
+        return None
+    indexed: dict[tuple[str, ...], dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            return None
+        key = tuple(str(row.get(field)) for field in key_fields)
+        indexed[key] = row
+    return indexed
+
+
+def compare_identity(
+    actual: dict[tuple[str, ...], dict[str, Any]],
+    expected: dict[tuple[str, ...], dict[str, Any]],
+    fields: tuple[str, ...],
+    label: str,
+    failures: list[str],
+) -> None:
+    for key in sorted(set(expected) - set(actual)):
+        failures.append(
+            f"{label}: the runner under test admits {':'.join(key)}, but the baseline "
+            "does not list it"
+        )
+    for key in sorted(set(actual) - set(expected)):
+        failures.append(
+            f"{label}: the baseline lists {':'.join(key)}, but the runner under test "
+            "does not admit it"
+        )
+    for key in sorted(set(actual) & set(expected)):
+        for field in fields:
+            if actual[key].get(field) != expected[key].get(field):
+                failures.append(
+                    f"{label}[{':'.join(key)}].{field}: baseline has "
+                    f"{actual[key].get(field)!r}, the runner under test has "
+                    f"{expected[key].get(field)!r}"
+                )
+
+
 def validate_manifest(
     capabilities: dict[str, Any], failures: list[str]
 ) -> tuple[dict[str, dict[str, Any]], dict[tuple[str, str], dict[str, Any]]]:
-    if capabilities.get("version") != EXPECTED_MANIFEST_VERSION:
-        failures.append(
-            f"capabilities.version: expected {EXPECTED_MANIFEST_VERSION}, "
-            f"got {capabilities.get('version')!r}"
-        )
-    if capabilities.get("source_sha") != EXPECTED_SOURCE_SHA:
-        failures.append(
-            f"capabilities.source_sha: expected {EXPECTED_SOURCE_SHA}, "
-            f"got {capabilities.get('source_sha')!r}"
-        )
+    """Check the baseline's internal shape and content-derived identity."""
+    if not isinstance(capabilities.get("version"), int):
+        failures.append("capabilities.version: must be an integer")
+    validate_source_sha(capabilities, "capabilities", failures)
+    validate_capability_identity(capabilities, "capabilities", failures)
     if not isinstance(capabilities.get("crate_version"), str):
         failures.append("capabilities.crate_version: must be a string")
 
-    raw_action_rows = capabilities.get("actions")
-    if isinstance(raw_action_rows, list) and len(raw_action_rows) != EXPECTED_ACTION_COUNT:
-        failures.append(
-            "capabilities.actions: expected exactly "
-            f"{EXPECTED_ACTION_COUNT} rows, got {len(raw_action_rows)}"
-        )
-    raw_workflow_rows = capabilities.get("reusable_workflows")
-    if isinstance(raw_workflow_rows, list) and len(raw_workflow_rows) != EXPECTED_REUSABLE_WORKFLOW_COUNT:
-        failures.append(
-            "capabilities.reusable_workflows: expected exactly "
-            f"{EXPECTED_REUSABLE_WORKFLOW_COUNT} rows, got {len(raw_workflow_rows)}"
-        )
-
     action_rows = rows_by_key(
-        raw_action_rows, ("repository",), "capabilities.actions", failures
+        capabilities.get("actions"), ("repository",), "capabilities.actions", failures
     )
     workflow_rows = rows_by_key(
-        raw_workflow_rows,
+        capabilities.get("reusable_workflows"),
         ("repository", "path"),
         "capabilities.reusable_workflows",
         failures,
     )
     actions = {key[0]: row for key, row in action_rows.items()}
-
-    if len(actions) != EXPECTED_ACTION_COUNT:
-        failures.append(
-            f"capabilities.actions: expected {EXPECTED_ACTION_COUNT} rows, got {len(actions)}"
-        )
-    if len(workflow_rows) != EXPECTED_REUSABLE_WORKFLOW_COUNT:
-        failures.append(
-            "capabilities.reusable_workflows: expected "
-            f"{EXPECTED_REUSABLE_WORKFLOW_COUNT} rows, got {len(workflow_rows)}"
-        )
 
     for repository, row in sorted(actions.items()):
         label = f"capabilities.actions[{repository}]"
@@ -230,6 +779,7 @@ def validate_coverage_row(
     failures: list[str],
     *,
     expected_subpaths: Any,
+    repository: str | None = None,
 ) -> list[str]:
     disposition = row.get("disposition")
     if disposition not in DISPOSITION_VALUES:
@@ -239,10 +789,7 @@ def validate_coverage_row(
     if not isinstance(reason, str) or not reason.strip():
         failures.append(f"{label}.reason: must be a non-empty string")
 
-    evidence = check_string_list(row, "evidence", label, failures, nonempty=True)
-    for path_text in evidence:
-        if not (ROOT / path_text).is_file():
-            failures.append(f"{label}.evidence: path does not exist: {path_text}")
+    evidence = validate_capability_mappings(row, label, failures, repository=repository)
 
     actual_inputs = check_string_list(row, "inputs", label, failures, nonempty=False)
     expected_inputs = manifest_row.get("inputs", [])
@@ -267,10 +814,54 @@ def validate_coverage_row(
     return evidence
 
 
+def validate_capability_mappings(
+    row: dict[str, Any], label: str, failures: list[str], *, repository: str | None = None
+) -> list[str]:
+    """Require closed producer/comparator/evidence path mappings.
+
+    A citation must contain what it cites. Existence alone was the whole check
+    before, which is how 21 action rows came to cite workflow files that never
+    mention the action they claim to exercise. A cited workflow or action file
+    must reference the repository whose row cites it; other cited files (audit
+    scripts, comparators, documentation) only have to exist, because they are
+    tooling rather than proof of exercise.
+    """
+    mappings: dict[str, list[str]] = {}
+    for field in ("producer", "comparator", "evidence"):
+        values = check_string_list(row, field, label, failures, nonempty=True)
+        mappings[field] = values
+        for path_text in values:
+            path = ROOT / path_text
+            if not path.is_file():
+                failures.append(f"{label}.{field}: path does not exist: {path_text}")
+                continue
+            if repository is None or not is_workflow_citation(path_text):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError as error:
+                failures.append(f"{label}.{field}: unreadable citation {path_text}: {error}")
+                continue
+            if repository.lower() not in text.lower():
+                failures.append(
+                    f"{label}.{field}: {path_text} does not reference {repository}; "
+                    "a citation must contain what it cites"
+                )
+    return mappings["evidence"]
+
+
+def is_workflow_citation(path_text: str) -> bool:
+    """True for a citation that claims a workflow or action exercises a row."""
+    return path_text.startswith((".github/workflows/", ".github/actions/")) and path_text.endswith(
+        (".yml", ".yaml")
+    )
+
+
 def validate_coverage(
     coverage: dict[str, Any],
     manifest_actions: dict[str, dict[str, Any]],
     manifest_workflows: dict[tuple[str, str], dict[str, Any]],
+    capabilities_identity: dict[str, Any],
     failures: list[str],
     *,
     readiness: bool,
@@ -279,27 +870,18 @@ def validate_coverage(
     if not isinstance(manifest_identity, dict):
         failures.append("coverage.manifest: must be an object")
     else:
-        if manifest_identity.get("version") != EXPECTED_MANIFEST_VERSION:
-            failures.append(
-                f"coverage.manifest.version: expected {EXPECTED_MANIFEST_VERSION}"
-            )
-        if manifest_identity.get("source_sha") != EXPECTED_SOURCE_SHA:
-            failures.append(
-                f"coverage.manifest.source_sha: expected {EXPECTED_SOURCE_SHA}"
-            )
+        # The coverage document records which capability content it was written
+        # against. The source commit is retained only in the cached export as
+        # provenance; unrelated runner commits must not invalidate coverage.
+        for field in ("version", CAPABILITY_ID_FIELD):
+            if manifest_identity.get(field) != capabilities_identity.get(field):
+                failures.append(
+                    f"coverage.manifest.{field} is {manifest_identity.get(field)!r}, but "
+                    f"the capability baseline says {capabilities_identity.get(field)!r}"
+                )
 
     raw_action_rows = coverage.get("actions")
-    if isinstance(raw_action_rows, list) and len(raw_action_rows) != EXPECTED_ACTION_COUNT:
-        failures.append(
-            "coverage.actions: expected exactly "
-            f"{EXPECTED_ACTION_COUNT} rows, got {len(raw_action_rows)}"
-        )
     raw_workflow_rows = coverage.get("reusable_workflows")
-    if isinstance(raw_workflow_rows, list) and len(raw_workflow_rows) != EXPECTED_REUSABLE_WORKFLOW_COUNT:
-        failures.append(
-            "coverage.reusable_workflows: expected exactly "
-            f"{EXPECTED_REUSABLE_WORKFLOW_COUNT} rows, got {len(raw_workflow_rows)}"
-        )
 
     coverage_action_rows = rows_by_key(
         raw_action_rows, ("repository",), "coverage.actions", failures
@@ -321,6 +903,7 @@ def validate_coverage(
             manifest_actions[repository],
             failures,
             expected_subpaths=manifest_actions[repository].get("allowed_subpaths", []),
+            repository=repository,
         )
         execution = row.get("execution")
         status = row.get("fixture_status")
@@ -379,6 +962,7 @@ def validate_coverage(
             manifest_workflows[key],
             failures,
             expected_subpaths=[],
+            repository=key[0],
         )
         if row.get("execution") != "external-admission-only":
             failures.append(f"{label}.execution: must be 'external-admission-only'")
@@ -406,10 +990,7 @@ def validate_coverage(
         status = row.get("fixture_status")
         if status not in RUNTIME_SEMANTICS_STATUS_VALUES:
             failures.append(f"{label}.fixture_status: invalid value {status!r}")
-        evidence = check_string_list(row, "evidence", label, failures, nonempty=False)
-        for path_text in evidence:
-            if not (ROOT / path_text).is_file():
-                failures.append(f"{label}.evidence: path does not exist: {path_text}")
+        evidence = validate_capability_mappings(row, label, failures)
         if status == "covered" and not evidence:
             failures.append(f"{label}.evidence: covered row requires evidence")
         if status == "expected-unsupported":
@@ -426,34 +1007,226 @@ def validate_coverage(
             failures.append(f"{label}: readiness status is {status!r}")
 
 
-def validate_kache_contract(
-    coverage: dict[str, Any],
-    manifest_actions: dict[str, dict[str, Any]],
-    failures: list[str],
-) -> tuple[str, str]:
-    kache = manifest_actions.get("kunobi-ninja/kache-action", {})
-    if kache.get("allowed_refs") != [EXPECTED_KACHE_REF]:
-        failures.append(
-            "capabilities.actions[kunobi-ninja/kache-action].allowed_refs: "
-            f"must be [{EXPECTED_KACHE_REF!r}]"
-        )
-    if "version" not in kache.get("inputs", []):
-        failures.append(
-            "capabilities.actions[kunobi-ninja/kache-action].inputs: missing 'version'"
-        )
+def workflow_surface_index() -> dict[str, list[dict[str, Any]]]:
+    """Index executable remote action references by exact workflow location."""
+    result: dict[str, list[dict[str, Any]]] = {}
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        relative = path.relative_to(ROOT).as_posix()
+        for line, uses, body, uses_indent in extract_uses(path):
+            if uses.startswith("./") or "@" not in uses:
+                continue
+            result.setdefault(uses, []).append(
+                {
+                    "workflow": relative,
+                    "line": line,
+                    "inputs": extract_with_inputs(body, uses_indent),
+                }
+            )
+    return result
 
-    contract = coverage.get("kache_contract")
-    if not isinstance(contract, dict):
-        failures.append("coverage.kache_contract: must be an object")
-        return EXPECTED_KACHE_REF, EXPECTED_KACHE_VERSION
-    expected = {
-        "repository": "kunobi-ninja/kache-action",
-        "ref": EXPECTED_KACHE_REF,
-        "version": EXPECTED_KACHE_VERSION,
-    }
-    if contract != expected:
-        failures.append(f"coverage.kache_contract: expected {expected!r}, got {contract!r}")
-    return EXPECTED_KACHE_REF, EXPECTED_KACHE_VERSION
+
+def surface_reference_identity(reference: str) -> tuple[str, str] | None:
+    if "@" not in reference:
+        return None
+    identity = reference.rsplit("@", 1)[0]
+    parts = identity.split("/")
+    if len(parts) < 2:
+        return None
+    return "/".join(parts[:2]), "/".join(parts[2:])
+
+
+def validate_surface_coverage(
+    surface: dict[str, Any],
+    manifest_actions: dict[str, dict[str, Any]],
+    manifest_workflows: dict[tuple[str, str], dict[str, Any]],
+    failures: list[str],
+    *,
+    verify_workflow_references: bool,
+) -> None:
+    """Require one explicit disposition for every admitted input/subpath.
+
+    ``fixture-coverage.json`` intentionally retains the manifest-shaped lists
+    for human summary. This separate contract is the source of proof: each
+    admitted surface item names its disposition and the exact workflow/ref
+    that proves it, or an explicit non-execution reason.
+    """
+    raw_actions = surface.get("actions")
+    if not isinstance(raw_actions, list):
+        failures.append("surface.actions: must be an array")
+        raw_actions = []
+    surface_action_rows = rows_by_key(
+        raw_actions, ("repository",), "surface.actions", failures
+    )
+    surface_actions = {key[0]: row for key, row in surface_action_rows.items()}
+    for repository in sorted(set(surface_actions) - set(manifest_actions)):
+        failures.append(f"surface.actions: unknown action {repository}")
+    for repository in sorted(set(manifest_actions) - set(surface_actions)):
+        failures.append(f"surface.actions: missing row for {repository}")
+
+    uses = workflow_surface_index() if verify_workflow_references else {}
+    for repository in sorted(set(manifest_actions) & set(surface_actions)):
+        manifest_row = manifest_actions[repository]
+        row = surface_actions[repository]
+        label = f"surface.actions[{repository}]"
+        expected = {
+            ("input", name) for name in manifest_row.get("inputs", [])
+        } | {
+            ("subpath", name) for name in manifest_row.get("allowed_subpaths", [])
+        }
+        seen: dict[tuple[str, str], str] = {}
+        for status in SURFACE_STATUSES:
+            entries = row.get(status)
+            if not isinstance(entries, list):
+                failures.append(f"{label}.{status}: must be an array")
+                continue
+            for index, entry in enumerate(entries):
+                entry_label = f"{label}.{status}[{index}]"
+                if not isinstance(entry, dict):
+                    failures.append(f"{entry_label}: must be an object")
+                    continue
+                kind = entry.get("kind")
+                name = entry.get("name")
+                if kind not in SURFACE_KINDS or not isinstance(name, str) or not name:
+                    failures.append(
+                        f"{entry_label}: kind must be input/subpath and name non-empty"
+                    )
+                    continue
+                key = (kind, name)
+                if key in seen:
+                    failures.append(
+                        f"{label}: {key!r} listed in both {seen[key]} and {status}"
+                    )
+                seen[key] = status
+                if key not in expected:
+                    failures.append(f"{entry_label}: unknown manifest surface {key!r}")
+
+                reference = entry.get("reference")
+                identity = (
+                    surface_reference_identity(reference)
+                    if isinstance(reference, str)
+                    else None
+                )
+                if identity is None:
+                    failures.append(
+                        f"{entry_label}.reference: must be repository@reference"
+                    )
+                    continue
+                reference_repository, reference_subpath = identity
+                if reference_repository != repository:
+                    failures.append(
+                        f"{entry_label}.reference: repository must be {repository!r}"
+                    )
+                allowed_refs = manifest_row.get("allowed_refs", [])
+                if reference.rsplit("@", 1)[1] not in allowed_refs:
+                    failures.append(
+                        f"{entry_label}.reference: unadmitted reference {reference!r}"
+                    )
+
+                reason = entry.get("reason")
+                if status != "exercised" and (
+                    not isinstance(reason, str) or not reason.strip()
+                ):
+                    failures.append(
+                        f"{entry_label}.reason: {status} requires a non-empty reason"
+                    )
+
+                workflow = entry.get("workflow")
+                if status == "admission_only":
+                    if workflow is not None:
+                        failures.append(
+                            f"{entry_label}.workflow: admission_only must not name an executable workflow"
+                        )
+                    continue
+                if not isinstance(workflow, str) or not workflow:
+                    failures.append(
+                        f"{entry_label}.workflow: {status} requires a workflow path"
+                    )
+                    continue
+                workflow_path = ROOT / workflow
+                if not workflow_path.is_file() or workflow_path.parent != WORKFLOWS:
+                    failures.append(
+                        f"{entry_label}.workflow: not an executable workflow: {workflow}"
+                    )
+                    continue
+                if not verify_workflow_references:
+                    continue
+                matching_uses = [
+                    use for use in uses.get(reference, []) if use["workflow"] == workflow
+                ]
+                if not matching_uses:
+                    failures.append(
+                        f"{entry_label}: reference not found in workflow: {workflow}: {reference}"
+                    )
+                    continue
+                if kind == "subpath" and reference_subpath != name:
+                    failures.append(
+                        f"{entry_label}.reference: subpath must be {name!r}, got {reference_subpath!r}"
+                    )
+                if kind == "input" and status == "exercised" and not any(
+                    name in use["inputs"] for use in matching_uses
+                ):
+                    failures.append(
+                        f"{entry_label}: input is not passed by the mapped workflow reference"
+                    )
+
+        missing = sorted(expected - set(seen))
+        for kind, name in missing:
+            failures.append(f"{label}: missing surface mapping for {kind} {name}")
+
+    raw_workflows = surface.get("reusable_workflows")
+    if raw_workflows is None:
+        raw_workflows = []
+    surface_workflows = rows_by_key(
+        raw_workflows,
+        ("repository", "path"),
+        "surface.reusable_workflows",
+        failures,
+    )
+    for key in sorted(set(surface_workflows) - set(manifest_workflows)):
+        failures.append(f"surface.reusable_workflows: unknown workflow {key[0]}:{key[1]}")
+    for key in sorted(set(manifest_workflows) - set(surface_workflows)):
+        failures.append(f"surface.reusable_workflows: missing row for {key[0]}:{key[1]}")
+    for key in sorted(set(manifest_workflows) & set(surface_workflows)):
+        label = f"surface.reusable_workflows[{key[0]}:{key[1]}]"
+        row = surface_workflows[key]
+        expected = {("input", name) for name in manifest_workflows[key].get("inputs", [])}
+        seen: set[tuple[str, str]] = set()
+        entries = row.get("admission_only")
+        if not isinstance(entries, list):
+            failures.append(f"{label}.admission_only: must be an array")
+            entries = []
+        for index, entry in enumerate(entries):
+            entry_label = f"{label}.admission_only[{index}]"
+            if not isinstance(entry, dict):
+                failures.append(f"{entry_label}: must be an object")
+                continue
+            kind = entry.get("kind")
+            name = entry.get("name")
+            key_value = (kind, name)
+            if kind != "input" or not isinstance(name, str) or not name:
+                failures.append(f"{entry_label}: reusable workflow mappings must name an input")
+                continue
+            if key_value in seen:
+                failures.append(f"{entry_label}: duplicate mapping {key_value!r}")
+            seen.add(key_value)
+            if key_value not in expected:
+                failures.append(f"{entry_label}: unknown manifest surface {key_value!r}")
+            if entry.get("workflow") is not None:
+                failures.append(f"{entry_label}.workflow: admission_only must be null")
+            reference = entry.get("reference")
+            identity = (
+                surface_reference_identity(reference)
+                if isinstance(reference, str)
+                else None
+            )
+            if identity is None or identity[0] != key[0]:
+                failures.append(f"{entry_label}.reference: repository must be {key[0]!r}")
+            elif isinstance(reference, str) and reference.rsplit("@", 1)[1] not in manifest_workflows[key].get("allowed_refs", []):
+                failures.append(f"{entry_label}.reference: unadmitted reference {reference!r}")
+            if not isinstance(entry.get("reason"), str) or not entry["reason"].strip():
+                failures.append(f"{entry_label}.reason: admission_only requires a non-empty reason")
+        for missing in sorted(expected - seen):
+            failures.append(f"{label}: missing surface mapping for input {missing[1]}")
 
 
 def indent_of(line: str) -> int:
@@ -503,9 +1276,20 @@ def extract_uses(path: Path) -> list[tuple[int, str, list[str], int]]:
         if not match:
             continue
         uses_indent = indent_of(line)
+        boundary_indent = uses_indent
+        if not line.lstrip().startswith("-"):
+            for previous in reversed(lines[:index]):
+                if not previous.strip():
+                    continue
+                previous_indent = indent_of(previous)
+                if previous_indent >= uses_indent:
+                    continue
+                if previous.lstrip().startswith("-"):
+                    boundary_indent = previous_indent
+                break
         body: list[str] = []
         for later in lines[index + 1 :]:
-            if later.strip() and indent_of(later) <= uses_indent:
+            if later.strip() and indent_of(later) <= boundary_indent:
                 break
             body.append(later)
         result.append((index + 1, match.group(1), body, uses_indent))
@@ -559,8 +1343,6 @@ def validate_remote_uses(
     coverage: dict[str, Any],
     manifest_actions: dict[str, dict[str, Any]],
     manifest_workflows: dict[tuple[str, str], dict[str, Any]],
-    kache_ref: str,
-    kache_version: str,
     failures: list[str],
 ) -> None:
     workflow_policy = coverage.get("workflow_policy", {})
@@ -659,23 +1441,6 @@ def validate_remote_uses(
                 allow_unadmitted=policy_name in negative_workflows,
             )
 
-            if repository == "kunobi-ninja/kache-action":
-                if reference != kache_ref:
-                    failures.append(
-                        f"{relative}:{line_number}: Kache ref must be {kache_ref}, got {reference}"
-                    )
-                version = None
-                for body_line in body:
-                    version_match = re.match(r"^\s+version:\s*([^#]+?)\s*(?:#.*)?$", body_line)
-                    if version_match:
-                        version = version_match.group(1).strip().strip("'\"")
-                        break
-                if version != kache_version:
-                    failures.append(
-                        f"{relative}:{line_number}: Kache version must be "
-                        f"{kache_version}, got {version!r}"
-                    )
-
     for name, expected in sorted(expected_negative.items()):
         missing = sorted(expected - seen_expected.get(name, set()))
         for uses in missing:
@@ -736,6 +1501,80 @@ def has_dual_lane_evidence(text: str) -> bool:
     ) or ("'both'" in lower or '"both"' in lower)
 
 
+def has_hosted_only_github_branch(lines: list[str], event: str) -> bool:
+    event_token = re.compile(
+        rf"github\.event_name\s*==\s*['\"]{re.escape(event)}['\"]"
+    )
+    for line in lines:
+        guard = HOSTED_ONLY_PULL_REQUEST_GUARD_RE.search(line)
+        if guard is None or event_token.search(line) is None:
+            continue
+        branch = line[guard.end() :]
+        if re.match(r"\s*\)?\s*&&\s*['\"]github['\"]", branch, re.IGNORECASE):
+            return True
+        literal = re.match(
+            r"\s*\)?\s*&&\s*(?:\(\s*)?(?P<quote>['\"])(?P<json>\[.*?\])(?P=quote)",
+            branch,
+        )
+        if literal is None:
+            continue
+        try:
+            selected = json.loads(literal.group("json"))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(selected, list) or len(selected) != 1:
+            continue
+        entry = selected[0]
+        lane = entry if isinstance(entry, str) else entry.get("lane") if isinstance(entry, dict) else None
+        if isinstance(lane, str) and lane.lower() == "github":
+            return True
+    return False
+
+
+def has_explicit_dual_lane_branch(lines: list[str]) -> bool:
+    for line in lines:
+        if re.search(r"(?:&&|\|\|)\s*['\"]both['\"]", line, re.IGNORECASE):
+            return True
+        for literal in re.finditer(r"'(?P<json>\[[^']*?\])'", line):
+            try:
+                selected = json.loads(literal.group("json"))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(selected, list):
+                continue
+            lanes = {
+                (entry if isinstance(entry, str) else entry.get("lane"))
+                for entry in selected
+                if isinstance(entry, str)
+                or isinstance(entry, dict)
+                and isinstance(entry.get("lane"), str)
+            }
+            if {lane.lower() for lane in lanes} >= {"github", "velnor"}:
+                return True
+    return False
+
+
+def validate_hosted_only_pull_request_exception(
+    name: str, event: str, text: str, failures: list[str]
+) -> None:
+    lines = event_condition_lines(text, event)
+    if not HOSTED_ONLY_PULL_REQUEST_GUARD_RE.search(text):
+        failures.append(
+            f"{name}: hosted-only {event} exception must explicitly include "
+            f"{HOSTED_ONLY_PULL_REQUEST_GUARD}"
+        )
+    if not has_hosted_only_github_branch(lines, event):
+        failures.append(
+            f"{name}: hosted-only {event} exception fork guard must select the "
+            "GitHub-only lane"
+        )
+    if not has_explicit_dual_lane_branch(lines):
+        failures.append(
+            f"{name}: hosted-only {event} exception must retain an explicit "
+            "dual-lane branch for trusted/default behavior"
+        )
+
+
 def validate_automatic_lane_policy(
     positive: set[str], texts: dict[str, str], failures: list[str]
 ) -> None:
@@ -748,6 +1587,7 @@ def validate_automatic_lane_policy(
             continue
         for event in sorted(events):
             if (name, event) in AUTOMATIC_LANE_EXCEPTIONS:
+                validate_hosted_only_pull_request_exception(name, event, text, failures)
                 continue
             lines = event_condition_lines(text, event)
             if any(has_single_lane_branch(line, event) for line in lines):
@@ -844,50 +1684,250 @@ def validate_lane_policy(coverage: dict[str, Any], failures: list[str]) -> None:
             failures.append(
                 f"{name}: secret-gated exception lacks an explicit secret guard ({reason})"
             )
+        required_markers = (
+            "actions/upload-artifact@",
+            "app-token-readiness",
+            "status=not-ready",
+            "status=ready",
+            "status=failed",
+            "actions/download-artifact@",
+        )
+        for marker in required_markers:
+            if marker not in text:
+                failures.append(
+                    f"{name}: secret-gated readiness evidence missing {marker!r}"
+                )
     validate_automatic_lane_policy(positive_set, texts, failures)
+    for workflow_name, job_name in sorted(AUTOMATIC_L2_WORKFLOWS.items()):
+        workflow_text = texts.get(workflow_name, "")
+        if not re.search(r"^  workflow_call:\s*$", workflow_text, re.MULTILINE):
+            failures.append(f"{workflow_name}: automatic verifier path requires workflow_call")
+        lane_default = re.search(
+            r"^\s+lane:\s+\{[^}]*default:\s*both\b", workflow_text, re.MULTILINE
+        )
+        if not lane_default:
+            failures.append(f"{workflow_name}: workflow_call lane default must be both")
+        ci_text = texts.get("ci.yml", "")
+        if not re.search(
+            rf"^  {re.escape(job_name)}:\s*$.*?^\s+uses:\s+\./\.github/workflows/{re.escape(workflow_name)}\s*$",
+            ci_text,
+            re.MULTILINE | re.DOTALL,
+        ):
+            failures.append(
+                f"ci.yml: automatic verifier is missing local call for {workflow_name}"
+            )
+        for dependent_job in ("lane-verdict", "ci-required"):
+            body_match = re.search(
+                rf"^  {dependent_job}:\n(.*?)(?=^  [A-Za-z0-9_-]+:|\Z)",
+                ci_text,
+                re.MULTILINE | re.DOTALL,
+            )
+            if not body_match or not re.search(rf"\b{re.escape(job_name)}\b", body_match.group(1)):
+                failures.append(
+                    f"ci.yml: {dependent_job} must depend on {job_name}"
+                )
 
 
-def audit(*, contract_only: bool) -> list[str]:
+def audit(
+    *,
+    contract_only: bool,
+    capabilities_export: Path | None = None,
+    runner_source: Path | None = None,
+    velnor_source_sha: str | None = None,
+) -> list[str]:
     failures: list[str] = []
     capabilities = load_json(CAPABILITIES_PATH, failures)
     coverage = load_json(COVERAGE_PATH, failures)
+    surface = load_json(SURFACE_COVERAGE_PATH, failures)
+    source_inventory = load_json(SOURCE_WORKFLOW_INVENTORY_PATH, failures)
     manifest_actions, manifest_workflows = validate_manifest(capabilities, failures)
+
+    baseline: dict[str, Any] | None = None
+    if not contract_only:
+        # Readiness binds the checked-in baseline to the Velnor build under
+        # test. Without this the baseline is an unverifiable assertion, and a
+        # stale one certifies whatever runner happens to be running.
+        baseline = load_runner_baseline(
+            capabilities_export, runner_source, velnor_source_sha, failures
+        )
+        if baseline is not None:
+            bind_baseline(capabilities, baseline, failures)
+
+    validate_source_workflow_inventory(
+        source_inventory,
+        runner_source=None if contract_only else runner_source,
+        source_sha=baseline.get("source_sha") if baseline is not None else None,
+        failures=failures,
+    )
+
+    validate_surface_coverage(
+        surface,
+        manifest_actions,
+        manifest_workflows,
+        failures,
+        verify_workflow_references=not contract_only,
+    )
     validate_coverage(
         coverage,
         manifest_actions,
         manifest_workflows,
+        capabilities,
         failures,
         readiness=not contract_only,
-    )
-    kache_ref, kache_version = validate_kache_contract(
-        coverage, manifest_actions, failures
     )
     if not contract_only:
         validate_remote_uses(
             coverage,
             manifest_actions,
             manifest_workflows,
-            kache_ref,
-            kache_version,
             failures,
         )
         validate_lane_policy(coverage, failures)
     return sorted(set(failures))
 
 
-def main() -> int:
-    args = sys.argv[1:]
-    if args not in ([], ["--contract-only"]):
-        print("usage: audit_capability_coverage.py [--contract-only]", file=sys.stderr)
-        return 2
-    contract_only = args == ["--contract-only"]
-    failures = audit(contract_only=contract_only)
+def refresh_baseline(
+    *,
+    capabilities_export: Path | None,
+    runner_source: Path | None,
+    velnor_source_sha: str | None,
+) -> int:
+    """Rewrite the cached baseline from the Velnor build under test.
+
+    The document written is the one the runner produced about itself: it comes
+    from ``load_runner_baseline``, the same function readiness uses, and the
+    checked-in file is never read, merged into, or partially updated. There is
+    therefore no way for a refresh to preserve a value the runner does not
+    report. A refresh that produced a document readiness would reject is not a
+    refresh, so the readiness gate is re-run afterwards and its failure is this
+    command's failure.
+    """
+    failures: list[str] = []
+    baseline = load_runner_baseline(
+        capabilities_export, runner_source, velnor_source_sha, failures
+    )
+    if baseline is None or failures:
+        return report(failures or ["the runner under test produced no capability manifest"])
+
+    # The runner's own document must satisfy the shape the audit requires
+    # before it is allowed to become the baseline. A development build whose
+    # commit was never named is rejected here rather than written out.
+    validate_manifest(baseline, failures)
     if failures:
-        for failure in failures:
-            print(f"ERROR: {failure}", file=sys.stderr)
-        print(f"capability coverage audit failed: {len(failures)} error(s)", file=sys.stderr)
-        return 1
-    mode = "contract" if contract_only else "readiness"
+        return report(failures)
+
+    CAPABILITIES_PATH.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
+
+    # The coverage document records the content identity it was written
+    # against; readiness compares the two. Leaving it behind would only move
+    # the staleness one file across.
+    coverage = load_json(COVERAGE_PATH, failures)
+    if failures:
+        return report(failures)
+    coverage["manifest"] = {
+        "version": baseline["version"],
+        CAPABILITY_ID_FIELD: baseline[CAPABILITY_ID_FIELD],
+    }
+    COVERAGE_PATH.write_text(json.dumps(coverage, indent=2) + "\n", encoding="utf-8")
+
+    print(
+        "refreshed coverage/velnor-capabilities.json from the runner under test: "
+        f"manifest v{baseline['version']}, crate {baseline['crate_version']}, "
+        f"capability {baseline[CAPABILITY_ID_FIELD]}, source {baseline['source_sha']}"
+    )
+    failures = audit(
+        contract_only=False,
+        capabilities_export=capabilities_export,
+        runner_source=runner_source,
+        velnor_source_sha=velnor_source_sha,
+    )
+    if failures:
+        print(
+            "the refreshed baseline does not establish readiness; the coverage "
+            "documents still disagree with the runner under test",
+            file=sys.stderr,
+        )
+        return report(failures)
+    print("capability coverage readiness audit passed")
+    return 0
+
+
+def report(failures: list[str]) -> int:
+    for failure in sorted(set(failures)):
+        print(f"ERROR: {failure}", file=sys.stderr)
+    print(f"capability coverage audit failed: {len(set(failures))} error(s)", file=sys.stderr)
+    return 1
+
+
+def parse_arguments(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Audit Velnor capability coverage against the runner under test. "
+            "Readiness mode requires the capability manifest of that runner."
+        )
+    )
+    parser.add_argument(
+        "--contract-only",
+        action="store_true",
+        help="validate the checked-in contracts only; does not establish readiness",
+    )
+    parser.add_argument(
+        "--refresh-baseline",
+        action="store_true",
+        help=(
+            "rewrite coverage/velnor-capabilities.json from the runner under test and "
+            "re-run the readiness audit; the only supported way to refresh the baseline"
+        ),
+    )
+    parser.add_argument(
+        "--capabilities-export",
+        type=Path,
+        default=environment_path("VELNOR_CAPABILITIES_EXPORT"),
+        help="a `velnor-runner capabilities export` document from the build under test",
+    )
+    parser.add_argument(
+        "--runner-source",
+        type=Path,
+        default=environment_path("VELNOR_SOURCE_DIR"),
+        help="a Velnor checkout to export the capability manifest from",
+    )
+    parser.add_argument(
+        "--velnor-source-sha",
+        default=os.environ.get("VELNOR_SOURCE_SHA") or None,
+        help="the Velnor commit under test, required for development builds",
+    )
+    return parser.parse_args(argv)
+
+
+def environment_path(name: str) -> Path | None:
+    value = os.environ.get(name)
+    return Path(value) if value else None
+
+
+def main() -> int:
+    args = parse_arguments(sys.argv[1:])
+    if args.refresh_baseline:
+        if args.contract_only:
+            print(
+                "ERROR: --refresh-baseline and --contract-only are mutually exclusive: "
+                "a refresh is defined by the runner under test",
+                file=sys.stderr,
+            )
+            return 1
+        return refresh_baseline(
+            capabilities_export=args.capabilities_export,
+            runner_source=args.runner_source,
+            velnor_source_sha=args.velnor_source_sha,
+        )
+    failures = audit(
+        contract_only=args.contract_only,
+        capabilities_export=args.capabilities_export,
+        runner_source=args.runner_source,
+        velnor_source_sha=args.velnor_source_sha,
+    )
+    if failures:
+        return report(failures)
+    mode = "contract" if args.contract_only else "readiness"
     print(f"capability coverage {mode} audit passed")
     return 0
 

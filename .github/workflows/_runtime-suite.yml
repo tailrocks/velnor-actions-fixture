@@ -39,7 +39,7 @@ jobs:
       - name: Run fixture-harness tests and examples
         run: |
           set -euo pipefail
-          cargo test --locked -p fixture-harness --all-targets
+          cargo nextest run --locked -p fixture-harness --all-targets
           cargo run --quiet --locked -p fixture-harness --example command_files
           tmp_dir="$(mktemp -d)"
           mkdir -p "${tmp_dir}/tree/nested"
@@ -51,40 +51,137 @@ jobs:
           printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
           cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
           grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
-      - name: Emit command-file evidence
+      - id: command-files
+        name: Exercise GitHub command files
+        env:
+          EXPECTED_PACKAGE: ${{ matrix.package }}
+          EXPECTED_LANE: ${{ matrix.lane }}
         run: |
           set -euo pipefail
+          command_value="runtime-${EXPECTED_LANE}-${EXPECTED_PACKAGE}"
+          echo "RUNTIME_ENV_VALUE=${command_value}" >> "${GITHUB_ENV}"
+          echo "package=${EXPECTED_PACKAGE}" >> "${GITHUB_OUTPUT}"
+          echo "lane=${EXPECTED_LANE}" >> "${GITHUB_OUTPUT}"
           mkdir -p "$HOME/.local/bin"
           printf '%s\n' '#!/usr/bin/env bash' 'echo fixture-tool-ok' > "$HOME/.local/bin/fixture-tool"
           chmod +x "$HOME/.local/bin/fixture-tool"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "### runtime ${LANE} ${FIXTURE_PACKAGE}" >> "$GITHUB_STEP_SUMMARY"
+          summary="runtime ${EXPECTED_LANE} ${EXPECTED_PACKAGE}"
+          echo "### ${summary}" >> "${GITHUB_STEP_SUMMARY}"
+          grep -Fqx "### ${summary}" "${GITHUB_STEP_SUMMARY}"
+      - name: Assert GitHub command-file values
+        env:
+          EXPECTED_PACKAGE: ${{ matrix.package }}
+          EXPECTED_LANE: ${{ matrix.lane }}
+          OUTPUT_PACKAGE: ${{ steps.command-files.outputs.package }}
+          OUTPUT_LANE: ${{ steps.command-files.outputs.lane }}
+        run: |
+          set -euo pipefail
+          expected="runtime-${EXPECTED_LANE}-${EXPECTED_PACKAGE}"
+          test "${RUNTIME_ENV_VALUE}" = "${expected}"
+          test "${OUTPUT_PACKAGE}" = "${EXPECTED_PACKAGE}"
+          test "${OUTPUT_LANE}" = "${EXPECTED_LANE}"
+          test "$(command -v fixture-tool)" = "${HOME}/.local/bin/fixture-tool"
+          test "$(fixture-tool)" = fixture-tool-ok
+      - id: tolerated-failure
+        name: Exercise continue-on-error step semantics
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          echo 'intentional fixture failure is safe and expected' >&2
+          exit 17
+      - name: Assert outcome versus conclusion semantics
+        if: ${{ always() }}
+        env:
+          STEP_OUTCOME: ${{ steps.tolerated-failure.outcome }}
+          STEP_CONCLUSION: ${{ steps.tolerated-failure.conclusion }}
+        run: |
+          set -euo pipefail
+          test "${STEP_OUTCOME}" = failure
+          test "${STEP_CONCLUSION}" = success
+      - name: Run service_probe against local TCP fixture
+        run: |
+          set -euo pipefail
+          fixture_dir="$(mktemp -d)"
+          address_file="${fixture_dir}/address"
+          server_log="${fixture_dir}/server.log"
+          python3 - "${address_file}" >"${server_log}" 2>&1 <<'PY' &
+          import socket
+          import sys
+          from pathlib import Path
+
+          address_file = Path(sys.argv[1])
+          with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+              listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+              listener.bind(("127.0.0.1", 0))
+              listener.listen(1)
+              address_file.write_text(f"127.0.0.1:{listener.getsockname()[1]}\n")
+              connection, _ = listener.accept()
+              with connection:
+                  request = bytearray()
+                  while not request.endswith(b"\n"):
+                      chunk = connection.recv(4096)
+                      if not chunk:
+                          raise RuntimeError("fixture client closed before request terminator")
+                      request.extend(chunk)
+                  if bytes(request) != b"fixture-ping\n":
+                      raise RuntimeError(f"unexpected request: {bytes(request)!r}")
+                  connection.sendall(b"fixture-pong\n")
+          PY
+          server_pid=$!
+          cleanup() {
+            status=$?
+            kill "${server_pid}" 2>/dev/null || true
+            wait "${server_pid}" 2>/dev/null || true
+            rm -rf "${fixture_dir}"
+            exit "${status}"
+          }
+          trap cleanup EXIT
+          for _ in $(seq 1 100); do
+            if [[ -s "${address_file}" ]]; then
+              break
+            fi
+            if ! kill -0 "${server_pid}" 2>/dev/null; then
+              cat "${server_log}" >&2 || true
+              exit 1
+            fi
+            sleep 0.1
+          done
+          if [[ ! -s "${address_file}" ]]; then
+            cat "${server_log}" >&2 || true
+            exit 1
+          fi
+          address="$(<"${address_file}")"
+          cargo run --quiet --locked -p fixture-harness --example service_probe -- "${address}" | tee "${fixture_dir}/probe.txt"
+          grep -Fqx 'response="fixture-pong\n"' "${fixture_dir}/probe.txt"
+          wait "${server_pid}"
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ matrix.package }}
-      - name: Write canonical harness evidence
+      # `steps` is computed by the runner, not written by this workflow, so
+      # the outcome and conclusion of every step above are the behavioural
+      # signal no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
         run: |
           set -euo pipefail
-          mkdir -p evidence result
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
-            --scenario runtime \
-            --lane "${LANE}" \
-            --field "package=${FIXTURE_PACKAGE}" \
-            --field examples=command_files,artifact_tree,cache_payload,release_subject \
-            --field command_files=GITHUB_ENV,GITHUB_OUTPUT,GITHUB_PATH,GITHUB_STEP_SUMMARY \
-            --field result=pass \
-            --output "evidence/runtime-${LANE}-${FIXTURE_PACKAGE}.json"
-          python3 .github/scripts/write-result.py "${FIXTURE_PACKAGE}" "${LANE}" result/result.json
-          HARNESS_EVIDENCE="evidence/runtime-${LANE}-${FIXTURE_PACKAGE}.json" RESULT_JSON=result/result.json python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          result_path = Path(os.environ["RESULT_JSON"])
-          result = json.loads(result_path.read_text())
-          result["evidence"]["harness"] = json.loads(Path(os.environ["HARNESS_EVIDENCE"]).read_text())
-          result_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-          PY
+          mkdir -p result
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: runtime-result
+          evidence-id: ${{ matrix.package }}
+          lane: ${{ matrix.lane }}
+          output: result/result.json
+          observations: |
+            --observe-command examples=cargo run --quiet --locked -p fixture-harness --example command_files
+            --observe-command artifact-tree=cargo run --quiet --locked -p fixture-harness --example artifact_tree
+            --observe-command cache-payload=cargo run --quiet --locked -p fixture-harness --example cache_payload
+            --observe-command release-subject=cargo run --quiet --locked -p fixture-harness --example release_subject
+            --observe-env command-file-env=FIXTURE_PACKAGE
+            --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: result-${{ matrix.lane }}-${{ matrix.package }}
@@ -103,4 +200,7 @@ jobs:
         with:
           pattern: result-*
           path: artifacts
-      - run: python3 .github/scripts/compare-results.py artifacts
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: runtime-result
+          directory: artifacts

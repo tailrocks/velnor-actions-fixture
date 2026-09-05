@@ -11,7 +11,8 @@ This repository intentionally keeps normal GitHub Actions YAML. It is not a Pkl/
   velnor-target-mvp]`.
 - `lanes=github` or `lanes=velnor`: explicit diagnostic single-lane dispatch;
   it never claims parity.
-- `compare-results` requires both lane artifacts and fails on either missing lane.
+- `verifier compare` requires both lane artifacts, rejects evidence that does not
+  belong to the current run and Velnor build, and treats a single lane as an error.
 
 `ci.yml` is self-contained: `_rust-suite.yml`, `_runtime-suite.yml`,
 `_actions-suite.yml`, and `_docker-suite.yml` are local reusable workflows.
@@ -32,11 +33,37 @@ only exceptions are explicit and must produce their own evidence:
   required credentials exist; otherwise the workflow reports a skipped
   prerequisite, not readiness.
 - MicroVM expected-unsupported: Velnor microVM supports positive checkout,
-  cache, Rust cache, and sccache only. Other adapters need an explicit reason
-  for expected-unsupported status.
+  cache, and Rust cache only. sccache is explicitly refused there — the runner
+  rejects a microVM job that declares the action, and equally one carrying a
+  `RUSTC_WRAPPER` or `SCCACHE_*` environment. Other adapters need an explicit
+  reason for expected-unsupported status.
 
 Velnor-only admission negatives, queue probes, and backend diagnostics are
 diagnostic checks, not substitutes for mandatory dual-lane proof.
+
+## Verifier surfaces
+
+- `fixture-rust-check.yml` is a local reusable workflow. `reuse-caller.yml`
+  calls it for `app-a` and `app-b` on explicit GitHub and Velnor lanes;
+  `result-*.json` artifacts and `verifier compare` require every package and
+  lane result when `lanes=both`. Single-lane dispatch is diagnostic.
+- `schedule.yml` runs the fixture harness on both lanes and compares normalized
+  semantic evidence in a hosted job.
+- `backend-parity.yml` records explicit backend identity: `github-hosted` for
+  GitHub and `docker` or `microvm` for Velnor; its hosted comparator checks the
+  remaining semantic evidence.
+- `multi-arch.yml` builds and tests `linux/amd64` and `linux/arm64` on each
+  selected lane; its hosted comparator requires all four records and compares
+  each platform.
+- `control-plane.yml` compares normalized lane evidence with the repository-
+  local comparator. Queue is the explicit queue exception, guarded and
+  Velnor-only; failure is the expected exception and its logs must contain
+  exactly one marked `controlled-failure` error.
+- `docker-lease-probe.yml` uses the repository-local raw-wire helper
+  `.github/scripts/workflow_evidence.py docker-probe` and compares per-lane
+  Docker lease evidence in a hosted job.
+- `attestation-negative.yml` uses `assert-negative` to assert the expected
+  per-lane failure or success conclusion for each negative attestation case.
 
 The local `check` gate runs capability coverage, workflow-surface and
 actionlint checks, side-effect-free Python syntax parsing, Rust formatting,
@@ -109,7 +136,7 @@ still confirm zero non-completed runs remain afterwards.
 - `actions/cache`
 - `actions/upload-artifact`
 - `actions/download-artifact`
-- local-only sccache, Kache, and compiler-cache-off selection
+- local-only sccache, Mr Boxington, and compiler-cache-off selection
 - `dorny/paths-filter`
 - local composite actions
 - job outputs and `needs`
@@ -136,6 +163,47 @@ The checked-in closure is validated by the dependency-free `l2-contract`
 crate. Run the complete local gate with `mise run check`.
 
 The fixture is deliberately small. It exists to verify execution semantics before running Velnor against larger repositories.
+
+The current baseline is Velnor v0.1.250, manifest v12; its content-derived
+identity is recorded in `coverage/velnor-capabilities.json`, along with the
+source commit that produced it as provenance. See the
+[baseline/source workflow inventory](coverage/source-workflow-inventory.md).
+
+`coverage/velnor-capabilities.json` is not an independent assertion: it is a
+cached copy of what `velnor-runner capabilities export` emits, and the capability
+audit re-binds its content-derived identity to the runner under test on every
+readiness run. A source commit may differ when the capability content is
+unchanged. Supply that runner with `VELNOR_CAPABILITIES_EXPORT` (an export
+document) or
+`VELNOR_SOURCE_DIR` (a Velnor checkout); without one, readiness fails rather than
+passing on a baseline nobody checked.
+
+### Refreshing the baseline
+
+Never edit `coverage/velnor-capabilities.json` by hand. The readiness gate binds
+its content-derived identity to the runner and rejects any content the runner
+does not report, so a hand edit can only turn a stale baseline into a wrong one.
+There is one command when capability content changed:
+
+```
+VELNOR_SOURCE_DIR=/path/to/velnor just refresh-capability-baseline
+```
+
+It exports the manifest from the build under test, derives its content identity,
+writes the runner document plus that identity, carries the identity into
+`coverage/fixture-coverage.json`, and then re-runs the readiness gate — a
+refresh that does not certify fails. The checked-in file is never read or
+merged into, so no value can survive a refresh that the runner does not report.
+A development build reports `source_sha` `development`, so the recipe names the
+checkout's HEAD commit for provenance, and refuses if `manifest.rs`, `action.rs`,
+`build.rs` or `Cargo.toml` carry uncommitted changes — those four files are what
+the exported document is derived from.
+
+Evidence records carry provenance the workflow cannot fabricate — run id, run
+attempt, commit, lane cross-checked against `RUNNER_ENVIRONMENT`, runner
+identity, the Velnor build identity, and a collection timestamp — and every
+compared value is measured by `verifier collect` rather than written into the
+workflow. See `VELNOR_VERIFIER_PLAN.md`.
 
 ## License
 
