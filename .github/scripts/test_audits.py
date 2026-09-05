@@ -11,6 +11,7 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -468,6 +469,79 @@ class RunnerCheckoutStateTests(unittest.TestCase):
         run("add", "--all")
         run("commit", "--quiet", "-m", "fixture")
         return directory, run
+
+    def runner_export(self):
+        document = json.loads(
+            (ROOT / "coverage" / "velnor-capabilities.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        document["source_sha"] = coverage_audit.DEVELOPMENT_SOURCE_SHA
+        return document
+
+    def test_runner_source_rejects_a_supplied_sha_that_does_not_match_head(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory, _ = self.checkout(temporary)
+            checkout_sha = coverage_audit.git_head(directory, [])
+            self.assertIsNotNone(checkout_sha)
+            supplied_sha = "0" * 40
+            self.assertNotEqual(supplied_sha, checkout_sha)
+            failures = []
+            with patch.object(
+                coverage_audit,
+                "export_from_runner_source",
+                return_value=self.runner_export(),
+            ) as export:
+                baseline = coverage_audit.load_runner_baseline(
+                    None, directory, supplied_sha, failures
+                )
+
+        self.assertIsNone(baseline)
+        self.assertIn("does not match", "\n".join(failures))
+        self.assertIn(supplied_sha, "\n".join(failures))
+        self.assertIn(checkout_sha, "\n".join(failures))
+        export.assert_not_called()
+
+    def test_runner_source_accepts_a_supplied_sha_that_matches_head(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory, _ = self.checkout(temporary)
+            checkout_sha = coverage_audit.git_head(directory, [])
+            self.assertIsNotNone(checkout_sha)
+            failures = []
+            with patch.object(
+                coverage_audit,
+                "export_from_runner_source",
+                return_value=self.runner_export(),
+            ):
+                baseline = coverage_audit.load_runner_baseline(
+                    None, directory, checkout_sha, failures
+                )
+
+        self.assertEqual(failures, [])
+        self.assertIsNotNone(baseline)
+        self.assertEqual(baseline["source_sha"], checkout_sha)
+
+    def test_runner_source_rejects_a_matching_sha_with_a_dirty_manifest_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory, _ = self.checkout(temporary)
+            checkout_sha = coverage_audit.git_head(directory, [])
+            self.assertIsNotNone(checkout_sha)
+            (directory / "crates" / "velnor-runner" / "src" / "manifest.rs").write_text(
+                "uncommitted\n", encoding="utf-8"
+            )
+            failures = []
+            with patch.object(
+                coverage_audit,
+                "export_from_runner_source",
+                return_value=self.runner_export(),
+            ) as export:
+                baseline = coverage_audit.load_runner_baseline(
+                    None, directory, checkout_sha, failures
+                )
+
+        self.assertIsNone(baseline)
+        self.assertIn("uncommitted changes", "\n".join(failures))
+        export.assert_not_called()
 
     def test_a_clean_manifest_source_tree_is_accepted(self):
         with tempfile.TemporaryDirectory() as temporary:

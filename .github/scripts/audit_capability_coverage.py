@@ -506,15 +506,22 @@ def load_runner_baseline(
             failures.append(f"unreadable capabilities export {export_path}: {error}")
             return None
     elif runner_source is not None:
+        checkout_sha = git_head(runner_source, failures)
+        if checkout_sha is None:
+            return None
+        if source_sha is not None and source_sha != checkout_sha:
+            failures.append(
+                f"the supplied Velnor source SHA {source_sha!r} does not match runner "
+                f"source {runner_source} HEAD {checkout_sha!r}"
+            )
+            return None
+        source_sha = checkout_sha
+        require_manifest_sources_committed(runner_source, source_sha, failures)
+        if failures:
+            return None
         document = export_from_runner_source(runner_source, failures)
         if document is None:
             return None
-        if source_sha is None:
-            source_sha = git_head(runner_source, failures)
-            if source_sha is not None:
-                require_manifest_sources_committed(runner_source, source_sha, failures)
-                if failures:
-                    return None
     else:
         failures.append(
             "readiness requires the capability manifest of the Velnor build under test: "
