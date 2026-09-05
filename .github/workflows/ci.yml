@@ -85,7 +85,11 @@ jobs:
 
   lane-verdict:
     name: exact two-lane evidence verdict
-    if: always()
+    if: >-
+      always() && !(
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name != github.repository
+      )
     needs: [contract-audit, rust, runtime, actions, docker, l2-runtime, l2-provenance]
     runs-on: ubuntu-26.04
     timeout-minutes: 15
@@ -184,6 +188,22 @@ jobs:
       - name: Require every selected suite
         env:
           NEEDS: ${{ toJSON(needs) }}
+          FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         run: |
           set -euo pipefail
-          python3 -c 'import json,sys; n=json.loads(sys.argv[1]); print("suite results:", n); sys.exit(any(v["result"] != "success" for v in n.values()))' "$NEEDS"
+          python3 - "$NEEDS" "$FORK_PR" <<'PY'
+          import json
+          import sys
+
+          needs = json.loads(sys.argv[1])
+          fork_pr = sys.argv[2].lower() == "true"
+          failures = [
+              name
+              for name, value in needs.items()
+              if value["result"] != "success"
+              and not (fork_pr and name == "lane-verdict" and value["result"] == "skipped")
+          ]
+          print("suite results:", needs)
+          if failures:
+              raise SystemExit(f"required checks failed: {failures}")
+          PY

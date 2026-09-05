@@ -71,6 +71,15 @@ jobs:
         run: |
           set -euo pipefail
           test "$(docker run --rm "velnor-actions-fixture:${LANE}")" = fixture::app-a
+      - name: Record built image digest
+        id: image_digest
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          test -n "${IMAGE_DIGEST}"
+          [[ "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf '%s\n' "${IMAGE_DIGEST}" > image.digest
       # `steps` is computed by the runner, not written by this workflow, so the
       # outcome and conclusion of every step above are the behavioural signal
       # no workflow author can fabricate.
@@ -91,6 +100,7 @@ jobs:
           observations: |
             --observe-command image-entrypoint=docker run --rm velnor-actions-fixture:${{ matrix.lane }}
             --observe-command examples=cargo run --quiet --locked -p fixture-harness --example command_files
+            --observe-file image-digest=image.digest
             --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

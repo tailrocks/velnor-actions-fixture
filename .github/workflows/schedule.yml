@@ -57,6 +57,7 @@ jobs:
           restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: cargo check --workspace --locked
       - name: Run fixture-harness tests and emit evidence
+        id: tests
         env:
           LANE: ${{ matrix.config.lane }}
         run: |

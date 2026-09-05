@@ -69,7 +69,11 @@ jobs:
           file: Dockerfile.fixture
           platforms: ${{ matrix.config.platform }}
           push: false
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            org.opencontainers.image.created=1970-01-01T00:00:00Z
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=sha-${{ github.sha }}
           build-args: |
             PACKAGE=app-a
           cache-from: type=gha,scope=fixture-multi-${{ matrix.config.lane }}-${{ matrix.config.platform }}

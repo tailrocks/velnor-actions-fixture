@@ -85,8 +85,20 @@ jobs:
           path: target
           key: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}
           restore-keys: fixture-target-${{ github.event_name == 'workflow_dispatch' && matrix.lane || inputs.cache-key-suffix }}-${{ runner.os }}-${{ github.job }}-${{ inputs.package }}-${{ hashFiles('mise.toml', '**/Cargo.toml', 'Cargo.lock') }}-
-      - run: cargo check -p "${FIXTURE_PACKAGE}" --locked
+      - name: Validate package input
+        id: validate_package
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          set -euo pipefail
+          case "${PACKAGE}" in
+            app-a|app-b) ;;
+            *) echo "unsupported fixture package: ${PACKAGE}" >&2; exit 1 ;;
+          esac
+      - id: check
+        run: cargo check -p "${FIXTURE_PACKAGE}" --locked
       - name: Record command-file effects
+        id: effects
         run: |
           set -euo pipefail
           echo "### reusable rust-check: ${FIXTURE_PACKAGE}" >> "${GITHUB_STEP_SUMMARY}"
@@ -109,8 +121,8 @@ jobs:
           lane: ${{ env.FIXTURE_LANE }}
           output: result-${{ env.FIXTURE_LANE }}-${{ inputs.package }}/result.json
           observations: |
-            --observe-command build=cargo build --quiet --locked -p ${{ inputs.package }}
-            --observe-command run=cargo run --quiet --locked -p ${{ inputs.package }}
+            --observe-command build=cargo build --quiet --locked -p "${FIXTURE_PACKAGE}"
+            --observe-command run=cargo run --quiet --locked -p "${FIXTURE_PACKAGE}"
             --observe-env checked=FIXTURE_CHECKED
             --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -286,13 +286,42 @@ impl Parser<'_> {
         if self.peek() == Some('-') {
             self.position += 1;
         }
-        while matches!(self.peek(), Some('0'..='9' | '.' | 'e' | 'E' | '+' | '-')) {
+        match self.peek() {
+            Some('0') => {
+                self.position += 1;
+                if matches!(self.peek(), Some('0'..='9')) {
+                    return Err(format!("invalid number at offset {start}"));
+                }
+            }
+            Some('1'..='9') => {
+                while matches!(self.peek(), Some('0'..='9')) {
+                    self.position += 1;
+                }
+            }
+            _ => return Err(format!("invalid number at offset {start}")),
+        }
+        if self.peek() == Some('.') {
             self.position += 1;
+            if !matches!(self.peek(), Some('0'..='9')) {
+                return Err(format!("invalid number at offset {start}"));
+            }
+            while matches!(self.peek(), Some('0'..='9')) {
+                self.position += 1;
+            }
+        }
+        if matches!(self.peek(), Some('e' | 'E')) {
+            self.position += 1;
+            if matches!(self.peek(), Some('+' | '-')) {
+                self.position += 1;
+            }
+            if !matches!(self.peek(), Some('0'..='9')) {
+                return Err(format!("invalid number at offset {start}"));
+            }
+            while matches!(self.peek(), Some('0'..='9')) {
+                self.position += 1;
+            }
         }
         let text: String = self.input[start..self.position].iter().collect();
-        if text.is_empty() || text == "-" {
-            return Err(format!("invalid number at offset {start}"));
-        }
         Ok(Json::Number(text))
     }
 
@@ -335,6 +364,12 @@ impl Parser<'_> {
                         other => return Err(format!("invalid escape {other:?}")),
                     }
                 }
+                other if other <= '\u{1f}' => {
+                    return Err(format!(
+                        "unescaped control character at offset {}",
+                        self.position - 1
+                    ));
+                }
                 other => value.push(other),
             }
         }
@@ -356,6 +391,14 @@ mod tests {
     fn rejects_trailing_content_and_duplicate_keys() {
         assert!(parse("{} {}").is_err());
         assert!(parse(r#"{"a":1,"a":2}"#).is_err());
+    }
+
+    #[test]
+    fn rejects_malformed_numbers_and_control_characters() {
+        for text in ["1-2", "1e", "1.", "01", "-", "-.5"] {
+            assert!(parse(text).is_err(), "accepted malformed number {text:?}");
+        }
+        assert!(parse("{\"value\":\"\n\"}").is_err());
     }
 
     #[test]
