@@ -7,9 +7,9 @@ architecture review; the current capability baseline is manifest v12.
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Last verified fixture SHA: `58f80880132ef9df08162049aa5af3974ceb5280`
+- Last verified fixture SHA: `421b54e8ff80d40198894962836af3057fecdee2`
 - Velnor under test: `tailrocks/velnor`, branch `main`, verified target SHA
-  `e01f2e6ae9be6ae6b3004f6c2693deb0a0345b57`
+  `3b7efcce4b02c863c4de0852b72496561d5dfa9b`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
   and reconcile the target remote before commits/pushes. Keep commits small,
   signed off with `git commit -s`, and include
@@ -110,8 +110,8 @@ before any code changed.
 
 | Tree | Branch | Commit |
 | --- | --- | --- |
-| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `58f80880132ef9df08162049aa5af3974ceb5280` |
-| `velnor` (runner under test) | `main` | `e01f2e6ae9be6ae6b3004f6c2693deb0a0345b57` |
+| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `421b54e8ff80d40198894962836af3057fecdee2` |
+| `velnor` (runner under test) | `main` | `3b7efcce4b02c863c4de0852b72496561d5dfa9b` |
 
 The manifest identity recorded below is the identity of the runner under test;
 refresh the checked-in export whenever that target changes.
