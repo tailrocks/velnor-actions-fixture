@@ -585,3 +585,19 @@ explicit-sccache lanes. This closes the prior false-positive shape where a
 dead appended function could leave stale output undetected. No live dual-lane,
 deployed-image, default-MBX end-to-end, VelnorJob benchmark, fault, or soak
 result is claimed.
+
+## Continuation anchor — exact canonical head provenance `102ebb1`
+
+Canonical Velnor advanced from `267b445` to
+`102ebb1945028dc6969fdfb9fbb06952723d7f40` with the final plan-integrity
+record. The checked-in source workflow inventory and generated capability
+baseline now bind to that exact requested-branch head; workflow digests and
+manifest capability identity are unchanged because the intervening commits
+were documentation-only. Direct source-inventory validation against the
+canonical checkout passes.
+
+Refresh from an existing runner export with the source SHA supplied explicitly
+passes readiness and contract audits. The verifier currently passes 53 Python
+tests and the workflow-surface audit. This is provenance/static proof only;
+live dual-lane, deployed-image, default-MBX end-to-end, fault, soak, and
+VelnorJob benchmark evidence remain open.
