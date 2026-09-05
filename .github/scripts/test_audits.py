@@ -694,7 +694,7 @@ class CompareEvidenceActionTests(unittest.TestCase):
             provenance["velnor_source_sha"] = source_sha
         return {"provenance": provenance}
 
-    def test_current_evidence_source_is_accepted_without_baseline_source_binding(self):
+    def test_evidence_source_must_match_checked_in_baseline(self):
         current_source = "d" * 40
         baseline_source = json.loads(
             (ROOT / "coverage" / "velnor-capabilities.json").read_text()
@@ -707,12 +707,29 @@ class CompareEvidenceActionTests(unittest.TestCase):
                 ("nested/velnor-b.json", self.record("velnor", current_source)),
             ]
         )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(output, {})
+        self.assertIn("does not match capability baseline source_sha", result.stderr)
+        self.assertIn(current_source, result.stderr)
+        self.assertIn(baseline_source, result.stderr)
+
+    def test_evidence_source_matching_checked_in_baseline_is_accepted(self):
+        baseline_source = json.loads(
+            (ROOT / "coverage" / "velnor-capabilities.json").read_text()
+        )["source_sha"]
+        result, output = self.run_resolver(
+            [
+                ("github.json", self.record("github")),
+                ("nested/velnor-a.json", self.record("velnor", baseline_source)),
+                ("nested/velnor-b.json", self.record("velnor", baseline_source)),
+            ]
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(
             output,
             {
                 "BASELINE_MANIFEST_VERSION": "12",
-                "EVIDENCE_VELNOR_SOURCE_SHA": current_source,
+                "EVIDENCE_VELNOR_SOURCE_SHA": baseline_source,
             },
         )
 
@@ -755,8 +772,8 @@ class CompareEvidenceActionTests(unittest.TestCase):
         self.assertIn(
             '--expect-velnor-source-sha "${EVIDENCE_VELNOR_SOURCE_SHA}"', action
         )
-        self.assertNotIn("BASELINE_SOURCE_SHA", action)
-        self.assertNotIn("baseline['source_sha']", action)
+        self.assertIn('baseline_source_sha = baseline.get("source_sha")', action)
+        self.assertIn("if source_sha != baseline_source_sha:", action)
 
     def test_action_wires_github_env_handoff_before_verifier_step(self):
         action = self.action_text()

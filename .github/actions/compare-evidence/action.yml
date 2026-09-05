@@ -3,10 +3,11 @@ description: >-
   Verify that every evidence record belongs to this run, this fixture commit
   and the Velnor build identified by the downloaded evidence, then compare the
   observed behaviour of every lane. A single lane is an error. The Velnor
-  source SHA is reported by the runner; this action validates its lexical shape
-  and cross-record consistency only. It does not authenticate the release
-  binary or prove it was built from that commit; independent runner or release
-  attestation is required at that trust boundary.
+  source SHA is reported by the runner; this action validates its lexical shape,
+  cross-record consistency, and equality with the checked-in capability
+  baseline. It does not authenticate the release binary or prove it was built
+  from that commit; independent runner or release attestation is required at
+  that trust boundary.
 inputs:
   scenario:
     required: true
@@ -94,8 +95,18 @@ runs:
         manifest_version = baseline.get("version")
         if not isinstance(manifest_version, int) or isinstance(manifest_version, bool):
             raise SystemExit("Velnor capability baseline version must be an integer")
+        baseline_source_sha = baseline.get("source_sha")
+        if not is_full_sha(baseline_source_sha):
+            raise SystemExit(
+                "Velnor capability baseline source_sha must be a full lowercase commit SHA"
+            )
 
         source_sha = next(iter(source_paths))
+        if source_sha != baseline_source_sha:
+            raise SystemExit(
+                "Velnor evidence source SHA does not match capability baseline source_sha: "
+                f"evidence {source_sha}, baseline {baseline_source_sha}"
+            )
         print(f"BASELINE_MANIFEST_VERSION={manifest_version}")
         print(f"EVIDENCE_VELNOR_SOURCE_SHA={source_sha}")
         PY
