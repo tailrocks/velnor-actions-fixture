@@ -370,6 +370,52 @@ class BaselineBindingTests(unittest.TestCase):
             self.assertIn("different Velnor build", "\n".join(failures))
 
 
+class SourceWorkflowInventoryTests(unittest.TestCase):
+    def inventory(self):
+        path = ROOT / "coverage" / "source-workflow-inventory.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_stale_source_workflow_digest_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            runner_source = Path(temporary)
+            workflow_dir = runner_source / ".github" / "workflows"
+            workflow_dir.mkdir(parents=True)
+            (workflow_dir / "ci.yml").write_text("name: ci\n", encoding="utf-8")
+            inventory = {
+                "schema": coverage_audit.SOURCE_WORKFLOW_INVENTORY_SCHEMA,
+                "source_sha": "a" * 40,
+                "workflows": [
+                    {
+                        "path": ".github/workflows/ci.yml",
+                        "sha256": "0" * 64,
+                        "uses": [],
+                        "fixture_workflows": ["ci.yml"],
+                    }
+                ],
+                "action_mappings": [],
+            }
+            failures = []
+            coverage_audit.validate_source_workflow_inventory(
+                inventory,
+                runner_source=runner_source,
+                source_sha="a" * 40,
+                failures=failures,
+            )
+
+        self.assertIn("ci.yml changed", "\n".join(failures))
+
+    def test_checked_in_inventory_has_explicit_action_mappings(self):
+        inventory = self.inventory()
+        failures = []
+        coverage_audit.validate_source_workflow_inventory(
+            inventory,
+            runner_source=None,
+            source_sha=inventory["source_sha"],
+            failures=failures,
+        )
+        self.assertEqual(failures, [])
+
+
 class MicroVmDispositionTests(unittest.TestCase):
     """A microVM claim must match what the runner will actually admit."""
 

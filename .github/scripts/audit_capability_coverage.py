@@ -26,8 +26,10 @@ ROOT = Path(__file__).resolve().parents[2]
 CAPABILITIES_PATH = ROOT / "coverage" / "velnor-capabilities.json"
 COVERAGE_PATH = ROOT / "coverage" / "fixture-coverage.json"
 SURFACE_COVERAGE_PATH = ROOT / "coverage" / "action-surface-coverage.json"
+SOURCE_WORKFLOW_INVENTORY_PATH = ROOT / "coverage" / "source-workflow-inventory.json"
 WORKFLOWS = ROOT / ".github" / "workflows"
 ACTIONS = ROOT / ".github" / "actions"
+SOURCE_WORKFLOW_INVENTORY_SCHEMA = "velnor.fixture.source-workflow-inventory.v1"
 
 # There are deliberately no EXPECTED_MANIFEST_VERSION / EXPECTED_SOURCE_SHA /
 # EXPECTED_ACTION_COUNT constants here. Pinning the baseline to constants is
@@ -162,6 +164,204 @@ def load_json(path: Path, failures: list[str]) -> dict[str, Any]:
         failures.append(f"{path.relative_to(ROOT)}: root must be an object")
         return {}
     return value
+
+
+def normalize_source_use(value: str) -> str:
+    """Return the action or reusable-workflow identity without its ref."""
+    value = value.strip().strip("'\"")
+    if value.startswith("./"):
+        return f"local:{value}"
+    return value.split("@", 1)[0]
+
+
+def source_workflow_snapshot(
+    runner_source: Path, failures: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Read the exact workflow files from the Velnor checkout under test."""
+    workflow_root = runner_source / ".github" / "workflows"
+    if not workflow_root.is_dir():
+        failures.append(
+            f"runner source {runner_source}: .github/workflows is missing; "
+            "source workflow parity cannot be checked"
+        )
+        return {}
+
+    snapshot: dict[str, dict[str, Any]] = {}
+    for path in sorted(workflow_root.rglob("*")):
+        if not path.is_file() or path.suffix not in {".yml", ".yaml"}:
+            continue
+        relative = path.relative_to(runner_source).as_posix()
+        try:
+            raw = path.read_bytes()
+            text = raw.decode("utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            failures.append(f"cannot read source workflow {relative}: {error}")
+            continue
+        uses = sorted(
+            {
+                normalize_source_use(match.group(1))
+                for line in text.splitlines()
+                if (match := USES_RE.match(line))
+            }
+        )
+        snapshot[relative] = {
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "uses": uses,
+        }
+    if not snapshot:
+        failures.append(
+            f"runner source {runner_source}: .github/workflows contains no YAML workflows"
+        )
+    return snapshot
+
+
+def validate_fixture_workflow_paths(
+    values: list[str], label: str, failures: list[str], *, nonempty: bool
+) -> None:
+    """Ensure an inventory mapping names only fixture workflows."""
+    if nonempty and not values:
+        failures.append(f"{label}: must map to at least one fixture workflow")
+    for value in values:
+        path = Path(value)
+        if path.is_absolute() or ".." in path.parts:
+            failures.append(f"{label}: unsafe fixture workflow path {value!r}")
+            continue
+        if not (WORKFLOWS / path).is_file():
+            failures.append(f"{label}: fixture workflow {value!r} does not exist")
+
+
+def validate_source_workflow_inventory(
+    inventory: dict[str, Any],
+    *,
+    runner_source: Path | None,
+    source_sha: str | None,
+    failures: list[str],
+) -> None:
+    """Bind the checked-in source scan to the exact Velnor checkout under test."""
+    if inventory.get("schema") != SOURCE_WORKFLOW_INVENTORY_SCHEMA:
+        failures.append(
+            f"coverage/source-workflow-inventory.json.schema: expected "
+            f"{SOURCE_WORKFLOW_INVENTORY_SCHEMA!r}, got {inventory.get('schema')!r}"
+        )
+
+    inventory_sha = inventory.get("source_sha")
+    if not is_full_sha(inventory_sha):
+        failures.append(
+            "coverage/source-workflow-inventory.json.source_sha: must be a full "
+            f"lowercase commit SHA, got {inventory_sha!r}"
+        )
+    if source_sha and inventory_sha != source_sha:
+        failures.append(
+            "coverage/source-workflow-inventory.json is from Velnor "
+            f"{inventory_sha!r}, but the runner under test is {source_sha!r}; "
+            "regenerate the source inventory"
+        )
+
+    workflow_rows = rows_by_key(
+        inventory.get("workflows"),
+        ("path",),
+        "source workflow inventory.workflows",
+        failures,
+    )
+    for path, row in workflow_rows.items():
+        label = f"source workflow inventory {path[0]}"
+        digest = row.get("sha256")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            failures.append(f"{label}.sha256: must be a lowercase SHA-256 digest")
+        uses = check_string_list(row, "uses", label, failures, nonempty=False)
+        if uses != sorted(set(uses)):
+            failures.append(f"{label}.uses: values must be unique and sorted")
+        fixture_workflows = check_string_list(
+            row, "fixture_workflows", label, failures, nonempty=True
+        )
+        validate_fixture_workflow_paths(
+            fixture_workflows, f"{label}.fixture_workflows", failures, nonempty=True
+        )
+
+    action_rows = rows_by_key(
+        inventory.get("action_mappings"),
+        ("uses",),
+        "source workflow inventory.action_mappings",
+        failures,
+    )
+    mapped_uses: set[str] = set()
+    for uses_key, row in action_rows.items():
+        uses = uses_key[0]
+        if uses != normalize_source_use(uses):
+            failures.append(
+                f"source workflow inventory action mapping {uses!r}: uses must be normalized"
+            )
+        mapped_uses.add(uses)
+        disposition = row.get("disposition")
+        if disposition not in DISPOSITION_VALUES:
+            failures.append(
+                f"source workflow inventory action mapping {uses!r}.disposition: "
+                f"unsupported value {disposition!r}"
+            )
+        fixture_workflows = check_string_list(
+            row,
+            "fixture_workflows",
+            f"source workflow inventory action mapping {uses}",
+            failures,
+            nonempty=disposition == "covered",
+        )
+        validate_fixture_workflow_paths(
+            fixture_workflows,
+            f"source workflow inventory action mapping {uses}.fixture_workflows",
+            failures,
+            nonempty=disposition == "covered",
+        )
+        if disposition != "covered" and not isinstance(row.get("reason"), str):
+            failures.append(
+                f"source workflow inventory action mapping {uses!r}: an explicit "
+                f"{disposition!r} disposition requires a reason"
+            )
+
+    observed_uses = {
+        use
+        for row in workflow_rows.values()
+        for use in row.get("uses", [])
+        if isinstance(use, str)
+    }
+    missing_mappings = sorted(observed_uses - mapped_uses)
+    extra_mappings = sorted(mapped_uses - observed_uses)
+    if missing_mappings:
+        failures.append(
+            "source workflow inventory: observed workflow/action surfaces lack "
+            f"explicit mappings: {', '.join(missing_mappings)}"
+        )
+    if extra_mappings:
+        failures.append(
+            "source workflow inventory: action mappings name surfaces absent from "
+            f"the source scan: {', '.join(extra_mappings)}"
+        )
+
+    if runner_source is None:
+        return
+    actual = source_workflow_snapshot(runner_source, failures)
+    expected_paths = {path[0] for path in workflow_rows}
+    actual_paths = set(actual)
+    for path in sorted(actual_paths - expected_paths):
+        failures.append(
+            f"source workflow inventory: new source workflow {path!r} has no inventory mapping"
+        )
+    for path in sorted(expected_paths - actual_paths):
+        failures.append(
+            f"source workflow inventory: recorded workflow {path[0]!r} is absent from the runner source"
+        )
+    for path in sorted(actual_paths & expected_paths):
+        row = workflow_rows[(path,)]
+        observed = actual[path]
+        if row.get("sha256") != observed["sha256"]:
+            failures.append(
+                f"source workflow inventory: {path} changed at the runner source; "
+                "regenerate the inventory"
+            )
+        if row.get("uses") != observed["uses"]:
+            failures.append(
+                f"source workflow inventory: {path} action/reusable-workflow surface "
+                "changed; regenerate the inventory and add mappings for new uses"
+            )
 
 
 def rows_by_key(
@@ -1532,8 +1732,10 @@ def audit(
     capabilities = load_json(CAPABILITIES_PATH, failures)
     coverage = load_json(COVERAGE_PATH, failures)
     surface = load_json(SURFACE_COVERAGE_PATH, failures)
+    source_inventory = load_json(SOURCE_WORKFLOW_INVENTORY_PATH, failures)
     manifest_actions, manifest_workflows = validate_manifest(capabilities, failures)
 
+    baseline: dict[str, Any] | None = None
     if not contract_only:
         # Readiness binds the checked-in baseline to the Velnor build under
         # test. Without this the baseline is an unverifiable assertion, and a
@@ -1543,6 +1745,13 @@ def audit(
         )
         if baseline is not None:
             bind_baseline(capabilities, baseline, failures)
+
+    validate_source_workflow_inventory(
+        source_inventory,
+        runner_source=None if contract_only else runner_source,
+        source_sha=baseline.get("source_sha") if baseline is not None else None,
+        failures=failures,
+    )
 
     validate_surface_coverage(
         surface,
