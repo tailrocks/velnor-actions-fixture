@@ -177,6 +177,16 @@ class WorkflowPolicyTests(unittest.TestCase):
         failures = workflow_audit.evidence_schema_failures({path.name: missing_collector})
         self.assertIn("shared collector", "\n".join(failures))
 
+    def test_rust_source_change_probe_changes_app_visible_output(self):
+        text = (ROOT / ".github" / "workflows" / "_rust-suite.yml").read_text()
+        self.assertIn(
+            "sed -i 's/format!(\"fixture::{name}\")/format!(\"fixture::source-change::{name}\")/'",
+            text,
+        )
+        self.assertIn("grep -Fxq 'fixture::app-a' baseline.txt", text)
+        self.assertIn("grep -Fxq 'fixture::source-change::app-a' rebuilt.txt", text)
+        self.assertNotIn("velnor_fixture_marker", text)
+
     def test_full_sha_audit_checks_list_item_uses(self):
         text = """jobs:\n  test:\n    steps:\n      - uses: actions/checkout@v7\n"""
         failures = workflow_audit.remote_sha_failures({"fixture.yml": text})

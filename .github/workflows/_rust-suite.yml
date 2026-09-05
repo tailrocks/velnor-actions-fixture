@@ -351,6 +351,7 @@ jobs:
           cargo build --locked -p app-a
           ./target/debug/app-a > baseline.txt
           test -s baseline.txt
+          grep -Fxq 'fixture::app-a' baseline.txt
       - name: Apply the interaction's change
         id: change
         env:
@@ -359,7 +360,7 @@ jobs:
           set -euo pipefail
           case "${INTERACTION}" in
             source-change)
-              printf '\npub fn velnor_fixture_marker() -> u32 { 42 }\n' >> crates/shared/src/lib.rs
+              sed -i 's/format!("fixture::{name}")/format!("fixture::source-change::{name}")/' crates/shared/src/lib.rs
               echo "changed=source" >> "${GITHUB_OUTPUT}"
               ;;
             lockfile-change)
@@ -393,6 +394,11 @@ jobs:
           fi
           ./target/debug/app-a > rebuilt.txt
           test -s rebuilt.txt
+          if [[ "${INTERACTION}" == "source-change" ]]; then
+            grep -Fxq 'fixture::source-change::app-a' rebuilt.txt
+          else
+            grep -Fxq 'fixture::app-a' rebuilt.txt
+          fi
           if cmp -s baseline.txt rebuilt.txt; then
             echo "output=unchanged" >> "${GITHUB_OUTPUT}"
           else
@@ -466,14 +472,16 @@ jobs:
           cargo build --locked -p app-a
           ./target/debug/app-a > baseline.txt
           test -s baseline.txt
+          grep -Fxq 'fixture::app-a' baseline.txt
       - name: Rebuild after a source change
         id: rebuild
         run: |
           set -euo pipefail
-          printf '\npub fn velnor_fixture_marker() -> u32 { 42 }\n' >> crates/shared/src/lib.rs
+          sed -i 's/format!("fixture::{name}")/format!("fixture::source-change::{name}")/' crates/shared/src/lib.rs
           cargo build --locked -p app-a
           ./target/debug/app-a > rebuilt.txt
           test -s rebuilt.txt
+          grep -Fxq 'fixture::source-change::app-a' rebuilt.txt
           if cmp -s baseline.txt rebuilt.txt; then
             echo "output=unchanged" >> "${GITHUB_OUTPUT}"
           else
