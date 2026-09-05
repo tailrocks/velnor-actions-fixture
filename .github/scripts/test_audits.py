@@ -315,7 +315,7 @@ class BaselineBindingTests(unittest.TestCase):
         self.assertEqual(coverage_audit.capability_identity(document), identity)
         document[coverage_audit.CAPABILITY_ID_FIELD] = "0" * coverage_audit.CAPABILITY_ID_LENGTH
         self.assertEqual(coverage_audit.capability_identity(document), identity)
-        document["crate_version"] = "0.1.251"
+        document["crate_version"] = "test-mutated-crate-version"
         self.assertNotEqual(coverage_audit.capability_identity(document), identity)
 
     def test_a_swapped_action_identity_is_rejected_at_constant_cardinality(self):

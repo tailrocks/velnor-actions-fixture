@@ -33,11 +33,21 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout Velnor runner source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: tailrocks/velnor
+          ref: a44251ef46d3d6425f1e4751027b043470329472
+          path: .velnor-source
+          persist-credentials: false
       - name: Audit capability contract
         run: python3 .github/scripts/audit_capability_coverage.py --contract-only
       - name: Audit workflow surface
         run: python3 .github/scripts/audit_workflow_surface.py
       - name: Audit readiness coverage
+        env:
+          VELNOR_SOURCE_DIR: ${{ github.workspace }}/.velnor-source
+          VELNOR_SOURCE_SHA: a44251ef46d3d6425f1e4751027b043470329472
         run: python3 .github/scripts/audit_capability_coverage.py
 
   rust:

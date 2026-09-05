@@ -1,124 +1,90 @@
 # Source Workflow Inventory
 
-Source inventory snapshot captured: **2026-09-04**. This historical inventory
-records the workflow surfaces used to scope fixture coverage at that time.
-Canonical Velnor later advanced through `630acdd`, which changed the generated
-workflow surface. The rows and links below are not current workflow-parity
-evidence; rerun a source scan before making a current readiness claim.
+Current source inventory captured from Velnor **a44251ef46d3d6425f1e4751027b043470329472**. The JSON
+contract and this document are regenerated together whenever the target Velnor
+source changes; readiness rejects a stale source digest, workflow hash, action
+surface, or mapping.
 
 ## Scan basis
 
-- Velnor was synchronized at commit
-  [`dfc5777b963fc2494f6939e2b0d631b43b5f606b`](https://github.com/tailrocks/velnor/tree/dfc5777b963fc2494f6939e2b0d631b43b5f606b).
-- The capability baseline is manifest v12, with source identity
-  [`dfc5777b963fc2494f6939e2b0d631b43b5f606b`](https://github.com/tailrocks/velnor/tree/dfc5777b963fc2494f6939e2b0d631b43b5f606b).
-- Runner scope is Linux jobs through Docker and the GitHub V2 JIT flow. It
-  includes no macOS job execution and no native scheduler surface.
-- This was a read-only source scan. It does not claim live runner execution;
-  live validation requires credentials and a configured Velnor runner.
+- Velnor source: [`a44251ef46d3d6425f1e4751027b043470329472`](https://github.com/tailrocks/velnor/tree/a44251ef46d3d6425f1e4751027b043470329472).
+- Capability manifest: v12, runner crate `0.1.251`.
+- Capability identity: `3bfa36c66281b5ca10241cf7b0ec989699ac3084fe63a564eb57a39c9cd45e96`.
+- Runner scope: Linux jobs through Docker and the GitHub V2 JIT flow. macOS,
+  native scheduling, and production release mutation remain admission surfaces.
 
-## Velnor main workflow inventory
+## Velnor workflow inventory
 
-At the source commit above, `.github/workflows` contains exactly these six
-workflow files:
+| Source workflow | SHA-256 | Fixture mapping | Source action/reusable-workflow surfaces |
+| --- | --- | --- | --- |
+| `.github/workflows/ci-bun-velnor.yml` | `09d061f34f2451b756379f5f35828ccaf8fe9257e8dbbccd76863eacc7c76921` | `_runtime-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `oven-sh/setup-bun`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-docker-docker.yml` | `2647c58b333e2e1e6173fde30d56321b4bda314f20ea258d975773b2a0656e6c` | `_docker-suite.yml` | `actions/checkout`, `docker/setup-buildx-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-docs-docs.yml` | `a4871e728e6082a0922684c7536a7f4e89f76fc85df2544bd8e6be879ef4fba1` | `pages.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-main.yml` | `53c0a4b4d89875541bf13a41a6d5819fa51f546f4a75ca4558c964f053fa1597` | `ci.yml` | `actions/checkout`, `local:./.github/workflows/ci-bun-velnor.yml`, `local:./.github/workflows/ci-docker-docker.yml`, `local:./.github/workflows/ci-docs-docs.yml`, `local:./.github/workflows/ci-opentofu-opentofu.yml`, `local:./.github/workflows/ci-rust-policy.yml`, `local:./.github/workflows/ci-rust-unit-collector.yml`, `local:./.github/workflows/ci-rust-velnor-bench.yml`, `local:./.github/workflows/ci-rust-velnor-client.yml`, `local:./.github/workflows/ci-rust-velnor-control.yml`, `local:./.github/workflows/ci-rust-velnor-model.yml`, `local:./.github/workflows/ci-rust-velnor-render.yml`, `local:./.github/workflows/ci-rust-velnor-runner.yml`, `local:./.github/workflows/ci-rust-velnor-tools.yml`, `local:./.github/workflows/ci-rust-velnor-workflow.yml`, `local:./.github/workflows/ci-rust-velnorctl.yml`, `tailrocks/velnor/.github/actions/setup-velnor-workflow`, `tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml` |
+| `.github/workflows/ci-opentofu-opentofu.yml` | `ed4dee8c5eba1ad1f7acf49baaf6a6ee3855ef21bbcc3333234820087b7bf493` | `_docker-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `opentofu/setup-opentofu`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-policy.yml` | `92132219705fcace00253a42bdb4a9d2b609971fa21ecaf4e09b3e8363a06d27` | `ci.yml` | `tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml` |
+| `.github/workflows/ci-pr.yml` | `cbf077b35a185eca539bdadf15aa7b2b129a0d4f9da15fc2d98a78680196047d` | `ci.yml` | `actions/checkout`, `local:./.github/workflows/ci-bun-velnor.yml`, `local:./.github/workflows/ci-docker-docker.yml`, `local:./.github/workflows/ci-docs-docs.yml`, `local:./.github/workflows/ci-opentofu-opentofu.yml`, `local:./.github/workflows/ci-rust-policy.yml`, `local:./.github/workflows/ci-rust-unit-collector.yml`, `local:./.github/workflows/ci-rust-velnor-bench.yml`, `local:./.github/workflows/ci-rust-velnor-client.yml`, `local:./.github/workflows/ci-rust-velnor-control.yml`, `local:./.github/workflows/ci-rust-velnor-model.yml`, `local:./.github/workflows/ci-rust-velnor-render.yml`, `local:./.github/workflows/ci-rust-velnor-runner.yml`, `local:./.github/workflows/ci-rust-velnor-tools.yml`, `local:./.github/workflows/ci-rust-velnor-workflow.yml`, `local:./.github/workflows/ci-rust-velnorctl.yml`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-release-package-signer.yml` | `f33d962f452406f20144f3d9b8f1c3fc209b5a09863ff4c064a65c2c243055a1` | `ci.yml` | `actions/attest-build-provenance`, `actions/download-artifact` |
+| `.github/workflows/ci-rust-policy.yml` | `4567907059fec373364427d3641e71f285121b28056ff9f4e7e25225a89ad28d` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-unit-collector.yml` | `a76abe4a89f1ddda913f9647ea69b0d2405eb9be7e8ac2d0a4073493834e98b8` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-velnor-bench.yml` | `99ee835adf18815fc7fbb83a1e5c23e8dce6745f5767b0807006500784113f54` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-velnor-client.yml` | `1631df3db9a07b959a065149f1dff2749871dd61d48203710486fe2bfb5f16f2` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-velnor-control.yml` | `dcab87feff34d1a353c3b77944df385f9feb9c771d3ea90fef51f0e2bfaa029a` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-velnor-model.yml` | `5cbbe999c65833eaca7762d30e720cf1edd1e3834848aa62ab184e13b1492775` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-velnor-render.yml` | `41e2d08a85cde135665b5e3d79b8c998a29ebcc4dbf8af647bb3cdb9ce63840f` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-velnor-runner.yml` | `7f64de2dabe20e0f178eaac3bbb30d660971581d2d469675c1c2c013eba0b02e` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-velnor-tools.yml` | `428e95d29daa430c8da9d07ea892518acabc8cefd110903b9d4b7602afea1367` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-velnor-workflow.yml` | `6e957ffb7f21c3e3197da368ec71d2f8e33c51486b86ed8489ff47e1bc7ec7b2` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/ci-rust-velnorctl.yml` | `43c4654d8463660b30fe0ecc8abc38433a30caea1b8380a44785bd919aee5f0a` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `jdx/mise-action`, `mozilla-actions/sccache-action`, `rui314/setup-mold`, `taiki-e/install-action`, `tailrocks/velnor/.github/actions/setup-velnor-workflow` |
+| `.github/workflows/maintenance.yml` | `57bd737767e4a9c17155e64e1212dad67d3fa6f04338eaeee3a00c89a9944371` | `schedule.yml` | — |
+| `.github/workflows/nightly.yml` | `8dea7ed56284644808077ef03154a961bb0bcad26422a85fa7524d69f63535d2` | `schedule.yml` | `actions/checkout`, `local:./.github/workflows/ci-bun-velnor.yml`, `local:./.github/workflows/ci-docker-docker.yml`, `local:./.github/workflows/ci-docs-docs.yml`, `local:./.github/workflows/ci-opentofu-opentofu.yml`, `local:./.github/workflows/ci-rust-policy.yml`, `local:./.github/workflows/ci-rust-unit-collector.yml`, `local:./.github/workflows/ci-rust-velnor-bench.yml`, `local:./.github/workflows/ci-rust-velnor-client.yml`, `local:./.github/workflows/ci-rust-velnor-control.yml`, `local:./.github/workflows/ci-rust-velnor-model.yml`, `local:./.github/workflows/ci-rust-velnor-render.yml`, `local:./.github/workflows/ci-rust-velnor-runner.yml`, `local:./.github/workflows/ci-rust-velnor-tools.yml`, `local:./.github/workflows/ci-rust-velnor-workflow.yml`, `local:./.github/workflows/ci-rust-velnorctl.yml`, `tailrocks/velnor/.github/actions/setup-velnor-workflow`, `tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml` |
+| `.github/workflows/release.yml` | `57219e5eb480bc2ce59d277b1849f90c7d44d3c629720671de7ebe12f26ef864` | `ci.yml` | `actions/cache`, `actions/checkout`, `actions/download-artifact`, `actions/upload-artifact`, `docker/build-push-action`, `docker/login-action`, `docker/setup-buildx-action`, `docker/setup-qemu-action`, `jdx/mise-action`, `local:./.github/workflows/ci-release-package-signer.yml`, `mozilla-actions/sccache-action`, `rui314/setup-mold` |
 
-| Workflow | Current source surfaces | Fixture mapping |
+## Source action mappings
+
+| Source surface | Disposition | Fixture evidence or boundary |
 | --- | --- | --- |
-| `ci.yml` | Pull request, `main`/tag push, `merge_group`, weekly schedule, and manual `lanes` plus recovery/benchmark/cache-proof inputs; three owner-gated server-side `velnor-actions` `ci-code.yml` calls; `ci-required` runs on `ubuntu-26.04` or `self-hosted,velnor-target-mvp`. | Local `ci.yml` preserves the dual-lane contract and maps execution to `_rust-suite.yml`, `_runtime-suite.yml`, `_actions-suite.yml`, `_docker-suite.yml`, `l2-runtime.yml`, and `l2-provenance.yml`; the external `ci-code.yml` calls remain admission-only. |
-| `docs.yml` | Main push/PR and manual `lanes`; dual-lane documentation build, static-tree migration checks, Pages artifact/deployment, and hosted deployment verification. | Local `pages.yml` provides Pages parity; hosted Pages deployment remains an external hosted-only mutation/verification path. |
-| `guest-image.yml` | Pull requests scoped to `microvm/**` and guest-image sources, manual `lanes`, and `v*` tag push; fail-closed lane admission; x86_64/amd64 and aarch64/arm64 guest kernel/rootfs matrix; checkout, mise, sccache, cache, guest-agent embedding, and artifact upload. | No positive local guest-image build is claimed. `backend-parity.yml` and `control-plane.yml` record the microVM expected-unsupported boundary; the missing user-namespace/CAP_SYS_ADMIN capability is an explicit negative disposition. |
-| `release.yml` | `v*` tag push and manual `lanes`/`tag`; identity and final default-branch/tag gates; amd64/arm64 guest images, OCI image, runner tarballs/debs, checksums, release record/publication, and four hosted package-signer calls at `tailrocks/velnor-actions@2d045521be342284cd567b7058a0e635dc74b37c`. | Local `docker.yml`, `multi-arch.yml`, `_docker-suite.yml`, and `l2-provenance.yml` cover the build, artifact, image, and provenance surfaces. Release mutation and hosted package signing stay external-admission-only; no local workflow executes the signer. |
-| `renovate.yml` | Weekly schedule and manual `lanes`; Velnor/GitHub writer/read-only matrix; checkout, cache, and `renovatebot/github-action`. | Local `renovate.yml` mirrors the writer/read-only matrix and admits the action surface; mutation remains lane-controlled. |
-| `velnor-workflow-policy.yml` | Base-owned reusable `workflow_call` requiring a full `policy-revision`; hosted checkout of workflow data, pinned Velnor workflow-runtime installation, and fail-closed policy execution. | Local workflow audits validate the structural policy contract; hosted policy execution and its protected-branch check remain external admission evidence, not a local positive runtime claim. |
-
-The source workflow action identities are immutable pins. `ci.yml` calls
-`jackin-project/velnor-actions/.github/workflows/ci-code.yml@796dfcd26d4110319c8363155d2eae6885114893`,
-`tailrocks/velnor-actions/.github/workflows/ci-code.yml@c222e52030fee9ea6eae573a5769770be01d8438`,
-and
-`ChainArgos/velnor-actions/.github/workflows/ci-code.yml@77173e8e71aa18e60d21f9f0d1ae57c0695d0233`.
-`guest-image.yml` uses checkout
-`3d3c42e5aac5ba805825da76410c181273ba90b1`, mise
-`c2a87611a18de5b3828c5652fe268e992400cb5c`, sccache
-`fc920bf0ec8de6ee65d409111f7ec508035751ba`, cache
-`55cc8345863c7cc4c66a329aec7e433d2d1c52a9`, and upload-artifact
-`043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`. `release.yml` additionally uses
-mold `7e4f20ad28a2e8ca6fd0892ccf72e2abb706b9c3`, download-artifact
-`3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`, QEMU
-`96fe6ef7f33517b61c61be40b68a1882f3264fb8`, Buildx
-`37fe631027851001ddb9b187196cc803df7f5f0e`, Docker login
-`dbcb813823bdd20940b903addbd779551569679f`, and Docker build/push
-`53b7df96c91f9c12dcc8a07bcb9ccacbed38856a`; Renovate uses
-`5402b206248e5a8c8427a15102702eb9c1793efc`. The JSON contract retains every
-full SHA, input, and subpath admitted by manifest v12. `docs.yml` additionally
-uses checkout `3d3c42e5aac5ba805825da76410c181273ba90b1`, setup-bun
-`0c5077e51419868618aeaa5fe8019c62421857d6`, configure-pages
-`45bfe0192ca1faeb007ade9deae92b16b8254a0d`, upload-pages-artifact
-`fc324d3547104276b827a68afc52ff2a11cc49c9`, and deploy-pages
-`cd2ce8fcbc39b97be8ca5fce6e763baed58fa128`. The policy workflow uses checkout
-`3d3c42e5aac5ba805825da76410c181273ba90b1` and installs the Velnor workflow
-runtime from commit `8859e3c537cfc2d6e44a92d0c4c0f7ca071e92e0`.
-
-## Source revisions
-
-The workflow inventories below were read from these `main` commits:
-
-| Repository | Commit |
-| --- | --- |
-| `ChainArgos/java-monorepo` | `81c4fa7aeef59c32f3db32155a2c551382523870` |
-| `jackin-project/jackin` | `5ae68cd88d0f76a421b0331be4357ba20f657261` |
-| `jackin-project/homebrew-tap` | `f7f45ce8fab4ef2110c6844fc49c9a8f8aeaf95d` |
-| `jackin-project/jackin-the-architect` | `29e0e600b395195f5fa1bc3c70ea585cfe7518d3` |
-| `tailrocks/ruxel` | `779d4b9d514ea36315d715da5461f9789e981e97` |
-| `tailrocks/holla` | `d22455109ba442fd72a73a8b0a9563d74b6f251d` |
-| `tailrocks/termrock` | `35dddcf49bb2b3ef6d08776c337788df20ec2a33` |
-| `tailrocks/parallax` | `e55207c21e23c043cc989c9327491545ffcc611b` |
-| `tailrocks/tablerock` | `f61e3f8d26b6d654d7eb51ad8614157f4cc99234` |
-| `tailrocks/schemalane` | `6962a6411f82601a85ae8ccfccfe2e8cd066aac0` |
-
-## Exact workflow filename inventories
-
-- [`ChainArgos/java-monorepo` workflow tree](https://github.com/ChainArgos/java-monorepo/tree/main/.github/workflows): `ansible.yml`, `ci.yml`, `kestra-build-publish.yml`, `renovate.yml`, `rust-docker.yml`.
-- [`jackin-project/jackin` workflow tree](https://github.com/jackin-project/jackin/tree/main/.github/workflows): `cache-cleanup.yml`, `ci.yml`, `construct-public-unmerged.yml`, `construct.yml`, `desktop-cadence.yml`, `docs-public-unmerged.yml`, `docs.yml`, `hygiene.yml`, `jackin-dev-public-unmerged.yml`, `jackin-dev.yml`, `preview.yml`, `release.yml`, `renovate-validate-public-unmerged.yml`, `renovate-validate.yml`, `renovate.yml`, `reuse-compliance-public-unmerged.yml`, `reuse-compliance.yml`, `rust-nextest.yml`.
-- [`jackin-project/homebrew-tap` workflow tree](https://github.com/jackin-project/homebrew-tap/tree/main/.github/workflows): `cask-validation.yml`, `ci.yml`, `package-update.yml`, `reuse-compliance-public-unmerged.yml`, `reuse-compliance.yml`.
-- [`jackin-project/jackin-the-architect` workflow tree](https://github.com/jackin-project/jackin-the-architect/tree/main/.github/workflows): `ci.yml`, `gitleaks-history.yml`, `jackin-toolchain.yml`, `precommit-public-unmerged.yml`, `precommit.yml`, `publish-image.yml`, `renovate.yml`, `reuse-compliance-public-unmerged.yml`, `reuse-compliance.yml`.
-- [`tailrocks/ruxel` workflow tree](https://github.com/tailrocks/ruxel/tree/main/.github/workflows): `ci.yml`, `preview.yml`, `release.yml`.
-- [`tailrocks/holla` workflow tree](https://github.com/tailrocks/holla/tree/main/.github/workflows): `ci.yml`, `preview.yml`, `release-deb.yml`, `release.yml`, `renovate.yml`.
-- [`tailrocks/termrock` workflow tree](https://github.com/tailrocks/termrock/tree/main/.github/workflows): `ci.yml`, `docs.yml`, `hygiene.yml`, `release.yml`.
-- [`tailrocks/parallax` workflow tree](https://github.com/tailrocks/parallax/tree/main/.github/workflows): `ci.yml`, `dependency-discovery.yml`, `footprint.yml`, `mcp-evals.yml`, `preview.yml`, `release.yml`, `scheduled-measurement.yml`, `storage-integration.yml`, `upgrade-harness.yml`.
-- [`tailrocks/tablerock` workflow tree](https://github.com/tailrocks/tablerock/tree/main/.github/workflows): `ci.yml`, `native-nightly.yml`, `native-release.yml`, `native.yml`, `package-release.yml`, `preview.yml`.
-- [`tailrocks/schemalane` workflow tree](https://github.com/tailrocks/schemalane/tree/main/.github/workflows): `ci.yml`, `release.yml`.
-
-## Common observed surfaces
-
-The scan observed PR, push, tag, `merge_group`, schedule, and manual
-(`workflow_dispatch`) triggers; `ubuntu-26.04`, self-hosted
-`velnor-target-mvp`, and `macos-26` runner labels; matrices and concurrency;
-checkout, cache, mise, sccache, and mold; artifacts; Docker Buildx, bake,
-login, and metadata; Pages; releases and Homebrew; attestations; Renovate;
-secrets; and both local and remote reusable workflows.
-
-## Fixture mapping
-
-| Source surface | Fixture coverage |
-| --- | --- |
-| Rust build/test workflows | `_rust-suite` plus Rust examples/tests cover fmt, clippy, check, nextest, cache, and sccache. |
-| Runtime orchestration | `_runtime-suite` covers command files, `needs`, matrices, and artifacts. |
-| Action adapters | `_actions-suite` covers action adapters and the expected microVM-unsupported result. |
-| Docker workloads | `_docker-suite`, `docker`, and `multi-arch` cover Buildx and containers. |
-| Pages | `pages.yml` provides Pages parity. |
-| L2 behavior | `l2-runtime.yml`, `l2-provenance.yml`, and `l2-negative.yml` cover closure, provenance, and negative paths. |
-| Control plane | `control-plane.yml` covers success, failure, hold, queue, concurrent runs, artifacts, cache, and load. |
-| Compatibility | `compat.yml` and its public-unmerged counterpart cover cache/backend compatibility. |
+| `actions/attest-build-provenance` | `covered` | `l2-provenance.yml` |
+| `actions/cache` | `covered` | `_rust-suite.yml` |
+| `actions/cache/restore` | `covered` | `_rust-suite.yml` |
+| `actions/cache/save` | `covered` | `_rust-suite.yml` |
+| `actions/checkout` | `covered` | `_rust-suite.yml` |
+| `actions/download-artifact` | `covered` | `_actions-suite.yml` |
+| `actions/upload-artifact` | `covered` | `_actions-suite.yml` |
+| `docker/build-push-action` | `covered` | `_docker-suite.yml` |
+| `docker/login-action` | `covered` | `docker.yml`, `multi-arch.yml` |
+| `docker/setup-buildx-action` | `covered` | `_docker-suite.yml` |
+| `docker/setup-qemu-action` | `covered` | `_docker-suite.yml`, `multi-arch.yml` |
+| `jdx/mise-action` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-bun-velnor.yml` | `covered` | `_runtime-suite.yml` |
+| `local:./.github/workflows/ci-docker-docker.yml` | `covered` | `_docker-suite.yml` |
+| `local:./.github/workflows/ci-docs-docs.yml` | `covered` | `pages.yml` |
+| `local:./.github/workflows/ci-opentofu-opentofu.yml` | `hosted-only` | — — The fixture has no positive OpenTofu workflow lane yet. |
+| `local:./.github/workflows/ci-release-package-signer.yml` | `external-admission-only` | — — Release package signing is a production mutation path; the fixture audits the workflow surface but does not execute the signer. |
+| `local:./.github/workflows/ci-rust-policy.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-unit-collector.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-velnor-bench.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-velnor-client.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-velnor-control.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-velnor-model.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-velnor-render.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-velnor-runner.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-velnor-tools.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-velnor-workflow.yml` | `covered` | `_rust-suite.yml` |
+| `local:./.github/workflows/ci-rust-velnorctl.yml` | `covered` | `_rust-suite.yml` |
+| `mozilla-actions/sccache-action` | `covered` | `_rust-suite.yml` |
+| `opentofu/setup-opentofu` | `hosted-only` | — — The fixture has no positive OpenTofu setup lane yet. |
+| `oven-sh/setup-bun` | `hosted-only` | — — The fixture has no positive Bun setup lane yet. |
+| `rui314/setup-mold` | `covered` | `_rust-suite.yml` |
+| `taiki-e/install-action` | `hosted-only` | — — The fixture installs its Rust tools through its own pinned toolchain lane. |
+| `tailrocks/velnor/.github/actions/setup-velnor-workflow` | `external-admission-only` | — — Base-owned Velnor workflow setup action is admitted on source workflows; the fixture executes its local pinned runtime setup instead. |
+| `tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml` | `external-admission-only` | — — The policy workflow is a base-owned external reusable workflow; local policy structure is audited, not executed here. |
 
 ## Policy boundary
 
-Customer `velnor-actions` reusable workflows, mutation/release paths, and
-macOS paths are admission/exception surfaces, not runtime dependencies. The
-fixture must keep its workflows local. Only mandatory Linux positive execution
-is dual-lane: GitHub-hosted Linux plus the configured Velnor Linux lane.
-
-## Source documentation
-
-- [Velnor runner usage](https://github.com/tailrocks/velnor/blob/dfc5777b963fc2494f6939e2b0d631b43b5f606b/docs/runner-usage.md)
-- [Velnor target live runbook](https://github.com/tailrocks/velnor/blob/dfc5777b963fc2494f6939e2b0d631b43b5f606b/docs/target-live-runbook.md)
-- [Velnor roadmap and host/job scope](https://github.com/tailrocks/velnor/blob/dfc5777b963fc2494f6939e2b0d631b43b5f606b/docs/roadmap.md)
+Customer `velnor-actions` reusable workflows, release mutation paths, and
+base-owned Velnor setup/policy paths are admission or external-only surfaces.
+The fixture workflows remain local and self-contained. Mandatory Linux positive
+execution is dual-lane: GitHub-hosted Linux plus the configured Velnor Linux
+lane. The checked-in capability and workflow audits bind this statement to the
+exact source checkout and runner export under test.
