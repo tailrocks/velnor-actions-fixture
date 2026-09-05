@@ -7,9 +7,9 @@ architecture review; the current capability baseline is manifest v12.
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Last verified fixture SHA: `62fc276ec4c99524e43fa9c9fa9e40f04a04aef3`
-- Velnor under test: `tailrocks/velnor`, branch `perf/docker-rust-mbx`,
-  verified target SHA `c57786af83a65428ca697cf5867abcdc26eb9539`
+- Last verified fixture SHA: `58f80880132ef9df08162049aa5af3974ceb5280`
+- Velnor under test: `tailrocks/velnor`, branch `main`, verified target SHA
+  `e01f2e6ae9be6ae6b3004f6c2693deb0a0345b57`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
   and reconcile the target remote before commits/pushes. Keep commits small,
   signed off with `git commit -s`, and include
@@ -17,12 +17,11 @@ architecture review; the current capability baseline is manifest v12.
 
 ## Current verifier evidence
 
-- The supported capability refresh against the target above passed, and the
-  contract audit plus 50 verifier Python tests pass. A full `mise run check`
-  has not been rerun at this identity.
-- This is unit/integration evidence only. No live dual-lane readiness verdict,
-  exact deployed image identity, or current Velnor capability audit has been
-  accepted.
+- The checked-in baseline matches the target above. Local proof at this
+  fixture tip includes 57 verifier Python tests, 54 Rust workspace tests,
+  format, Clippy, workflow-surface, and capability-contract audits.
+- This is local unit/integration evidence only. No live dual-lane readiness
+  verdict or exact deployed image identity has been accepted.
 - The checked-in capability baseline is generated from the Velnor runner under
   test; its content identity and source provenance must be revalidated whenever
   the runner capability surface changes.
@@ -111,8 +110,8 @@ before any code changed.
 
 | Tree | Branch | Commit |
 | --- | --- | --- |
-| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `62fc276ec4c99524e43fa9c9fa9e40f04a04aef3` |
-| `velnor` (runner under test) | `perf/docker-rust-mbx` | `c57786af83a65428ca697cf5867abcdc26eb9539` |
+| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `58f80880132ef9df08162049aa5af3974ceb5280` |
+| `velnor` (runner under test) | `main` | `e01f2e6ae9be6ae6b3004f6c2693deb0a0345b57` |
 
 The manifest identity recorded below is the identity of the runner under test;
 refresh the checked-in export whenever that target changes.

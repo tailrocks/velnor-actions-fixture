@@ -60,7 +60,7 @@ Coverage is derived from GitHub Actions usage in:
 - `tailrocks/tablerock`
 - `tailrocks/schemalane`
 
-The capability baseline is current Velnor release v0.1.250, manifest version
+The capability baseline is current Velnor release v0.1.254, manifest version
 12. Its content-derived identity is bound to the runner under test at audit
 time rather than pinned to constants or a source commit; the source commit it
 was taken from remains recorded in the baseline as provenance. Refresh it with
