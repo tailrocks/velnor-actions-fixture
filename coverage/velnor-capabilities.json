@@ -1,7 +1,7 @@
 {
   "version": 12,
-  "source_sha": "a44251ef46d3d6425f1e4751027b043470329472",
-  "crate_version": "0.1.251",
+  "source_sha": "cf716c1f71ad4c94852fb1bae60da76fe43f3cbd",
+  "crate_version": "0.1.252",
   "actions": [
     {
       "repository": "tailrocks/velnor-actions",
@@ -576,5 +576,5 @@
       "notes": "hosted package signer; full-SHA and closed inputs admitted"
     }
   ],
-  "capability_id": "3bfa36c66281b5ca10241cf7b0ec989699ac3084fe63a564eb57a39c9cd45e96"
+  "capability_id": "404164cda932957b785d541dfab03dab96f29743efc28bf97f131abd53a85d2d"
 }
