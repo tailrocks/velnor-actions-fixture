@@ -562,3 +562,26 @@ tests, and diff check pass.
 Velnor `dfc5777`; the canonical branch's generated workflow surface changed
 after that snapshot. It is not current workflow-parity evidence and requires a
 fresh source scan before being used for a readiness claim.
+
+## Continuation anchor — canonical source inventory and cache invalidation `9489b0c`
+
+The machine-readable `coverage/source-workflow-inventory.json` now records
+canonical Velnor source `7da11869f795756a0e9ee4881f6e26afc9928be3` and checks
+the exact source workflow file set, raw digests, normalized action uses, and
+explicit fixture mappings. The generated capability baseline is bound to the
+same source and retains manifest v12 / crate `0.1.250` / capability identity
+`23749db8aab50310a27021ac24ef7dff7b8480468fd26f800d4b0018b4732229`.
+
+The official refresh command was attempted but made no compiler progress under
+shared concurrent Rust builds. The supported refresh result was instead
+produced from an existing `velnor-runner capabilities export` artifact, with
+the source SHA supplied explicitly; readiness and contract audits both pass.
+The source inventory was independently validated against the canonical
+checkout. The verifier has 53 deterministic Python tests passing.
+
+The Rust cache interaction's source-change probes now alter the app-visible
+shared label and assert exact baseline and rebuilt output in the default and
+explicit-sccache lanes. This closes the prior false-positive shape where a
+dead appended function could leave stale output undetected. No live dual-lane,
+deployed-image, default-MBX end-to-end, VelnorJob benchmark, fault, or soak
+result is claimed.
