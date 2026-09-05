@@ -615,3 +615,10 @@ The contract audit, readiness audit against the canonical runner export, and
 the verifier Python tests pass at this anchor. This remains provenance/static
 proof only; live dual-lane, deployed-image, default-MBX end-to-end, fault,
 soak, and VelnorJob benchmark evidence remain open.
+
+## Continuation anchor — exact canonical head provenance `d2ceade`
+
+Canonical Velnor `perf/docker-rust-mbx` resolves to
+`d2ceade822f1f1337d83aafde79a434cc0e6c18a`. The source workflow inventory and
+capability baseline now bind to that exact head; capability, action, and
+workflow digests remain unchanged.
