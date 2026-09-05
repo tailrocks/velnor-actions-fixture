@@ -601,3 +601,17 @@ passes readiness and contract audits. The verifier currently passes 53 Python
 tests and the workflow-surface audit. This is provenance/static proof only;
 live dual-lane, deployed-image, default-MBX end-to-end, fault, soak, and
 VelnorJob benchmark evidence remain open.
+
+## Continuation anchor — exact canonical head provenance `ab76872`
+
+Canonical Velnor `perf/docker-rust-mbx` is now pinned at
+`ab768721e28f5f7bed21d4ecc4950a962689228f`. The checked-in source workflow
+inventory and capability baseline now bind to that exact head. Workflow
+content digests, manifest v12, crate `0.1.250`, and capability identity
+`23749db8aab50310a27021ac24ef7dff7b8480468fd26f800d4b0018b4732229` are
+unchanged; only provenance fields moved.
+
+The contract audit, readiness audit against the canonical runner export, and
+the verifier Python tests pass at this anchor. This remains provenance/static
+proof only; live dual-lane, deployed-image, default-MBX end-to-end, fault,
+soak, and VelnorJob benchmark evidence remain open.
