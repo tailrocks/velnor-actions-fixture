@@ -7,9 +7,9 @@ architecture review; the current capability baseline is manifest v12.
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Last verified fixture SHA: `ed834d044a4c597e99b1575c93ea9b59d2fd5ae5`
+- Last verified fixture SHA: `62fc276ec4c99524e43fa9c9fa9e40f04a04aef3`
 - Velnor under test: `tailrocks/velnor`, branch `perf/docker-rust-mbx`,
-  verified target SHA `6c0c1af6db984e53fa33608a82927cebee1553a4`
+  verified target SHA `c57786af83a65428ca697cf5867abcdc26eb9539`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
   and reconcile the target remote before commits/pushes. Keep commits small,
   signed off with `git commit -s`, and include
@@ -17,9 +17,9 @@ architecture review; the current capability baseline is manifest v12.
 
 ## Current verifier evidence
 
-- `VELNOR_SOURCE_DIR=/path/to/velnor mise run check`: 49 Rust tests and 38
-  Python tests passed, with workflow, capability, actionlint, formatting,
-  workspace, and L2 closure gates green.
+- The supported capability refresh against the target above passed, and the
+  contract audit plus 50 verifier Python tests pass. A full `mise run check`
+  has not been rerun at this identity.
 - This is unit/integration evidence only. No live dual-lane readiness verdict,
   exact deployed image identity, or current Velnor capability audit has been
   accepted.
@@ -111,8 +111,8 @@ before any code changed.
 
 | Tree | Branch | Commit |
 | --- | --- | --- |
-| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `ed834d044a4c597e99b1575c93ea9b59d2fd5ae5` |
-| `velnor` (runner under test) | `perf/docker-rust-mbx` | `6c0c1af6db984e53fa33608a82927cebee1553a4` |
+| `velnor-actions-fixture` (last verified) | `codex/verifier-completion-fixes` | `62fc276ec4c99524e43fa9c9fa9e40f04a04aef3` |
+| `velnor` (runner under test) | `perf/docker-rust-mbx` | `c57786af83a65428ca697cf5867abcdc26eb9539` |
 
 The manifest identity recorded below is the identity of the runner under test;
 refresh the checked-in export whenever that target changes.
@@ -545,3 +545,20 @@ exact source (`44` Python tests, `53` Rust tests, workflow/actionlint,
 capability-readiness, format/check, and L2 closure). No live dual-lane,
 deployed-image, default-mbx, VelnorJob benchmark, fault, or soak result is
 claimed.
+
+## Continuation anchor — capability provenance refresh `62fc276`
+
+The supported `VELNOR_SOURCE_DIR=... just refresh-capability-baseline` recipe
+was rerun against Velnor
+`perf/docker-rust-mbx@c57786af83a65428ca697cf5867abcdc26eb9539`. It exported
+manifest v12 / crate `0.1.250`, preserved capability identity
+`23749db8aab50310a27021ac24ef7dff7b8480468fd26f800d4b0018b4732229`, and
+passed the readiness audit. Only `coverage/velnor-capabilities.json` source
+provenance changed; the refresh is committed and pushed at fixture
+`62fc276ec4c99524e43fa9c9fa9e40f04a04aef3`. The contract audit, 50 Python
+tests, and diff check pass.
+
+`coverage/source-workflow-inventory.md` remains a historical snapshot from
+Velnor `dfc5777`; the canonical branch's generated workflow surface changed
+after that snapshot. It is not current workflow-parity evidence and requires a
+fresh source scan before being used for a readiness claim.

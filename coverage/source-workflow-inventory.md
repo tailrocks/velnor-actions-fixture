@@ -1,7 +1,10 @@
 # Source Workflow Inventory
 
-Source inventory synchronized: **2026-09-04**. This inventory records the
-workflow surfaces used to scope fixture coverage.
+Source inventory snapshot captured: **2026-09-04**. This historical inventory
+records the workflow surfaces used to scope fixture coverage at that time.
+Canonical Velnor later advanced through `630acdd`, which changed the generated
+workflow surface. The rows and links below are not current workflow-parity
+evidence; rerun a source scan before making a current readiness claim.
 
 ## Scan basis
 
