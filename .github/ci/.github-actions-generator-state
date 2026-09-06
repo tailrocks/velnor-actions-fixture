@@ -1,6 +1,6 @@
 # Generated ownership state; do not edit.
 schema = 1
-.github/ci/project.toml	f5b8caf4bf51bc31
+.github/ci/project.toml	bc9cb9378a817148
 .github/ci/workflow-templates/_actions-suite.yml	e4d844c2908d5426
 .github/ci/workflow-templates/_docker-suite.yml	35d0a1b888264959
 .github/ci/workflow-templates/_runtime-suite.yml	be3c54d22beaf743

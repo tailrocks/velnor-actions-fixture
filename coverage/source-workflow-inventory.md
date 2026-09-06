@@ -1,13 +1,13 @@
 # Source Workflow Inventory
 
-Current source inventory captured from Velnor **1229a9ee1e9c12bf9a0431537210906ae929ed09**. The JSON
+Current source inventory captured from Velnor **08376a8d65baf36f7bafaa662b02c5e26a601873**. The JSON
 contract and this document are regenerated together whenever the target Velnor
 source changes; readiness rejects a stale source digest, workflow hash, action
 surface, or mapping.
 
 ## Scan basis
 
-- Velnor source: [`1229a9ee1e9c12bf9a0431537210906ae929ed09`](https://github.com/tailrocks/velnor/tree/1229a9ee1e9c12bf9a0431537210906ae929ed09).
+- Velnor source: [`08376a8d65baf36f7bafaa662b02c5e26a601873`](https://github.com/tailrocks/velnor/tree/08376a8d65baf36f7bafaa662b02c5e26a601873).
 - Capability manifest: v13, runner crate `0.1.258`.
 - Capability identity: `eb68a1df1a3f83d97c91cdba38211b3c9f22bbda5fc4b80531db154a1f5bb74a`.
 - Runner scope: Linux jobs through Docker and the GitHub V2 JIT flow. macOS,
@@ -18,7 +18,7 @@ surface, or mapping.
 | Source workflow | SHA-256 | Fixture mapping | Source action/reusable-workflow surfaces |
 | --- | --- | --- | --- |
 | `.github/workflows/ci-bun-velnor.yml` | `f04e525972fcf07b76fc75623da555047baeb8a29199166686390efaa5374f25` | `_runtime-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `actions/download-artifact`, `oven-sh/setup-bun` |
-| `.github/workflows/ci-docker-docker.yml` | `0bc9d952adb9b35349d8c89edeec88a341b6627c89d719d97df751de03ef8c1a` | `_docker-suite.yml` | `actions/checkout`, `actions/download-artifact`, `crazy-max/ghaction-github-runtime`, `docker/setup-buildx-action` |
+| `.github/workflows/ci-docker-docker.yml` | `1f93a768a379fc8758385502414d7da5fdba1a27fb865c00d880e18c7711ae19` | `_docker-suite.yml` | `actions/checkout`, `actions/download-artifact`, `crazy-max/ghaction-github-runtime`, `docker/setup-buildx-action` |
 | `.github/workflows/ci-docs-docs.yml` | `4522a6931797ebb70e3c89069d329e3fc383ae5804fc0ebbf6fe4b1e04918d0d` | `pages.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `actions/download-artifact` |
 | `.github/workflows/ci-main.yml` | `c1ea1891e8f765ca4a61be820d1eb31007bf00e3cd1bf55ba1f23eee8d6ef57c` | `ci.yml` | `actions/checkout`, `actions/upload-artifact`, `local:./.github/workflows/ci-bun-velnor.yml`, `local:./.github/workflows/ci-docker-docker.yml`, `local:./.github/workflows/ci-docs-docs.yml`, `local:./.github/workflows/ci-opentofu-opentofu.yml`, `local:./.github/workflows/ci-rust-policy.yml`, `local:./.github/workflows/ci-rust-unit-collector.yml`, `local:./.github/workflows/ci-rust-velnor-bench.yml`, `local:./.github/workflows/ci-rust-velnor-client.yml`, `local:./.github/workflows/ci-rust-velnor-control.yml`, `local:./.github/workflows/ci-rust-velnor-model.yml`, `local:./.github/workflows/ci-rust-velnor-render.yml`, `local:./.github/workflows/ci-rust-velnor-runner.yml`, `local:./.github/workflows/ci-rust-velnor-tools.yml`, `local:./.github/workflows/ci-rust-velnor-workflow.yml`, `local:./.github/workflows/ci-rust-velnorctl.yml`, `tailrocks/velnor/.github/actions/setup-velnor-workflow`, `tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml` |
 | `.github/workflows/ci-opentofu-opentofu.yml` | `301cb090de74a1a3a65388561065431f36b9409c95ca5dbdb816046be426229a` | `_docker-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `actions/download-artifact`, `opentofu/setup-opentofu` |

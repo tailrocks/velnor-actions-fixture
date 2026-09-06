@@ -1,6 +1,6 @@
 {
   "schema": "velnor.fixture.source-workflow-inventory.v1",
-  "source_sha": "1229a9ee1e9c12bf9a0431537210906ae929ed09",
+  "source_sha": "08376a8d65baf36f7bafaa662b02c5e26a601873",
   "workflows": [
     {
       "path": ".github/workflows/ci-bun-velnor.yml",
@@ -18,7 +18,7 @@
     },
     {
       "path": ".github/workflows/ci-docker-docker.yml",
-      "sha256": "0bc9d952adb9b35349d8c89edeec88a341b6627c89d719d97df751de03ef8c1a",
+      "sha256": "1f93a768a379fc8758385502414d7da5fdba1a27fb865c00d880e18c7711ae19",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
