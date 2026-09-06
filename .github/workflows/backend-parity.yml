@@ -39,25 +39,34 @@ jobs:
         config: ${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
       - name: Run fixture-harness tests and examples
         env:
           LANE: ${{ matrix.config.lane }}
         run: |
           set -euo pipefail
-          cargo test --locked -p fixture-harness --all-targets
-          cargo run --quiet --locked -p fixture-harness --example command_files
+          mbx test --locked -p fixture-harness --all-targets
+          mbx run --quiet --locked -p fixture-harness --example command_files
           tmp_dir="$(mktemp -d)"
           mkdir -p "${tmp_dir}/tree/nested"
           printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
-          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
+          mbx run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
           test -s "${tmp_dir}/tree.txt"
-          cargo run --quiet --locked -p fixture-harness --example cache_payload -- backend "${LANE}" > "${tmp_dir}/cache.txt"
+          mbx run --quiet --locked -p fixture-harness --example cache_payload -- backend "${LANE}" > "${tmp_dir}/cache.txt"
           grep -q '^velnor.fixture.cache.v1$' "${tmp_dir}/cache.txt"
           printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
-          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
+          mbx run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
           grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
           mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
+          mbx run --quiet --locked -p fixture-harness --bin evidence -- \
             --scenario backend-parity \
             --lane "${LANE,,}" \
             --field examples=command_files,artifact_tree,cache_payload,release_subject \

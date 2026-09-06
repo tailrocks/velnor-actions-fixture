@@ -79,6 +79,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Configure compiler acceleration before any project build. nextest is a
       # pinned Aqua binary; CI tooling must never compile from source.
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
       - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
         with:
           version: v0.16.0
@@ -141,20 +150,20 @@ jobs:
           PACKAGE: ${{ matrix.package }}
         run: |
           set -euo pipefail
-          cargo test --locked -p fixture-harness --all-targets
-          cargo run --quiet --locked -p fixture-harness --example command_files
+          mbx test --locked -p fixture-harness --all-targets
+          mbx run --quiet --locked -p fixture-harness --example command_files
           tmp_dir="$(mktemp -d)"
           mkdir -p "${tmp_dir}/tree/nested"
           printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
-          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
+          mbx run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
           test -s "${tmp_dir}/tree.txt"
-          cargo run --quiet --locked -p fixture-harness --example cache_payload -- compat-public "${LANE}-${PACKAGE}" > "${tmp_dir}/cache.txt"
+          mbx run --quiet --locked -p fixture-harness --example cache_payload -- compat-public "${LANE}-${PACKAGE}" > "${tmp_dir}/cache.txt"
           grep -q '^velnor.fixture.cache.v1$' "${tmp_dir}/cache.txt"
           printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
-          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
+          mbx run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
           grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
           mkdir -p evidence
-          cargo run --quiet --locked -p fixture-harness --bin evidence -- \
+          mbx run --quiet --locked -p fixture-harness --bin evidence -- \
             --scenario compat-public \
             --lane "${LANE}" \
             --field "package=${PACKAGE}" \
@@ -169,7 +178,7 @@ jobs:
           set -euo pipefail
           # Install only the requested toolchain without clobbering image defaults.
           rustup toolchain install "${MSRV}" --profile minimal --no-self-update
-          rustup run "${MSRV}" cargo check -p "${{ matrix.package }}" --locked
+          mbx +"${MSRV}" check -p "${{ matrix.package }}" --locked
       - uses: ./.github/actions/check-fixture-output
         with:
           package: ${{ steps.command-files.outputs.package }}
@@ -195,9 +204,18 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - run: test -z "${RUSTC_WRAPPER:-}"
-      - run: cargo check -p app-a --locked
+      - run: mbx check -p app-a --locked
 
   cache-sccache:
     name: Cache sccache (${{ matrix.config.lane }})
@@ -213,6 +231,15 @@ jobs:
       SCCACHE_CACHE_SIZE: 20G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
       - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
         with:
           version: v0.16.0
@@ -225,7 +252,7 @@ jobs:
           key: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-${{ github.sha }}
           restore-keys: fixture-target-${{ matrix.config.lane }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.toml', 'Cargo.lock') }}-
       - run: test "${RUSTC_WRAPPER:-}" = sccache
-      - run: cargo check -p app-a --locked
+      - run: mbx check -p app-a --locked
 
   services-postgres:
     name: Postgres service (${{ matrix.config.lane }})
