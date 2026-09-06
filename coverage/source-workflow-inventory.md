@@ -1,13 +1,13 @@
 # Source Workflow Inventory
 
-Current source inventory captured from Velnor **08376a8d65baf36f7bafaa662b02c5e26a601873**. The JSON
+Current source inventory captured from Velnor ``ba6ff17be548f7885622d481ad0d3ff62b721e24``. The JSON
 contract and this document are regenerated together whenever the target Velnor
 source changes; readiness rejects a stale source digest, workflow hash, action
 surface, or mapping.
 
 ## Scan basis
 
-- Velnor source: [`08376a8d65baf36f7bafaa662b02c5e26a601873`](https://github.com/tailrocks/velnor/tree/08376a8d65baf36f7bafaa662b02c5e26a601873).
+- Velnor source: [`ba6ff17be548f7885622d481ad0d3ff62b721e24`](https://github.com/tailrocks/velnor/tree/ba6ff17be548f7885622d481ad0d3ff62b721e24).
 - Capability manifest: v13, runner crate `0.1.258`.
 - Capability identity: `eb68a1df1a3f83d97c91cdba38211b3c9f22bbda5fc4b80531db154a1f5bb74a`.
 - Runner scope: Linux jobs through Docker and the GitHub V2 JIT flow. macOS,

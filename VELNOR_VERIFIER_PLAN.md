@@ -10,7 +10,7 @@ architecture review; the current capability baseline is manifest v13.
 - Last verified fixture SHA: `0dd8425363b5b8cea197a7b9489adba494cfbf09`
 - Velnor under test: `tailrocks/velnor`, branch
   `codex/generator-owned-workflows-20260906`, verified target SHA
-  `08376a8d65baf36f7bafaa662b02c5e26a601873`
+  `ba6ff17be548f7885622d481ad0d3ff62b721e24`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
   and reconcile the target remote before commits/pushes. Keep commits small,
   signed off with `git commit -s`, and include
