@@ -1,6 +1,6 @@
 # Generated ownership state; do not edit.
 schema = 1
-.github/ci/project.toml	93456429e9df5c57
+.github/ci/project.toml	26eab4f059850fbb
 .github/ci/workflow-templates/_actions-suite.yml	e4d844c2908d5426
 .github/ci/workflow-templates/_docker-suite.yml	35d0a1b888264959
 .github/ci/workflow-templates/_runtime-suite.yml	be3c54d22beaf743
@@ -10,7 +10,7 @@ schema = 1
 .github/ci/workflow-templates/backend-parity.yml	8127de440f1371dd
 .github/ci/workflow-templates/ci.yml	fccaf2c86486d3fa
 .github/ci/workflow-templates/compat-public-unmerged.yml	878c9f5a82313f12
-.github/ci/workflow-templates/compat.yml	6157b54ac7a33be2
+.github/ci/workflow-templates/compat.yml	1f30e51666c3ab5a
 .github/ci/workflow-templates/control-plane.yml	d7e2cd0b71c2b355
 .github/ci/workflow-templates/docker-lease-probe.yml	3f1fbad8d7a5daa5
 .github/ci/workflow-templates/docker.yml	2ce26299003ad2b8
@@ -32,7 +32,7 @@ schema = 1
 .github/workflows/backend-parity.yml	8127de440f1371dd
 .github/workflows/ci.yml	fccaf2c86486d3fa
 .github/workflows/compat-public-unmerged.yml	878c9f5a82313f12
-.github/workflows/compat.yml	6157b54ac7a33be2
+.github/workflows/compat.yml	1f30e51666c3ab5a
 .github/workflows/control-plane.yml	d7e2cd0b71c2b355
 .github/workflows/docker-lease-probe.yml	3f1fbad8d7a5daa5
 .github/workflows/docker.yml	2ce26299003ad2b8

@@ -802,7 +802,7 @@ class CompareEvidenceActionTests(unittest.TestCase):
         self.assertEqual(
             output,
             {
-                "BASELINE_MANIFEST_VERSION": "12",
+                "BASELINE_MANIFEST_VERSION": "13",
                 "EVIDENCE_VELNOR_SOURCE_SHA": baseline_source,
             },
         )

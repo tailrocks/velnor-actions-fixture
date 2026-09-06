@@ -63,7 +63,7 @@ workflow-check:
     actionlint
     just python-check
     just python-test
-    ! rg -n '^\s*-\s*uses:.*tailrocks/velnor-actions' .github/workflows
+    python3 .github/scripts/audit_capability_coverage.py
 
 check:
     just capability-audit

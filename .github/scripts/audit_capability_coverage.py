@@ -926,7 +926,6 @@ def validate_coverage(
         expected_execution = {
             "actions/create-github-app-token": "secret-gated-dual",
             "actions/deploy-pages": "hosted-only",
-            "tailrocks/velnor-actions": "external-admission-only",
         }.get(repository, "dual")
         if execution != expected_execution:
             failures.append(

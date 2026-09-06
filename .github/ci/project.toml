@@ -50,7 +50,7 @@ pr_commands = ["cd -- 'crates/app-a' && cargo fmt --manifest-path 'Cargo.toml' -
 full_commands = ["cd -- 'crates/app-a' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/app-a' && cargo clippy --locked --all-targets --all-features --package 'app-a' -- -D warnings", "cd -- 'crates/app-a' && cargo test --locked --all-features --package 'app-a'"]
 depends_on = ["rust-shared"]
 [unit.cache]
-key_files = ["crates/app-a/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
+key_files = [".cargo/**", "Cargo.toml", "crates/app-a/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
 paths = ["~/.cargo/registry", "~/.cargo/git"]
 
 [[unit]]
@@ -63,7 +63,7 @@ pr_commands = ["cd -- 'crates/app-b' && cargo fmt --manifest-path 'Cargo.toml' -
 full_commands = ["cd -- 'crates/app-b' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/app-b' && cargo clippy --locked --all-targets --all-features --package 'app-b' -- -D warnings", "cd -- 'crates/app-b' && cargo test --locked --all-features --package 'app-b'"]
 depends_on = ["rust-shared"]
 [unit.cache]
-key_files = ["crates/app-b/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
+key_files = [".cargo/**", "Cargo.toml", "crates/app-b/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
 paths = ["~/.cargo/registry", "~/.cargo/git"]
 
 [[unit]]
@@ -75,7 +75,7 @@ watch = ["crates/fixture-harness/Cargo.toml", "Cargo.lock", "rust-toolchain.toml
 pr_commands = ["cd -- 'crates/fixture-harness' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/fixture-harness' && cargo clippy --locked --all-targets --all-features --package 'fixture-harness' -- -D warnings", "cd -- 'crates/fixture-harness' && cargo test --locked --all-features --package 'fixture-harness'"]
 full_commands = ["cd -- 'crates/fixture-harness' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/fixture-harness' && cargo clippy --locked --all-targets --all-features --package 'fixture-harness' -- -D warnings", "cd -- 'crates/fixture-harness' && cargo test --locked --all-features --package 'fixture-harness'"]
 [unit.cache]
-key_files = ["crates/fixture-harness/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
+key_files = [".cargo/**", "Cargo.toml", "crates/fixture-harness/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
 paths = ["~/.cargo/registry", "~/.cargo/git"]
 
 [[unit]]
@@ -87,7 +87,7 @@ watch = ["crates/l2-contract/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "
 pr_commands = ["cd -- 'crates/l2-contract' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/l2-contract' && cargo clippy --locked --all-targets --all-features --package 'l2-contract' -- -D warnings", "cd -- 'crates/l2-contract' && cargo test --locked --all-features --package 'l2-contract'"]
 full_commands = ["cd -- 'crates/l2-contract' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/l2-contract' && cargo clippy --locked --all-targets --all-features --package 'l2-contract' -- -D warnings", "cd -- 'crates/l2-contract' && cargo test --locked --all-features --package 'l2-contract'"]
 [unit.cache]
-key_files = ["crates/l2-contract/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
+key_files = [".cargo/**", "Cargo.toml", "crates/l2-contract/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
 paths = ["~/.cargo/registry", "~/.cargo/git"]
 
 [[unit]]
@@ -99,7 +99,7 @@ watch = ["crates/shared/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-
 pr_commands = ["cd -- 'crates/shared' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/shared' && cargo clippy --locked --all-targets --all-features --package 'shared' -- -D warnings", "cd -- 'crates/shared' && cargo test --locked --all-features --package 'shared'"]
 full_commands = ["cd -- 'crates/shared' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/shared' && cargo clippy --locked --all-targets --all-features --package 'shared' -- -D warnings", "cd -- 'crates/shared' && cargo test --locked --all-features --package 'shared'"]
 [unit.cache]
-key_files = ["crates/shared/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
+key_files = [".cargo/**", "Cargo.toml", "crates/shared/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
 paths = ["~/.cargo/registry", "~/.cargo/git"]
 
 [[unit]]
@@ -111,5 +111,5 @@ watch = ["crates/verifier/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rus
 pr_commands = ["cd -- 'crates/verifier' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/verifier' && cargo clippy --locked --all-targets --all-features --package 'verifier' -- -D warnings", "cd -- 'crates/verifier' && cargo test --locked --all-features --package 'verifier'"]
 full_commands = ["cd -- 'crates/verifier' && cargo fmt --manifest-path 'Cargo.toml' -- --check", "cd -- 'crates/verifier' && cargo clippy --locked --all-targets --all-features --package 'verifier' -- -D warnings", "cd -- 'crates/verifier' && cargo test --locked --all-features --package 'verifier'"]
 [unit.cache]
-key_files = ["crates/verifier/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
+key_files = [".cargo/**", "Cargo.toml", "crates/verifier/Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rust-toolchain"]
 paths = ["~/.cargo/registry", "~/.cargo/git"]
