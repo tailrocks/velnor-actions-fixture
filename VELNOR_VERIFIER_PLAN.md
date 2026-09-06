@@ -1,15 +1,16 @@
 # Velnor verifier rearchitecture plan
 
 Status: synchronized to the Velnor capability model and independent
-architecture review; the current capability baseline is manifest v12.
+architecture review; the current capability baseline is manifest v13.
 
 ## Branch and evidence identity
 
 - Repository: `tailrocks/velnor-actions-fixture`
 - Integration branch: `codex/verifier-completion-fixes`
-- Last verified fixture SHA: `421b54e8ff80d40198894962836af3057fecdee2`
-- Velnor under test: `tailrocks/velnor`, branch `main`, verified target SHA
-  `3b7efcce4b02c863c4de0852b72496561d5dfa9b`
+- Last verified fixture SHA: `0dd8425363b5b8cea197a7b9489adba494cfbf09`
+- Velnor under test: `tailrocks/velnor`, branch
+  `codex/generator-owned-workflows-20260906`, verified target SHA
+  `d2063fbb0a9d676d92ed7072e5ec521e1279989c`
 - Shared-branch coordination: worktree isolated from the other lead; fetch
   and reconcile the target remote before commits/pushes. Keep commits small,
   signed off with `git commit -s`, and include
@@ -163,8 +164,8 @@ current one.
 The original audit pinned a manifest version and source SHA in Python while
 never reading Velnor. It now requires a live export or runner source, binds the
 checked-in JSON to that identity, and fails closed when the source is absent or
-stale. The current checked-in export is manifest v12 at the synchronized runner
-commit recorded above.
+stale. The current checked-in export is manifest v13 / crate `0.1.258` at the
+synchronized runner commit recorded above.
 
 ### F4 — cardinality cannot detect identity drift (closed)
 
