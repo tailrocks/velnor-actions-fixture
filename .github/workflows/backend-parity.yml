@@ -40,6 +40,15 @@ jobs:
         config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - name: Record pool backend
         id: backend
@@ -81,17 +90,17 @@ jobs:
           BACKEND: ${{ steps.backend.outputs.backend }}
         run: |
           set -euo pipefail
-          cargo nextest run --locked -p fixture-harness --all-targets
-          cargo run --quiet --locked -p fixture-harness --example command_files
+          mbx nextest run --locked -p fixture-harness --all-targets
+          mbx run --quiet --locked -p fixture-harness --example command_files
           tmp_dir="$(mktemp -d)"
           mkdir -p "${tmp_dir}/tree/nested"
           printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
-          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
+          mbx run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > "${tmp_dir}/tree.txt"
           test -s "${tmp_dir}/tree.txt"
-          cargo run --quiet --locked -p fixture-harness --example cache_payload -- backend "${LANE}" > "${tmp_dir}/cache.txt"
+          mbx run --quiet --locked -p fixture-harness --example cache_payload -- backend "${LANE}" > "${tmp_dir}/cache.txt"
           grep -q '^velnor.fixture.cache.v1$' "${tmp_dir}/cache.txt"
           printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
-          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
+          mbx run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > "${tmp_dir}/subject.json"
           grep -q 'velnor.fixture.release-subject.v1' "${tmp_dir}/subject.json"
           cp "${tmp_dir}/tree.txt" "${tmp_dir}/cache.txt" "${tmp_dir}/subject.json" .
       # The execution backend legitimately differs between lanes — that is the
@@ -127,7 +136,7 @@ jobs:
           lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
           output: evidence/backend-${{ matrix.config.lane }}.json
           observations: |
-            --observe-command command-files=cargo run --quiet --locked -p fixture-harness --example command_files
+            --observe-command command-files=mbx run --quiet --locked -p fixture-harness --example command_files
             --observe-file artifact-tree=tree.txt
             --observe-file cache-payload=cache.txt
             --observe-file release-subject=subject.json

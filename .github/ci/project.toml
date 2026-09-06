@@ -14,7 +14,7 @@ limitations = ["Project code, build scripts, task runners, and commands are neve
 github_runner = "ubuntu-24.04"
 velnor_labels = ["self-hosted", "velnor-target-mvp"]
 files = ["_actions-suite.yml", "_docker-suite.yml", "_runtime-suite.yml", "_rust-suite.yml", "app-token-probe.yml", "attestation-negative.yml", "backend-parity.yml", "ci.yml", "compat-public-unmerged.yml", "compat.yml", "control-plane.yml", "docker-lease-probe.yml", "docker.yml", "fixture-rust-check.yml", "l2-negative.yml", "l2-provenance.yml", "l2-runtime.yml", "multi-arch.yml", "pages.yml", "renovate.yml", "reuse-caller.yml", "schedule.yml"]
-notes = ["Rust verification uses Mr. Boxington 1.8.3 by default; GitHub-hosted jobs use its GitHub cache backend and Velnor jobs use the image/runner-provided local store. Set MBX_DISABLE=1 for a plain-Cargo invocation."]
+notes = ["Rust verification uses Mr. Boxington 1.8.3 by default on both lanes. GitHub-hosted jobs use its GitHub cache backend with stable per-unit keys (exact hits reuse the cache; a new entry is saved only when dependency inputs change). Velnor jobs use an explicit local-backend setup step against the image/runner-provided local store. Set MBX_DISABLE=1 for a plain-Cargo invocation."]
 
 [release]
 enabled = false

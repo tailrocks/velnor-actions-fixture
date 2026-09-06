@@ -68,6 +68,15 @@ jobs:
       RUSTC_WRAPPER: sccache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
       - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
         with:
           version: v0.16.0
@@ -97,7 +106,7 @@ jobs:
             *) echo "unsupported fixture package: ${PACKAGE}" >&2; exit 1 ;;
           esac
       - id: check
-        run: cargo check -p "${FIXTURE_PACKAGE}" --locked
+        run: mbx check -p "${FIXTURE_PACKAGE}" --locked
       - name: Record command-file effects
         id: effects
         run: |
@@ -122,8 +131,8 @@ jobs:
           lane: ${{ env.FIXTURE_LANE }}
           output: result-${{ env.FIXTURE_LANE }}-${{ inputs.package }}/result.json
           observations: |
-            --observe-command build=cargo build --quiet --locked -p "${FIXTURE_PACKAGE}"
-            --observe-command run=cargo run --quiet --locked -p "${FIXTURE_PACKAGE}"
+            --observe-command build=mbx build --quiet --locked -p "${FIXTURE_PACKAGE}"
+            --observe-command run=mbx run --quiet --locked -p "${FIXTURE_PACKAGE}"
             --observe-env checked=FIXTURE_CHECKED
             --observe-steps steps=${{ runner.temp }}/steps.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
