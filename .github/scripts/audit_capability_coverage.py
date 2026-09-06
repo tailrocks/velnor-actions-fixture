@@ -21,10 +21,10 @@ COVERAGE_PATH = ROOT / "coverage" / "fixture-coverage.json"
 WORKFLOWS = ROOT / ".github" / "workflows"
 ACTIONS = ROOT / ".github" / "actions"
 
-EXPECTED_MANIFEST_VERSION = 10
-EXPECTED_SOURCE_SHA = "9578bb09b72e1d5ba638bf33415d34218f89f933"
-EXPECTED_ACTION_COUNT = 30
-EXPECTED_REUSABLE_WORKFLOW_COUNT = 2
+EXPECTED_MANIFEST_VERSION = 13
+EXPECTED_SOURCE_SHA = "4c17724f3e3ac78501c95ac97aa4a18b2d91ecdd"
+EXPECTED_ACTION_COUNT = 29
+EXPECTED_REUSABLE_WORKFLOW_COUNT = 1
 EXPECTED_KACHE_REF = "49398d37113c616fdb61be434cb497e3c2c8f3e6"
 EXPECTED_KACHE_VERSION = "v0.14.2"
 
@@ -343,7 +343,6 @@ def validate_coverage(
         expected_execution = {
             "actions/create-github-app-token": "secret-gated-dual",
             "actions/deploy-pages": "hosted-only",
-            "tailrocks/velnor-actions": "external-admission-only",
         }.get(repository, "dual")
         if execution != expected_execution:
             failures.append(

@@ -1,47 +1,9 @@
 {
   "manifest": {
-    "version": 10,
-    "source_sha": "9578bb09b72e1d5ba638bf33415d34218f89f933"
+    "version": 13,
+    "source_sha": "4c17724f3e3ac78501c95ac97aa4a18b2d91ecdd"
   },
   "actions": [
-    {
-      "repository": "tailrocks/velnor-actions",
-      "disposition": "external-admission-only",
-      "reason": "Self-contained fixture forbids runtime dependency on external repository.",
-      "evidence": [
-        "GOAL.md",
-        ".github/scripts/audit_capability_coverage.py"
-      ],
-      "inputs": [
-        "name",
-        "command",
-        "schema-version",
-        "declaration-sha256",
-        "expected-declaration-sha256",
-        "cache-id",
-        "expected-cache-id",
-        "scope",
-        "expected-scope",
-        "cache-owner",
-        "expected-cache-owner",
-        "reservation-id",
-        "expected-reservation-id",
-        "required-peak-bytes",
-        "quota-reserved-bytes",
-        "attributed-bytes",
-        "cleanup-state",
-        "materialization-id",
-        "expected-materialization-id"
-      ],
-      "subpaths": [
-        "actions/run-gate",
-        "actions/cache-contract",
-        "actions/aggregate"
-      ],
-      "execution": "external-admission-only",
-      "fixture_status": "external-admission-only",
-      "microvm": "expected-unsupported"
-    },
     {
       "repository": "jackin-project/jackin-role-action",
       "disposition": "external-admission-only",
@@ -627,25 +589,6 @@
         "runner-arm64",
         "runner-merge",
         "publish"
-      ],
-      "subpaths": [],
-      "execution": "external-admission-only",
-      "fixture_status": "external-admission-only",
-      "microvm": "not-applicable-server-expanded"
-    },
-    {
-      "repository": "tailrocks/velnor-actions",
-      "path": ".github/workflows/package-signer.yml",
-      "disposition": "external-admission-only",
-      "reason": "External reusable workflow is not executed by the self-contained fixture.",
-      "evidence": [
-        "coverage/velnor-capabilities.json",
-        "GOAL.md"
-      ],
-      "inputs": [
-        "artifact-name",
-        "subject-path",
-        "source-ref"
       ],
       "subpaths": [],
       "execution": "external-admission-only",

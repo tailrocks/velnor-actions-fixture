@@ -1,16 +1,8 @@
 {
-  "version": 10,
-  "source_sha": "9578bb09b72e1d5ba638bf33415d34218f89f933",
-  "crate_version": "0.1.245",
+  "version": 13,
+  "source_sha": "4c17724f3e3ac78501c95ac97aa4a18b2d91ecdd",
+  "crate_version": "0.1.257",
   "actions": [
-    {
-      "repository": "tailrocks/velnor-actions",
-      "adapter": "ApprovedComposite",
-      "allowed_refs": ["77d323dcfdb176b332edc24bfc92cb625b3ab4c8", "3057391f93f3bfc0fe570ee08cfcea9533ea3f92"],
-      "allowed_subpaths": ["actions/run-gate", "actions/cache-contract", "actions/aggregate"],
-      "inputs": ["name", "command", "schema-version", "declaration-sha256", "expected-declaration-sha256", "cache-id", "expected-cache-id", "scope", "expected-scope", "cache-owner", "expected-cache-owner", "reservation-id", "expected-reservation-id", "required-peak-bytes", "quota-reserved-bytes", "attributed-bytes", "cleanup-state", "materialization-id", "expected-materialization-id"],
-      "notes": "pinned unified-CI composites; exact subpaths fetched and recursively validated"
-    },
     {
       "repository": "jackin-project/jackin-role-action",
       "adapter": "ApprovedComposite",
@@ -251,13 +243,6 @@
       "allowed_refs": ["041f17a6d32f8fd2a8ef03c2a63be58346993136", "80a1acd07257a23b441c546e6fcad12239ef7626"],
       "inputs": ["jackin-version", "registry", "runner-amd64", "runner-arm64", "runner-merge", "publish"],
       "notes": "server-expanded reusable workflow; identity/full-SHA/inputs admitted, jobs.<id>.uses never parsed as a runner action"
-    },
-    {
-      "repository": "tailrocks/velnor-actions",
-      "path": ".github/workflows/package-signer.yml",
-      "allowed_refs": ["c222e52030fee9ea6eae573a5769770be01d8438", "77d323dcfdb176b332edc24bfc92cb625b3ab4c8", "643c5341b160be151a7fae19b89b6a4f8ab3b275"],
-      "inputs": ["artifact-name", "subject-path", "source-ref"],
-      "notes": "hosted package signer; full-SHA and closed inputs admitted"
     }
   ]
 }
