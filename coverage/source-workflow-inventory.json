@@ -1,10 +1,10 @@
 {
   "schema": "velnor.fixture.source-workflow-inventory.v1",
-  "source_sha": "8090fefd146795f1455e36a55c932b90eb58f730",
+  "source_sha": "c6d1929ad6390cd93d48b7eb5ba291f408bce30c",
   "workflows": [
     {
       "path": ".github/workflows/ci-bun-velnor.yml",
-      "sha256": "09d061f34f2451b756379f5f35828ccaf8fe9257e8dbbccd76863eacc7c76921",
+      "sha256": "e01aa22e84f3c8c19f3b6dd2df846800ad981b05c2e59ddf9c5d1a1ab8b447e0",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -18,7 +18,7 @@
     },
     {
       "path": ".github/workflows/ci-docker-docker.yml",
-      "sha256": "2647c58b333e2e1e6173fde30d56321b4bda314f20ea258d975773b2a0656e6c",
+      "sha256": "6a7a339ff0169b3a34eb4204624e82589df8eb115e98b08721baf69cf43e8fad",
       "uses": [
         "actions/checkout",
         "docker/setup-buildx-action",
@@ -30,7 +30,7 @@
     },
     {
       "path": ".github/workflows/ci-docs-docs.yml",
-      "sha256": "a4871e728e6082a0922684c7536a7f4e89f76fc85df2544bd8e6be879ef4fba1",
+      "sha256": "f3d0500e0de8f30cf36849367d3d8ccf8f7e5621a9f767a7f2a5d324e0399f48",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -43,7 +43,7 @@
     },
     {
       "path": ".github/workflows/ci-main.yml",
-      "sha256": "53c0a4b4d89875541bf13a41a6d5819fa51f546f4a75ca4558c964f053fa1597",
+      "sha256": "71c2bf0913ae2030a5358e1fa071957b825eee9d86b0c1bcdccd47ae0c6c2130",
       "uses": [
         "actions/checkout",
         "local:./.github/workflows/ci-bun-velnor.yml",
@@ -70,7 +70,7 @@
     },
     {
       "path": ".github/workflows/ci-opentofu-opentofu.yml",
-      "sha256": "ed4dee8c5eba1ad1f7acf49baaf6a6ee3855ef21bbcc3333234820087b7bf493",
+      "sha256": "79dd0e0d631c145cbe8f9e1f6a6552a561348b311b0a7855b7f1801452d0d1c9",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -84,7 +84,7 @@
     },
     {
       "path": ".github/workflows/ci-policy.yml",
-      "sha256": "92132219705fcace00253a42bdb4a9d2b609971fa21ecaf4e09b3e8363a06d27",
+      "sha256": "91d810cbed000b32d3cba2a4879181fe71439136a3486ba969d50c2130593416",
       "uses": [
         "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml"
       ],
@@ -131,7 +131,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-policy.yml",
-      "sha256": "4567907059fec373364427d3641e71f285121b28056ff9f4e7e25225a89ad28d",
+      "sha256": "0361df131d32833a336a5bdb0f68b3001bedcf85a4b5e6deee9bc37520f311e5",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -148,7 +148,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-unit-collector.yml",
-      "sha256": "a76abe4a89f1ddda913f9647ea69b0d2405eb9be7e8ac2d0a4073493834e98b8",
+      "sha256": "2b105feaeccb7fe4334edbb812e5ea36ff0ecbe4dafb65c2097c88540e01951b",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -165,7 +165,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-bench.yml",
-      "sha256": "99ee835adf18815fc7fbb83a1e5c23e8dce6745f5767b0807006500784113f54",
+      "sha256": "50d95cf301dbb6690d0367d83d676e4dd47e614b329acc48ccc3503540c88d9f",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -182,7 +182,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-client.yml",
-      "sha256": "1631df3db9a07b959a065149f1dff2749871dd61d48203710486fe2bfb5f16f2",
+      "sha256": "1e9d0b99285e0ee7175fffca90feb537ceecc8a848e7fb26e0f27e0f62873b9e",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -199,7 +199,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-control.yml",
-      "sha256": "dcab87feff34d1a353c3b77944df385f9feb9c771d3ea90fef51f0e2bfaa029a",
+      "sha256": "4d7f6cfa30ef54a6d5cd4e17e8e26b299ac4b65135bb7fd26d1bd34d3ec1dbf0",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -216,7 +216,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-model.yml",
-      "sha256": "5cbbe999c65833eaca7762d30e720cf1edd1e3834848aa62ab184e13b1492775",
+      "sha256": "7c4da9c51c3a15eeceffe2c3abf6fa8edb21cd3b43dac140b9162d094e9d1533",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -233,7 +233,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-render.yml",
-      "sha256": "41e2d08a85cde135665b5e3d79b8c998a29ebcc4dbf8af647bb3cdb9ce63840f",
+      "sha256": "15db887b4fad53e636b5b5a144bcf85bf2fc5b6be87e7cfa868cf8dff7d4153d",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -250,7 +250,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-runner.yml",
-      "sha256": "7f64de2dabe20e0f178eaac3bbb30d660971581d2d469675c1c2c013eba0b02e",
+      "sha256": "db53c1b28fa7b38287ed9153c832cc0ab622c2cee041ba97a4a49768dd06ad8b",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -267,7 +267,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-tools.yml",
-      "sha256": "428e95d29daa430c8da9d07ea892518acabc8cefd110903b9d4b7602afea1367",
+      "sha256": "86cfa3fe91aa000cfc4a345b3e586e0d9b3128732657680b3ab8955432e7a757",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -284,7 +284,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-workflow.yml",
-      "sha256": "6e957ffb7f21c3e3197da368ec71d2f8e33c51486b86ed8489ff47e1bc7ec7b2",
+      "sha256": "eb31c411cd89b3dba158f6497357f4447e7ab4912b688e23c6ff01bac5ca1ebf",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -301,7 +301,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnorctl.yml",
-      "sha256": "43c4654d8463660b30fe0ecc8abc38433a30caea1b8380a44785bd919aee5f0a",
+      "sha256": "4d98c32f1a89b85b87fc291bfeb1f8e0e0afecf162e732c3e88fe7ea2916583e",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -326,7 +326,7 @@
     },
     {
       "path": ".github/workflows/nightly.yml",
-      "sha256": "8dea7ed56284644808077ef03154a961bb0bcad26422a85fa7524d69f63535d2",
+      "sha256": "3a87a229506a67015dd6ab570b11289b2adb6e32b0644a3d275d223f6022ee38",
       "uses": [
         "actions/checkout",
         "local:./.github/workflows/ci-bun-velnor.yml",
@@ -352,8 +352,18 @@
       ]
     },
     {
+      "path": ".github/workflows/velnor-workflow-policy.yml",
+      "sha256": "abc4b1fc54fef3cd7ea99fa709de32e9d0ae84601befe9e22e9fc96cadbd83a2",
+      "uses": [
+        "actions/checkout"
+      ],
+      "fixture_workflows": [
+        "ci.yml"
+      ]
+    },
+    {
       "path": ".github/workflows/release.yml",
-      "sha256": "1a4a391fd2b3cca5b0e7c9e105237fa65dfdbdbc22f08e26a658b1356f09d912",
+      "sha256": "a4c2fe08c4d59e1e5403b13330f8542f94ab4da3290e89a5c4ef7b8bed8f999d",
       "uses": [
         "actions/cache",
         "actions/checkout",
