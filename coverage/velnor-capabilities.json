@@ -1,7 +1,7 @@
 {
   "version": 13,
-  "source_sha": "de3f79fe2cb2d493e95023abfbbcd51a48d77346",
-  "crate_version": "0.1.267",
+  "source_sha": "120f223655587ab0bcf2530cd4b203e0375a9dca",
+  "crate_version": "0.1.274",
   "actions": [
     {
       "repository": "jackin-project/jackin-role-action",
@@ -525,5 +525,5 @@
       "notes": "server-expanded reusable workflow; identity/full-SHA/inputs admitted, jobs.<id>.uses never parsed as a runner action"
     }
   ],
-  "capability_id": "9ead2d09e912d20d5e11318aa43012e3e61e4fba920d545697a73daacee84d0c"
+  "capability_id": "4f78c81e004ea0a186a95436a23cfc17691a353c8a1e923e90c8a645e9ea2f23"
 }
