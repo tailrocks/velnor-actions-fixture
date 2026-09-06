@@ -1,6 +1,6 @@
 {
   "schema": "velnor.fixture.source-workflow-inventory.v1",
-  "source_sha": "1229a9ee1e9c1212bf9a0431537210906ae929ed09",
+  "source_sha": "1229a9ee1e9c12bf9a0431537210906ae929ed09",
   "workflows": [
     {
       "path": ".github/workflows/ci-bun-velnor.yml",
