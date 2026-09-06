@@ -22,11 +22,11 @@ python-test:
 capability-audit:
     python3 .github/scripts/audit_capability_coverage.py
 
-# The only supported way to refresh the cached baseline. It rewrites
-# coverage/velnor-capabilities.json from the Velnor build under test and then
-# re-runs the readiness gate above, so a refresh that does not certify is not a
-# refresh. Never edit that file by hand; the readiness gate rejects any content
-# the runner does not report anyway.
+# The only supported way to refresh the cached baseline. It rewrites the
+# capability export and source-workflow inventory from the Velnor build under
+# test, then re-runs the readiness gate above, so a refresh that does not
+# certify is not a refresh. Never edit either generated baseline by hand; the
+# readiness gate rejects content the runner does not report anyway.
 #
 #   VELNOR_SOURCE_DIR=/path/to/velnor just refresh-capability-baseline
 #

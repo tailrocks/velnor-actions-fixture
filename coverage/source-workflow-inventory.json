@@ -1,16 +1,16 @@
 {
   "schema": "velnor.fixture.source-workflow-inventory.v1",
-  "source_sha": "5491f677093d07855143f8da9640ce18c55d83cf",
+  "source_sha": "07d083181537b3b51c98e35879ffc16bd7f9b288",
   "workflows": [
     {
       "path": ".github/workflows/ci-bun-velnor.yml",
-      "sha256": "e01aa22e84f3c8c19f3b6dd2df846800ad981b05c2e59ddf9c5d1a1ab8b447e0",
+      "sha256": "f04e525972fcf07b76fc75623da555047baeb8a29199166686390efaa5374f25",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
         "actions/checkout",
-        "oven-sh/setup-bun",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "actions/download-artifact",
+        "oven-sh/setup-bun"
       ],
       "fixture_workflows": [
         "_runtime-suite.yml"
@@ -18,11 +18,12 @@
     },
     {
       "path": ".github/workflows/ci-docker-docker.yml",
-      "sha256": "6a7a339ff0169b3a34eb4204624e82589df8eb115e98b08721baf69cf43e8fad",
+      "sha256": "0bc9d952adb9b35349d8c89edeec88a341b6627c89d719d97df751de03ef8c1a",
       "uses": [
         "actions/checkout",
-        "docker/setup-buildx-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "actions/download-artifact",
+        "crazy-max/ghaction-github-runtime",
+        "docker/setup-buildx-action"
       ],
       "fixture_workflows": [
         "_docker-suite.yml"
@@ -30,12 +31,12 @@
     },
     {
       "path": ".github/workflows/ci-docs-docs.yml",
-      "sha256": "f3d0500e0de8f30cf36849367d3d8ccf8f7e5621a9f767a7f2a5d324e0399f48",
+      "sha256": "4522a6931797ebb70e3c89069d329e3fc383ae5804fc0ebbf6fe4b1e04918d0d",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
         "actions/checkout",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "actions/download-artifact"
       ],
       "fixture_workflows": [
         "pages.yml"
@@ -43,9 +44,10 @@
     },
     {
       "path": ".github/workflows/ci-main.yml",
-      "sha256": "71c2bf0913ae2030a5358e1fa071957b825eee9d86b0c1bcdccd47ae0c6c2130",
+      "sha256": "d4dfc4182c7dc560dd6ed721d4deb8638c055cb4daf886771c604547396c4663",
       "uses": [
         "actions/checkout",
+        "actions/upload-artifact",
         "local:./.github/workflows/ci-bun-velnor.yml",
         "local:./.github/workflows/ci-docker-docker.yml",
         "local:./.github/workflows/ci-docs-docs.yml",
@@ -70,13 +72,13 @@
     },
     {
       "path": ".github/workflows/ci-opentofu-opentofu.yml",
-      "sha256": "79dd0e0d631c145cbe8f9e1f6a6552a561348b311b0a7855b7f1801452d0d1c9",
+      "sha256": "301cb090de74a1a3a65388561065431f36b9409c95ca5dbdb816046be426229a",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
         "actions/checkout",
-        "opentofu/setup-opentofu",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "actions/download-artifact",
+        "opentofu/setup-opentofu"
       ],
       "fixture_workflows": [
         "_docker-suite.yml"
@@ -84,7 +86,7 @@
     },
     {
       "path": ".github/workflows/ci-policy.yml",
-      "sha256": "91d810cbed000b32d3cba2a4879181fe71439136a3486ba969d50c2130593416",
+      "sha256": "a6ab9619ae99d6b2505c1f1946f5b89f162cf3c112261d8c9b553845812b259c",
       "uses": [
         "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml"
       ],
@@ -94,9 +96,10 @@
     },
     {
       "path": ".github/workflows/ci-pr.yml",
-      "sha256": "cbf077b35a185eca539bdadf15aa7b2b129a0d4f9da15fc2d98a78680196047d",
+      "sha256": "72d512de899eb0d254082b81f818a31fbcb2d2abef320d5310ecebfb1c9efc42",
       "uses": [
         "actions/checkout",
+        "actions/upload-artifact",
         "local:./.github/workflows/ci-bun-velnor.yml",
         "local:./.github/workflows/ci-docker-docker.yml",
         "local:./.github/workflows/ci-docs-docs.yml",
@@ -120,7 +123,7 @@
     },
     {
       "path": ".github/workflows/ci-release-package-signer.yml",
-      "sha256": "f33d962f452406f20144f3d9b8f1c3fc209b5a09863ff4c064a65c2c243055a1",
+      "sha256": "f36e9448c9b40b4ca00a8d2cadb65cce5b2ada5f076fc9ba493e58ea7ca69e66",
       "uses": [
         "actions/attest-build-provenance",
         "actions/download-artifact"
@@ -131,16 +134,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-policy.yml",
-      "sha256": "0361df131d32833a336a5bdb0f68b3001bedcf85a4b5e6deee9bc37520f311e5",
+      "sha256": "2747aad2c157654648057ef9e002c41addc859ea5556c20a6d1c77d8a65c5fb1",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -148,16 +149,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-unit-collector.yml",
-      "sha256": "2b105feaeccb7fe4334edbb812e5ea36ff0ecbe4dafb65c2097c88540e01951b",
+      "sha256": "b1ff86e6f1de193a1fee5dcb1ea7f01e0d87a10bfc880cfa0e88e35607556f5b",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -165,16 +164,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-bench.yml",
-      "sha256": "50d95cf301dbb6690d0367d83d676e4dd47e614b329acc48ccc3503540c88d9f",
+      "sha256": "7a25c8b135012b3513c50a1b9979f127f28e487e42c51ba64148b484b4175322",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -182,16 +179,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-client.yml",
-      "sha256": "1e9d0b99285e0ee7175fffca90feb537ceecc8a848e7fb26e0f27e0f62873b9e",
+      "sha256": "d324b1f1e168a4753f98fc6eb997374644895fdc27cee2858c04952e745f0e2a",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -199,16 +194,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-control.yml",
-      "sha256": "4d7f6cfa30ef54a6d5cd4e17e8e26b299ac4b65135bb7fd26d1bd34d3ec1dbf0",
+      "sha256": "585da36466e589798678d958208c0bcf9a906503169bfef4433b45a59d6edf20",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -216,16 +209,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-model.yml",
-      "sha256": "7c4da9c51c3a15eeceffe2c3abf6fa8edb21cd3b43dac140b9162d094e9d1533",
+      "sha256": "a717cc11ae1a23d9e0efe53278fbb95c745a5bb610ddea59baa8ade2218c015c",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -233,16 +224,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-render.yml",
-      "sha256": "15db887b4fad53e636b5b5a144bcf85bf2fc5b6be87e7cfa868cf8dff7d4153d",
+      "sha256": "61e988bd60fe3938b89f1726a957f0917e70893136858850103786ab13c26341",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -250,16 +239,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-runner.yml",
-      "sha256": "db53c1b28fa7b38287ed9153c832cc0ab622c2cee041ba97a4a49768dd06ad8b",
+      "sha256": "340a095f750ca1c9e78490e6fed977ad0b54321d577cbbc8aaa69b3132992868",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -267,16 +254,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-tools.yml",
-      "sha256": "86cfa3fe91aa000cfc4a345b3e586e0d9b3128732657680b3ab8955432e7a757",
+      "sha256": "7cfaceefe4d0bab9c07377a3a8bb26b61378b5c890f3e69c556a1bc89c99dd77",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -284,16 +269,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-workflow.yml",
-      "sha256": "eb31c411cd89b3dba158f6497357f4447e7ab4912b688e23c6ff01bac5ca1ebf",
+      "sha256": "1facb2e592beceaabd3e49d66d48b1ef3e2bd862388fa3f088cfe7f9b95e9f35",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -301,16 +284,14 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnorctl.yml",
-      "sha256": "4d98c32f1a89b85b87fc291bfeb1f8e0e0afecf162e732c3e88fe7ea2916583e",
+      "sha256": "5afae9fd7716c184ed9ce2d92af2fec95a7459f85c6bd348884c0f4da1b93904",
       "uses": [
-        "actions/cache/restore",
-        "actions/cache/save",
         "actions/checkout",
+        "actions/download-artifact",
         "jdx/mise-action",
-        "mozilla-actions/sccache-action",
+        "jdx/mr-boxington-action",
         "rui314/setup-mold",
-        "taiki-e/install-action",
-        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+        "taiki-e/install-action"
       ],
       "fixture_workflows": [
         "_rust-suite.yml"
@@ -318,7 +299,7 @@
     },
     {
       "path": ".github/workflows/maintenance.yml",
-      "sha256": "57bd737767e4a9c17155e64e1212dad67d3fa6f04338eaeee3a00c89a9944371",
+      "sha256": "c0908537c89cfb4126e92659332d3bf29c4d6902db98098a8fde133f0c701b61",
       "uses": [],
       "fixture_workflows": [
         "schedule.yml"
@@ -326,9 +307,10 @@
     },
     {
       "path": ".github/workflows/nightly.yml",
-      "sha256": "3a87a229506a67015dd6ab570b11289b2adb6e32b0644a3d275d223f6022ee38",
+      "sha256": "9b513a7b597f22d1e7ce1fd583ec088cd5560d765e421d455fc8e8b57c6fcab9",
       "uses": [
         "actions/checkout",
+        "actions/upload-artifact",
         "local:./.github/workflows/ci-bun-velnor.yml",
         "local:./.github/workflows/ci-docker-docker.yml",
         "local:./.github/workflows/ci-docs-docs.yml",
@@ -352,18 +334,8 @@
       ]
     },
     {
-      "path": ".github/workflows/velnor-workflow-policy.yml",
-      "sha256": "abc4b1fc54fef3cd7ea99fa709de32e9d0ae84601befe9e22e9fc96cadbd83a2",
-      "uses": [
-        "actions/checkout"
-      ],
-      "fixture_workflows": [
-        "ci.yml"
-      ]
-    },
-    {
       "path": ".github/workflows/release.yml",
-      "sha256": "a8b4559beb5165b504b1b2bf37599ac4618a547593d6eebccfbac5b1d96d7761",
+      "sha256": "6ec4074b23a904087c2b3f50603cac5c211e029863beb6faf59bacfe2eee674a",
       "uses": [
         "actions/cache",
         "actions/checkout",
@@ -373,9 +345,20 @@
         "docker/login-action",
         "docker/setup-buildx-action",
         "jdx/mise-action",
+        "jdx/mr-boxington-action",
         "local:./.github/workflows/ci-release-package-signer.yml",
-        "mozilla-actions/sccache-action",
         "rui314/setup-mold"
+      ],
+      "fixture_workflows": [
+        "ci.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/velnor-workflow-policy.yml",
+      "sha256": "b7edae9c58fcb235d928c10cd704c889244611b7cbe929756e1647daa29f2341",
+      "uses": [
+        "actions/checkout",
+        "jdx/mr-boxington-action"
       ],
       "fixture_workflows": [
         "ci.yml"
@@ -433,6 +416,12 @@
       ]
     },
     {
+      "uses": "crazy-max/ghaction-github-runtime",
+      "disposition": "external-admission-only",
+      "fixture_workflows": [],
+      "reason": "Velnor source workflow surface is admitted but not executed by this fixture."
+    },
+    {
       "uses": "docker/build-push-action",
       "disposition": "covered",
       "fixture_workflows": [
@@ -460,6 +449,12 @@
       "fixture_workflows": [
         "_rust-suite.yml"
       ]
+    },
+    {
+      "uses": "jdx/mr-boxington-action",
+      "disposition": "external-admission-only",
+      "fixture_workflows": [],
+      "reason": "Velnor source workflow surface is admitted but not executed by this fixture."
     },
     {
       "uses": "local:./.github/workflows/ci-bun-velnor.yml",
@@ -566,13 +561,6 @@
     },
     {
       "uses": "local:./.github/workflows/ci-rust-velnorctl.yml",
-      "disposition": "covered",
-      "fixture_workflows": [
-        "_rust-suite.yml"
-      ]
-    },
-    {
-      "uses": "mozilla-actions/sccache-action",
       "disposition": "covered",
       "fixture_workflows": [
         "_rust-suite.yml"

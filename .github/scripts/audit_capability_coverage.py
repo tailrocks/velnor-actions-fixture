@@ -364,6 +364,167 @@ def validate_source_workflow_inventory(
             )
 
 
+def render_source_workflow_inventory_markdown(
+    inventory: dict[str, Any], capabilities: dict[str, Any]
+) -> str:
+    """Render the human-readable source inventory from its JSON contract."""
+    source_sha = inventory["source_sha"]
+    version = capabilities.get("version", "unknown")
+    crate_version = capabilities.get("crate_version", "unknown")
+    capability_id = capabilities.get(CAPABILITY_ID_FIELD, "unknown")
+    lines = [
+        "# Source Workflow Inventory",
+        "",
+        f"Current source inventory captured from Velnor `{source_sha}`. The JSON",
+        "contract and this document are regenerated together whenever the target Velnor",
+        "source changes; readiness rejects a stale source digest, workflow hash, action",
+        "surface, or mapping.",
+        "",
+        "## Scan basis",
+        "",
+        f"- Velnor source: [`{source_sha}`](https://github.com/tailrocks/velnor/tree/{source_sha}).",
+        f"- Capability manifest: v{version}, runner crate `{crate_version}`.",
+        f"- Capability identity: `{capability_id}`.",
+        "- Runner scope: Linux jobs through Docker and the GitHub V2 JIT flow. macOS,",
+        "  native scheduling, and production release mutation remain admission surfaces.",
+        "",
+        "## Velnor workflow inventory",
+        "",
+        "| Source workflow | SHA-256 | Fixture mapping | Source action/reusable-workflow surfaces |",
+        "| --- | --- | --- | --- |",
+    ]
+    for row in inventory["workflows"]:
+        fixture = ", ".join(row["fixture_workflows"])
+        uses = (
+            ", ".join(f"`{use}`" for use in row["uses"])
+            if row["uses"]
+            else "—"
+        )
+        lines.append(
+            f"| `{row['path']}` | `{row['sha256']}` | `{fixture}` | {uses} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Source action mappings",
+            "",
+            "| Source surface | Disposition | Fixture evidence or boundary |",
+            "| --- | --- | --- |",
+        ]
+    )
+    for row in inventory["action_mappings"]:
+        fixture = ", ".join(row["fixture_workflows"])
+        if row["disposition"] != "covered":
+            fixture = f"— — {row['reason']}"
+        elif not fixture:
+            fixture = "—"
+        lines.append(
+            f"| `{row['uses']}` | `{row['disposition']}` | {fixture} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Policy boundary",
+            "",
+            "Retired external reusable workflows, release mutation paths, and base-owned",
+            "Velnor setup/policy paths are admission or external-only surfaces. The fixture",
+            "workflows remain local and self-contained. Mandatory Linux positive execution",
+            "is dual-lane: GitHub-hosted Linux plus the configured Velnor Linux lane. The",
+            "checked-in capability and workflow audits bind this statement to the exact",
+            "source checkout and runner export under test.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def refresh_source_workflow_inventory(
+    runner_source: Path, source_sha: str, capabilities: dict[str, Any]
+) -> list[str]:
+    """Refresh source workflow digests while preserving reviewed mappings.
+
+    New source workflows or action surfaces fail closed: a reviewer must add an
+    explicit fixture mapping before the refreshed inventory can be written.
+    Removed surfaces are pruned because retaining them would make the contract
+    claim a source surface that no longer exists.
+    """
+    failures: list[str] = []
+    inventory = load_json(SOURCE_WORKFLOW_INVENTORY_PATH, failures)
+    actual = source_workflow_snapshot(runner_source, failures)
+    if failures:
+        return failures
+
+    old_workflows = rows_by_key(
+        inventory.get("workflows"),
+        ("path",),
+        "source workflow inventory.workflows",
+        failures,
+    )
+    actual_paths = set(actual)
+    missing_workflows = sorted(actual_paths - {path[0] for path in old_workflows})
+    if missing_workflows:
+        failures.append(
+            "source workflow inventory: new source workflows need explicit mappings: "
+            + ", ".join(missing_workflows)
+        )
+
+    old_mappings = rows_by_key(
+        inventory.get("action_mappings"),
+        ("uses",),
+        "source workflow inventory.action_mappings",
+        failures,
+    )
+    observed_uses = {use for row in actual.values() for use in row["uses"]}
+    mapped_uses = {uses[0] for uses in old_mappings}
+    missing_mappings = sorted(observed_uses - mapped_uses)
+    if missing_mappings:
+        failures.append(
+            "source workflow inventory: new source action surfaces need explicit mappings: "
+            + ", ".join(missing_mappings)
+        )
+    if failures:
+        return failures
+
+    refreshed: dict[str, Any] = {
+        "schema": SOURCE_WORKFLOW_INVENTORY_SCHEMA,
+        "source_sha": source_sha,
+        "workflows": [],
+        "action_mappings": [],
+    }
+    for path in sorted(actual):
+        previous = old_workflows[(path,)]
+        refreshed["workflows"].append(
+            {
+                "path": path,
+                "sha256": actual[path]["sha256"],
+                "uses": actual[path]["uses"],
+                "fixture_workflows": previous["fixture_workflows"],
+            }
+        )
+    for uses in sorted(observed_uses):
+        refreshed["action_mappings"].append(old_mappings[(uses,)])
+
+    validate_source_workflow_inventory(
+        refreshed,
+        runner_source=None,
+        source_sha=source_sha,
+        failures=failures,
+    )
+    if failures:
+        return failures
+
+    SOURCE_WORKFLOW_INVENTORY_PATH.write_text(
+        json.dumps(refreshed, indent=2) + "\n", encoding="utf-8"
+    )
+    SOURCE_WORKFLOW_INVENTORY_PATH.with_suffix(".md").write_text(
+        render_source_workflow_inventory_markdown(refreshed, capabilities),
+        encoding="utf-8",
+    )
+    return []
+
+
 def rows_by_key(
     rows: Any,
     key_fields: tuple[str, ...],
@@ -1814,6 +1975,15 @@ def refresh_baseline(
     validate_manifest(baseline, failures)
     if failures:
         return report(failures)
+
+    if runner_source is not None:
+        failures = refresh_source_workflow_inventory(
+            runner_source,
+            baseline["source_sha"],
+            baseline,
+        )
+        if failures:
+            return report(failures)
 
     CAPABILITIES_PATH.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
 

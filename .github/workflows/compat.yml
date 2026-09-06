@@ -286,10 +286,10 @@ jobs:
       CARGO_INCREMENTAL: "0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03 # Node24 main/post / manifest-v12
+      - uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
         with:
           backend: github
-          max-size: 20GiB
+
           cache-key: fixture-mr-boxington-${{ matrix.config.lane }}-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
           restore-keys: |
             fixture-mr-boxington-${{ matrix.config.lane }}-

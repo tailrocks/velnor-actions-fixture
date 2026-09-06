@@ -1,53 +1,9 @@
 {
   "manifest": {
-    "version": 12,
-    "capability_id": "7afe8dcd85e8a501f00925e533e64ea795fe321d56294adcb845b9272965390c"
+    "version": 13,
+    "capability_id": "0282959b7b29f60ef44362a4917af73c18c7a70362338d4c35b02226f0aee3a6"
   },
   "actions": [
-    {
-      "repository": "tailrocks/velnor-actions",
-      "disposition": "external-admission-only",
-      "reason": "Self-contained fixture forbids runtime dependency on external repository.",
-      "evidence": [
-        "GOAL.md",
-        ".github/scripts/audit_capability_coverage.py"
-      ],
-      "inputs": [
-        "name",
-        "command",
-        "schema-version",
-        "declaration-sha256",
-        "expected-declaration-sha256",
-        "cache-id",
-        "expected-cache-id",
-        "scope",
-        "expected-scope",
-        "cache-owner",
-        "expected-cache-owner",
-        "reservation-id",
-        "expected-reservation-id",
-        "required-peak-bytes",
-        "quota-reserved-bytes",
-        "attributed-bytes",
-        "cleanup-state",
-        "materialization-id",
-        "expected-materialization-id"
-      ],
-      "subpaths": [
-        "actions/run-gate",
-        "actions/cache-contract",
-        "actions/aggregate"
-      ],
-      "execution": "dual",
-      "fixture_status": "covered",
-      "microvm": "expected-unsupported",
-      "producer": [
-        "coverage/velnor-capabilities.json"
-      ],
-      "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
-      ]
-    },
     {
       "repository": "jackin-project/jackin-role-action",
       "disposition": "external-admission-only",
@@ -454,7 +410,7 @@
     {
       "repository": "jdx/mr-boxington-action",
       "disposition": "covered",
-      "reason": "Mr Boxington is the pinned generic JavaScript compiler-cache action admitted by manifest v12; the compatibility workflow selects the GitHub backend on both lanes.",
+      "reason": "Mr Boxington is the pinned generic JavaScript compiler-cache action admitted by manifest v13; the compatibility workflow selects the GitHub backend on both lanes.",
       "evidence": [
         ".github/workflows/compat.yml"
       ],
@@ -465,9 +421,9 @@
         "cache-key",
         "restore-keys",
         "cache-generation",
+        "github-cache-mode",
         "save-on-workflow-dispatch",
         "toolchain",
-        "max-size",
         "cache-links",
         "server-url",
         "namespace",
@@ -833,31 +789,6 @@
         "runner-arm64",
         "runner-merge",
         "publish"
-      ],
-      "subpaths": [],
-      "execution": "external-admission-only",
-      "fixture_status": "external-admission-only",
-      "microvm": "not-applicable-server-expanded",
-      "producer": [
-        "coverage/velnor-capabilities.json"
-      ],
-      "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
-      ]
-    },
-    {
-      "repository": "tailrocks/velnor-actions",
-      "path": ".github/workflows/package-signer.yml",
-      "disposition": "external-admission-only",
-      "reason": "External reusable workflow is not executed by the self-contained fixture.",
-      "evidence": [
-        "coverage/velnor-capabilities.json",
-        "GOAL.md"
-      ],
-      "inputs": [
-        "artifact-name",
-        "subject-path",
-        "source-ref"
       ],
       "subpaths": [],
       "execution": "external-admission-only",
