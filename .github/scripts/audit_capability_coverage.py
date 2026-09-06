@@ -28,6 +28,21 @@ EXPECTED_REUSABLE_WORKFLOW_COUNT = 1
 EXPECTED_KACHE_REF = "49398d37113c616fdb61be434cb497e3c2c8f3e6"
 EXPECTED_KACHE_VERSION = "v0.14.2"
 
+# Generator infrastructure is pinned and audited, but is not part of the
+# Velnor capability manifest exercised by this fixture.
+GENERATOR_INFRASTRUCTURE_ACTIONS = {
+    "jdx/mr-boxington-action": {
+        "allowed_refs": {"7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777"},
+        "inputs": {
+            "backend",
+            "version",
+            "cache-key",
+            "restore-keys",
+            "save-on-workflow-dispatch",
+        },
+    }
+}
+
 MICROVM_SUPPORTED = {
     "actions/cache",
     "actions/checkout",
@@ -633,6 +648,24 @@ def validate_remote_uses(
                     f"{relative}:{line_number}",
                     failures,
                 )
+                continue
+
+            infrastructure = GENERATOR_INFRASTRUCTURE_ACTIONS.get(repository)
+            if infrastructure is not None:
+                if reference not in infrastructure["allowed_refs"]:
+                    failures.append(
+                        f"{relative}:{line_number}: unadmitted generator action ref: {uses}"
+                    )
+                if subpath:
+                    failures.append(
+                        f"{relative}:{line_number}: unadmitted generator action subpath: {identity}"
+                    )
+                used_inputs = set(extract_with_inputs(body, uses_indent))
+                unknown_inputs = sorted(used_inputs - infrastructure["inputs"])
+                if unknown_inputs:
+                    failures.append(
+                        f"{relative}:{line_number}: unadmitted generator action inputs: {unknown_inputs}"
+                    )
                 continue
 
             row = manifest_actions.get(repository)
