@@ -1,6 +1,167 @@
 {
   "actions": [
     {
+      "repository": "tailrocks/velnor-actions",
+      "exercised": [],
+      "expected_unsupported": [],
+      "admission_only": [
+        {
+          "kind": "input",
+          "name": "name",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "command",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "schema-version",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "declaration-sha256",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "expected-declaration-sha256",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "cache-id",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "expected-cache-id",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "scope",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "expected-scope",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "cache-owner",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "expected-cache-owner",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "reservation-id",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "expected-reservation-id",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "required-peak-bytes",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "quota-reserved-bytes",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "attributed-bytes",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "cleanup-state",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "materialization-id",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "expected-materialization-id",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "subpath",
+          "name": "actions/aggregate",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action subpath is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "subpath",
+          "name": "actions/cache-contract",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action subpath is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "subpath",
+          "name": "actions/run-gate",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+          "reason": "External action subpath is admission-only in the self-contained fixture."
+        }
+      ]
+    },
+    {
       "repository": "jackin-project/jackin-role-action",
       "exercised": [],
       "expected_unsupported": [],
@@ -578,13 +739,19 @@
           "kind": "input",
           "name": "backend",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777"
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03"
+        },
+        {
+          "kind": "input",
+          "name": "max-size",
+          "workflow": ".github/workflows/compat.yml",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03"
         },
         {
           "kind": "input",
           "name": "cache-links",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777"
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03"
         }
       ],
       "expected_unsupported": [
@@ -592,99 +759,92 @@
           "kind": "input",
           "name": "version",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "github-token",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "cache-key",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "restore-keys",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "cache-generation",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "save-on-workflow-dispatch",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "toolchain",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "server-url",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "namespace",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "token",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "token-file",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "oidc-audience",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
         },
         {
           "kind": "input",
           "name": "server-mode",
           "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
+          "reference": "jdx/mr-boxington-action@adc5c234c02592f7edd008bf81d5bc0e9584dc03",
           "reason": "Optional input is not selected by the GitHub-backend Mr Boxington fixture."
-        },
-        {
-          "kind": "input",
-          "name": "github-cache-mode",
-          "workflow": ".github/workflows/compat.yml",
-          "reference": "jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777",
-          "reason": "Optional input is not selected by the fixture's GitHub-backend Mr Boxington lane."
         }
       ],
       "admission_only": []
@@ -1170,6 +1330,33 @@
           "name": "publish",
           "workflow": null,
           "reference": "jackin-project/jackin-role-action@041f17a6d32f8fd2a8ef03c2a63be58346993136",
+          "reason": "Remote reusable workflow is admission-only in the self-contained fixture."
+        }
+      ]
+    },
+    {
+      "repository": "tailrocks/velnor-actions",
+      "path": ".github/workflows/package-signer.yml",
+      "admission_only": [
+        {
+          "kind": "input",
+          "name": "artifact-name",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@2d045521be342284cd567b7058a0e635dc74b37c",
+          "reason": "Remote reusable workflow is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "subject-path",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@2d045521be342284cd567b7058a0e635dc74b37c",
+          "reason": "Remote reusable workflow is admission-only in the self-contained fixture."
+        },
+        {
+          "kind": "input",
+          "name": "source-ref",
+          "workflow": null,
+          "reference": "tailrocks/velnor-actions@2d045521be342284cd567b7058a0e635dc74b37c",
           "reason": "Remote reusable workflow is admission-only in the self-contained fixture."
         }
       ]

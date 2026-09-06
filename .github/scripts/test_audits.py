@@ -788,9 +788,10 @@ class CompareEvidenceActionTests(unittest.TestCase):
         self.assertIn(baseline_source, result.stderr)
 
     def test_evidence_source_matching_checked_in_baseline_is_accepted(self):
-        baseline_source = json.loads(
+        baseline = json.loads(
             (ROOT / "coverage" / "velnor-capabilities.json").read_text()
-        )["source_sha"]
+        )
+        baseline_source = baseline["source_sha"]
         result, output = self.run_resolver(
             [
                 ("github.json", self.record("github")),
@@ -802,7 +803,7 @@ class CompareEvidenceActionTests(unittest.TestCase):
         self.assertEqual(
             output,
             {
-                "BASELINE_MANIFEST_VERSION": "13",
+                "BASELINE_MANIFEST_VERSION": str(baseline["version"]),
                 "EVIDENCE_VELNOR_SOURCE_SHA": baseline_source,
             },
         )

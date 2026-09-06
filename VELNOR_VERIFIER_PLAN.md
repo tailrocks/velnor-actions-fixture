@@ -622,3 +622,25 @@ Canonical Velnor `perf/docker-rust-mbx` resolves to
 `d2ceade822f1f1337d83aafde79a434cc0e6c18a`. The source workflow inventory and
 capability baseline now bind to that exact head; capability, action, and
 workflow digests remain unchanged.
+
+## Continuation anchor — Velnor v0.1.261 release and native image proof
+
+The fixture now targets Velnor tag `v0.1.261`, source commit
+`5491f677093d07855143f8da9640ce18c55d83cf`, manifest v12, crate `0.1.261`, and
+capability identity
+`7afe8dcd85e8a501f00925e533e64ea795fe321d56294adcb845b9272965390c`.
+
+Velnor release run `34013655147` completed green, including native amd64 and
+arm64 image builds, exact platform-digest capture, OCI index assembly, release
+record generation, and all four signer jobs. The published image index is
+`sha256:9cd7f8f56d8d9b1bdd171568edab9d1627940235160ce19724d6593f6ffadffc`,
+with amd64 `sha256:8f37f9c3cc8995592c1ef3598fd3f29f01e1051c969b10c758992c1342264c33`
+and arm64 `sha256:7540e801d610fb00d306f5f1987ab3cb9103f68c8347245eeec5ad69311a100e`.
+The release record and `docker buildx imagetools inspect` agree on every digest.
+
+The checked-in capability, fixture, action-surface, and source-workflow
+inventory baselines were regenerated from that exact source. Readiness,
+capability-contract, workflow-surface, 57 Python tests, locked workspace check,
+54 Rust nextest tests, formatting, Python checks, and L2 closure all pass
+locally. This anchor does not claim live fixture dual-lane execution until the
+Velnor-backed PR checks and deployed Sentry proof complete.

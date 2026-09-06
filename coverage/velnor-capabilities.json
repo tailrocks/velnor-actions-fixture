@@ -1,8 +1,43 @@
 {
-  "version": 13,
-  "source_sha": "ba6ff17be548f7885622d481ad0d3ff62b721e24",
-  "crate_version": "0.1.258",
+  "version": 12,
+  "source_sha": "5491f677093d07855143f8da9640ce18c55d83cf",
+  "crate_version": "0.1.261",
   "actions": [
+    {
+      "repository": "tailrocks/velnor-actions",
+      "adapter": "Composite",
+      "allowed_refs": [
+        "77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+        "3057391f93f3bfc0fe570ee08cfcea9533ea3f92"
+      ],
+      "allowed_subpaths": [
+        "actions/run-gate",
+        "actions/cache-contract",
+        "actions/aggregate"
+      ],
+      "inputs": [
+        "name",
+        "command",
+        "schema-version",
+        "declaration-sha256",
+        "expected-declaration-sha256",
+        "cache-id",
+        "expected-cache-id",
+        "scope",
+        "expected-scope",
+        "cache-owner",
+        "expected-cache-owner",
+        "reservation-id",
+        "expected-reservation-id",
+        "required-peak-bytes",
+        "quota-reserved-bytes",
+        "attributed-bytes",
+        "cleanup-state",
+        "materialization-id",
+        "expected-materialization-id"
+      ],
+      "notes": "pinned unified-CI composites; exact subpaths fetched and recursively validated"
+    },
     {
       "repository": "jackin-project/jackin-role-action",
       "adapter": "Composite",
@@ -34,7 +69,7 @@
       "repository": "jdx/mr-boxington-action",
       "adapter": "JavaScript",
       "allowed_refs": [
-        "7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777"
+        "adc5c234c02592f7edd008bf81d5bc0e9584dc03"
       ],
       "allowed_subpaths": [],
       "inputs": [
@@ -44,9 +79,9 @@
         "cache-key",
         "restore-keys",
         "cache-generation",
-        "github-cache-mode",
         "save-on-workflow-dispatch",
         "toolchain",
+        "max-size",
         "cache-links",
         "server-url",
         "namespace",
@@ -523,7 +558,23 @@
         "publish"
       ],
       "notes": "server-expanded reusable workflow; identity/full-SHA/inputs admitted, jobs.<id>.uses never parsed as a runner action"
+    },
+    {
+      "repository": "tailrocks/velnor-actions",
+      "path": ".github/workflows/package-signer.yml",
+      "allowed_refs": [
+        "2d045521be342284cd567b7058a0e635dc74b37c",
+        "c222e52030fee9ea6eae573a5769770be01d8438",
+        "77d323dcfdb176b332edc24bfc92cb625b3ab4c8",
+        "643c5341b160be151a7fae19b89b6a4f8ab3b275"
+      ],
+      "inputs": [
+        "artifact-name",
+        "subject-path",
+        "source-ref"
+      ],
+      "notes": "hosted package signer; full-SHA and closed inputs admitted"
     }
   ],
-  "capability_id": "eb68a1df1a3f83d97c91cdba38211b3c9f22bbda5fc4b80531db154a1f5bb74a"
+  "capability_id": "7afe8dcd85e8a501f00925e533e64ea795fe321d56294adcb845b9272965390c"
 }
