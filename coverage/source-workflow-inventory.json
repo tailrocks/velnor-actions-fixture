@@ -1,10 +1,10 @@
 {
   "schema": "velnor.fixture.source-workflow-inventory.v1",
-  "source_sha": "d2063fbb0a9d676d92ed7072e5ec521e1279989c",
+  "source_sha": "1229a9ee1e9c1212bf9a0431537210906ae929ed09",
   "workflows": [
     {
       "path": ".github/workflows/ci-bun-velnor.yml",
-      "sha256": "dbb5cd1fdde36342837b225bf50bc6033dea908e67da6d6c4500e030188b4832",
+      "sha256": "f04e525972fcf07b76fc75623da555047baeb8a29199166686390efaa5374f25",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -18,7 +18,7 @@
     },
     {
       "path": ".github/workflows/ci-docker-docker.yml",
-      "sha256": "d75a177be201ae2c5e2a8c45af1d1835f3879f1109928655f69380cd69decf23",
+      "sha256": "0bc9d952adb9b35349d8c89edeec88a341b6627c89d719d97df751de03ef8c1a",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -31,7 +31,7 @@
     },
     {
       "path": ".github/workflows/ci-docs-docs.yml",
-      "sha256": "4c9f2ecf130841f62167e2bf919eea44c5e4b3e73115442062baee159f52742a",
+      "sha256": "4522a6931797ebb70e3c89069d329e3fc383ae5804fc0ebbf6fe4b1e04918d0d",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -44,7 +44,7 @@
     },
     {
       "path": ".github/workflows/ci-main.yml",
-      "sha256": "ee49ebd3ce743f4acff122bc2b6bedc4e94668b09d8bfda422027b0d9e1a1c85",
+      "sha256": "c1ea1891e8f765ca4a61be820d1eb31007bf00e3cd1bf55ba1f23eee8d6ef57c",
       "uses": [
         "actions/checkout",
         "actions/upload-artifact",
@@ -72,7 +72,7 @@
     },
     {
       "path": ".github/workflows/ci-opentofu-opentofu.yml",
-      "sha256": "c8adfba06fbf15a85f3598a5ddde795c127f0273f3447fbbb238278f7cc2ceed",
+      "sha256": "301cb090de74a1a3a65388561065431f36b9409c95ca5dbdb816046be426229a",
       "uses": [
         "actions/cache/restore",
         "actions/cache/save",
@@ -86,7 +86,7 @@
     },
     {
       "path": ".github/workflows/ci-policy.yml",
-      "sha256": "d2713b89626fd7df397a9ac3773ed2e0c08c5cdf2674bfadf1dc8c9968ee928d",
+      "sha256": "b886a80a66f307e333e8e585673690ace8ecf486f2d0e062d1ab1bd3430d8c9d",
       "uses": [
         "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml"
       ],
@@ -96,7 +96,7 @@
     },
     {
       "path": ".github/workflows/ci-pr.yml",
-      "sha256": "10af5a0330ea5803a6981b9ee7086fcf1c73eb7ba1148592af9e8fb9bb4ea0f7",
+      "sha256": "e0e0b31b43b13120faa50f124a2377097fee5a092be9d5d1e6bc1269ea64e480",
       "uses": [
         "actions/checkout",
         "actions/upload-artifact",
@@ -134,7 +134,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-policy.yml",
-      "sha256": "c50ccd8d6e4b150b8ff44f49f2ea394295488a0c52d7b7554c71cd3c1e19e285",
+      "sha256": "2747aad2c157654648057ef9e002c41addc859ea5556c20a6d1c77d8a65c5fb1",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -149,7 +149,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-unit-collector.yml",
-      "sha256": "957150ec603343fe178e9714f53cace128e1a506057bc8608c87c14995b406b9",
+      "sha256": "b1ff86e6f1de193a1fee5dcb1ea7f01e0d87a10bfc880cfa0e88e35607556f5b",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -164,7 +164,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-bench.yml",
-      "sha256": "c4a990785c000ca52a7c8ea90b6d9e961c6046321e846727c888b70855705774",
+      "sha256": "7a25c8b135012b3513c50a1b9979f127f28e487e42c51ba64148b484b4175322",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -179,7 +179,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-client.yml",
-      "sha256": "cdd3950270113bd00ef6d7c730365c4ff8726f4350cd493ec98625c74cda86ad",
+      "sha256": "d324b1f1e168a4753f98fc6eb997374644895fdc27cee2858c04952e745f0e2a",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -194,7 +194,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-control.yml",
-      "sha256": "bd0c1c0198741c14e29c5f006b06aad394bc73ed040327444a60f1acd432afbd",
+      "sha256": "585da36466e589798678d958208c0bcf9a906503169bfef4433b45a59d6edf20",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -209,7 +209,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-model.yml",
-      "sha256": "b776782f11193fd07f8984971909be79d3b05c46c9ccb50af94295df6ce1b3fb",
+      "sha256": "a717cc11ae1a23d9e0efe53278fbb95c745a5bb610ddea59baa8ade2218c015c",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -224,7 +224,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-render.yml",
-      "sha256": "69cf56f8772eebb030f533302f1993c898846395d63fc4f8869324dedbbc9db5",
+      "sha256": "61e988bd60fe3938b89f1726a957f0917e70893136858850103786ab13c26341",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -239,7 +239,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-runner.yml",
-      "sha256": "01b512b8f84b9021018ee1c92f38e275fccf018115859a1b573564e231de4a2a",
+      "sha256": "340a095f750ca1c9e78490e6fed977ad0b54321d577cbbc8aaa69b3132992868",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -254,7 +254,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-tools.yml",
-      "sha256": "7ceb2ebd81a9c75414e81d8445662cf90cf20fced1dd44212b02403ea21728c7",
+      "sha256": "7cfaceefe4d0bab9c07377a3a8bb26b61378b5c890f3e69c556a1bc89c99dd77",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -269,7 +269,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnor-workflow.yml",
-      "sha256": "99a0a6c7d498c2721d49cf6fc652a75e9386165c049fab44b58c34d18d78944e",
+      "sha256": "1facb2e592beceaabd3e49d66d48b1ef3e2bd862388fa3f088cfe7f9b95e9f35",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -284,7 +284,7 @@
     },
     {
       "path": ".github/workflows/ci-rust-velnorctl.yml",
-      "sha256": "9b41f0c8577821c200bd530c9c77ad7d386e763db2de65338f424218a5435788",
+      "sha256": "5afae9fd7716c184ed9ce2d92af2fec95a7459f85c6bd348884c0f4da1b93904",
       "uses": [
         "actions/checkout",
         "actions/download-artifact",
@@ -307,7 +307,7 @@
     },
     {
       "path": ".github/workflows/nightly.yml",
-      "sha256": "8ddd9d52c014a2b311ae9eea4a48eecad7e9c5a81b670d1313321ad62bdb9c1a",
+      "sha256": "53def0ee3a9c5dfbdf0fc29f4d335bccebcf517eac6b91a4a9f48f1ec0055617",
       "uses": [
         "actions/checkout",
         "actions/upload-artifact",
@@ -356,7 +356,7 @@
     },
     {
       "path": ".github/workflows/velnor-workflow-policy.yml",
-      "sha256": "52fb9fe6fee4fd20785b9208abcec606be16cf38fe60f479a80fa4b435e54dfa",
+      "sha256": "59addb12e43b9543afd08d015f2ff53dcdd5b22b7969e2d1605b3018bf0f3001",
       "uses": [
         "actions/checkout",
         "jdx/mr-boxington-action"
