@@ -31,7 +31,7 @@ jobs:
       VELNOR_APP_ID: ${{ secrets.VELNOR_APP_ID }}
       VELNOR_APP_PRIVATE_KEY: ${{ secrets.VELNOR_APP_PRIVATE_KEY }}
     steps:
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v2
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         if: env.VELNOR_APP_ID != '' && env.VELNOR_APP_PRIVATE_KEY != ''
         id: app-token
         with:
