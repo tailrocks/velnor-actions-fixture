@@ -44,7 +44,7 @@ jobs:
             velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
           save-on-workflow-dispatch: true
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-      - uses: swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           shared-key: fixture-${{ matrix.lane }}
           cache-directories: |
