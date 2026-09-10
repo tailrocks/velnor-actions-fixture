@@ -81,13 +81,13 @@ jobs:
           set -euo pipefail
           case "${CASE}" in
             mutable-ref|unknown-repository|unknown-input|unresolved-expression)
-              mbx run --locked -p l2-contract -- validate-file ".github/fixtures/l2/${CASE}.json"
+              mbx run --locked -p l2-contract -- validate-file "fixtures/l2/${CASE}.json"
               ;;
             unknown-subpath-input)
-              mbx run --locked -p l2-contract -- validate-file .github/fixtures/l2/unknown-subpath.json
+              mbx run --locked -p l2-contract -- validate-file fixtures/l2/unknown-subpath.json
               ;;
             invalid-lock)
-              mbx run --locked -p l2-contract -- validate-lock .github/fixtures/l2/invalid-mise.lock
+              mbx run --locked -p l2-contract -- validate-lock fixtures/l2/invalid-mise.lock
               ;;
             *) exit 2 ;;
           esac
@@ -271,7 +271,7 @@ jobs:
             velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
           save-on-workflow-dispatch: true
       - name: Reject disposable lock before project command
-        run: mbx run --locked -p l2-contract -- validate-lock .github/fixtures/l2/invalid-mise.lock
+        run: mbx run --locked -p l2-contract -- validate-lock fixtures/l2/invalid-mise.lock
       - name: Unreachable project effect
         run: |
           touch .l2-negative-project
