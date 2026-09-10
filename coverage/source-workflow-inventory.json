@@ -1,0 +1,634 @@
+{
+  "schema": "velnor.fixture.source-workflow-inventory.v1",
+  "source_sha": "120f223655587ab0bcf2530cd4b203e0375a9dca",
+  "workflows": [
+    {
+      "path": ".github/workflows/ci-bun-velnor.yml",
+      "sha256": "00bfe56f2bf521348401e023bb409910857e44c583e0d6384b069027d06a2dd1",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "oven-sh/setup-bun"
+      ],
+      "fixture_workflows": [
+        "_runtime-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-docker-docker.yml",
+      "sha256": "85d4f1b6f421475f5c0bf870f7e4416c64f92e424dd80d49106a0ca911dc126e",
+      "uses": [
+        "actions/checkout",
+        "actions/download-artifact",
+        "crazy-max/ghaction-github-runtime",
+        "docker/setup-buildx-action"
+      ],
+      "fixture_workflows": [
+        "_docker-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-docs-docs.yml",
+      "sha256": "f6545b40da7855927882c72493a49a868f06007080f68965321decc35ba5eacf",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact"
+      ],
+      "fixture_workflows": [
+        "pages.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-main.yml",
+      "sha256": "22f275b8708a329901e72e5eb28ad32aa91b708e5fa10bad02856d8d6eef7936",
+      "uses": [
+        "actions/checkout",
+        "actions/upload-artifact",
+        "local:./.github/workflows/ci-bun-velnor.yml",
+        "local:./.github/workflows/ci-docker-docker.yml",
+        "local:./.github/workflows/ci-docs-docs.yml",
+        "local:./.github/workflows/ci-opentofu-opentofu.yml",
+        "local:./.github/workflows/ci-rust-policy.yml",
+        "local:./.github/workflows/ci-rust-production-topology.yml",
+        "local:./.github/workflows/ci-rust-unit-collector.yml",
+        "local:./.github/workflows/ci-rust-velnor-bench.yml",
+        "local:./.github/workflows/ci-rust-velnor-client.yml",
+        "local:./.github/workflows/ci-rust-velnor-control.yml",
+        "local:./.github/workflows/ci-rust-velnor-model.yml",
+        "local:./.github/workflows/ci-rust-velnor-render.yml",
+        "local:./.github/workflows/ci-rust-velnor-runner.yml",
+        "local:./.github/workflows/ci-rust-velnor-tools.yml",
+        "local:./.github/workflows/ci-rust-velnor-workflow.yml",
+        "local:./.github/workflows/ci-rust-velnorctl.yml",
+        "tailrocks/velnor/.github/actions/setup-velnor-workflow",
+        "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml"
+      ],
+      "fixture_workflows": [
+        "ci.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-opentofu-opentofu.yml",
+      "sha256": "6f3040414d5207d3d686b30a353cff56389aa8ef521b0f800f366b10335484ff",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "opentofu/setup-opentofu"
+      ],
+      "fixture_workflows": [
+        "_docker-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-policy.yml",
+      "sha256": "b204a65b0f6c480dc16390c274bc7fefb55c5a11ca65d401ef0efa23eff547bf",
+      "uses": [
+        "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml"
+      ],
+      "fixture_workflows": [
+        "ci.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-pr.yml",
+      "sha256": "3657cc5802ba23dd38aeb9f19b40532d8036ae24e1a86667ecf2d6b38055d7b8",
+      "uses": [
+        "actions/checkout",
+        "actions/upload-artifact",
+        "local:./.github/workflows/ci-bun-velnor.yml",
+        "local:./.github/workflows/ci-docker-docker.yml",
+        "local:./.github/workflows/ci-docs-docs.yml",
+        "local:./.github/workflows/ci-opentofu-opentofu.yml",
+        "local:./.github/workflows/ci-rust-policy.yml",
+        "local:./.github/workflows/ci-rust-production-topology.yml",
+        "local:./.github/workflows/ci-rust-unit-collector.yml",
+        "local:./.github/workflows/ci-rust-velnor-bench.yml",
+        "local:./.github/workflows/ci-rust-velnor-client.yml",
+        "local:./.github/workflows/ci-rust-velnor-control.yml",
+        "local:./.github/workflows/ci-rust-velnor-model.yml",
+        "local:./.github/workflows/ci-rust-velnor-render.yml",
+        "local:./.github/workflows/ci-rust-velnor-runner.yml",
+        "local:./.github/workflows/ci-rust-velnor-tools.yml",
+        "local:./.github/workflows/ci-rust-velnor-workflow.yml",
+        "local:./.github/workflows/ci-rust-velnorctl.yml",
+        "tailrocks/velnor/.github/actions/setup-velnor-workflow"
+      ],
+      "fixture_workflows": [
+        "ci.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-release-package-signer.yml",
+      "sha256": "f36e9448c9b40b4ca00a8d2cadb65cce5b2ada5f076fc9ba493e58ea7ca69e66",
+      "uses": [
+        "actions/attest-build-provenance",
+        "actions/download-artifact"
+      ],
+      "fixture_workflows": [
+        "ci.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-policy.yml",
+      "sha256": "42535a7733b2f82744b9cd4699b685f86d9db7b0c1ed30b18345369f420a28c3",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action",
+        "taiki-e/install-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-production-topology.yml",
+      "sha256": "ba4375fe65c8760ee1581e7612b7e685d950e441d60c81790b8483462a542721",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-unit-collector.yml",
+      "sha256": "5d8e87c19ca6d80323411b4b2ef3d7ea6e77202bcdc66165c13eb9c647e49890",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-bench.yml",
+      "sha256": "4cef04c418d7ebe8651909cd20ebecefd736547a80743bf3fea5a76888c304fe",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-client.yml",
+      "sha256": "ebb9c4d8fa4e447618b48eaf6d44d75bf5d5012c48ad86a0bbe538e0b9fb7a32",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-control.yml",
+      "sha256": "90e04b559584be57679be3e80779b847e9032debd2dc45ec22924466c1d3695b",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-model.yml",
+      "sha256": "342ffa92c56e0348ca2f02de8cbe0676a105aed0d4f7eac2f2cdce4a8e51c51a",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-render.yml",
+      "sha256": "10ebd7046bb900467cc521628ecbcb88286ab85667cb39104f6ac212f293fa6f",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-runner.yml",
+      "sha256": "f605f74fbac0f6dcf1969b4e199fd8b54c639590ba421a63d98502642b31522f",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-tools.yml",
+      "sha256": "e2e8f596d522fbf68117b3200b97bd244f7b5fb0ea26a5b436d7d19d6658a72f",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnor-workflow.yml",
+      "sha256": "41296a8d481c7756b2305768534f5476df3cd5e3fe78c1562daf7b790b9313b6",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/ci-rust-velnorctl.yml",
+      "sha256": "303efa812ed0fc7e84df605e545e5e84c060afa8fd9c4876399517a791aef30c",
+      "uses": [
+        "actions/cache/restore",
+        "actions/cache/save",
+        "actions/checkout",
+        "actions/download-artifact",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/maintenance.yml",
+      "sha256": "0532765034745428f2c5c0905bad584c7adf4a9d883520622a83a94cf0180c3e",
+      "uses": [
+        "actions/upload-artifact"
+      ],
+      "fixture_workflows": [
+        "schedule.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/nightly.yml",
+      "sha256": "d946bc7d2a6e1695267dc4bf96a8622490d205086be317c51dda426ba44c9e96",
+      "uses": [
+        "actions/checkout",
+        "actions/upload-artifact",
+        "local:./.github/workflows/ci-bun-velnor.yml",
+        "local:./.github/workflows/ci-docker-docker.yml",
+        "local:./.github/workflows/ci-docs-docs.yml",
+        "local:./.github/workflows/ci-opentofu-opentofu.yml",
+        "local:./.github/workflows/ci-rust-policy.yml",
+        "local:./.github/workflows/ci-rust-production-topology.yml",
+        "local:./.github/workflows/ci-rust-unit-collector.yml",
+        "local:./.github/workflows/ci-rust-velnor-bench.yml",
+        "local:./.github/workflows/ci-rust-velnor-client.yml",
+        "local:./.github/workflows/ci-rust-velnor-control.yml",
+        "local:./.github/workflows/ci-rust-velnor-model.yml",
+        "local:./.github/workflows/ci-rust-velnor-render.yml",
+        "local:./.github/workflows/ci-rust-velnor-runner.yml",
+        "local:./.github/workflows/ci-rust-velnor-tools.yml",
+        "local:./.github/workflows/ci-rust-velnor-workflow.yml",
+        "local:./.github/workflows/ci-rust-velnorctl.yml",
+        "tailrocks/velnor/.github/actions/setup-velnor-workflow",
+        "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml"
+      ],
+      "fixture_workflows": [
+        "schedule.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "sha256": "86da73802d929d5a36fdefe5787417d1f7537f4e26e2c490747724ad6082a68d",
+      "uses": [
+        "actions/cache",
+        "actions/checkout",
+        "actions/download-artifact",
+        "actions/upload-artifact",
+        "docker/build-push-action",
+        "docker/login-action",
+        "docker/setup-buildx-action",
+        "jdx/mise-action",
+        "jdx/mr-boxington-action",
+        "local:./.github/workflows/ci-release-package-signer.yml",
+        "rui314/setup-mold"
+      ],
+      "fixture_workflows": [
+        "ci.yml"
+      ]
+    },
+    {
+      "path": ".github/workflows/velnor-workflow-policy.yml",
+      "sha256": "74876ec691d27b74ae111b03f6ba37de85853db364a8d8ca9f5e6cfb836078d2",
+      "uses": [
+        "actions/checkout",
+        "jdx/mr-boxington-action"
+      ],
+      "fixture_workflows": [
+        "ci.yml"
+      ]
+    }
+  ],
+  "action_mappings": [
+    {
+      "uses": "actions/attest-build-provenance",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "l2-provenance.yml"
+      ]
+    },
+    {
+      "uses": "actions/cache",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "actions/cache/restore",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "actions/cache/save",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "actions/checkout",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "actions/download-artifact",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_actions-suite.yml"
+      ]
+    },
+    {
+      "uses": "actions/upload-artifact",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_actions-suite.yml"
+      ]
+    },
+    {
+      "uses": "crazy-max/ghaction-github-runtime",
+      "disposition": "external-admission-only",
+      "fixture_workflows": [],
+      "reason": "Velnor source workflow surface is admitted but not executed by this fixture."
+    },
+    {
+      "uses": "docker/build-push-action",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_docker-suite.yml"
+      ]
+    },
+    {
+      "uses": "docker/login-action",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "docker.yml",
+        "multi-arch.yml"
+      ]
+    },
+    {
+      "uses": "docker/setup-buildx-action",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_docker-suite.yml"
+      ]
+    },
+    {
+      "uses": "jdx/mise-action",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "jdx/mr-boxington-action",
+      "disposition": "external-admission-only",
+      "fixture_workflows": [],
+      "reason": "Velnor source workflow surface is admitted but not executed by this fixture."
+    },
+    {
+      "uses": "local:./.github/workflows/ci-bun-velnor.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_runtime-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-docker-docker.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_docker-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-docs-docs.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "pages.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-opentofu-opentofu.yml",
+      "disposition": "hosted-only",
+      "fixture_workflows": [],
+      "reason": "The fixture has no positive OpenTofu workflow lane yet."
+    },
+    {
+      "uses": "local:./.github/workflows/ci-release-package-signer.yml",
+      "disposition": "external-admission-only",
+      "fixture_workflows": [],
+      "reason": "Release package signing is a production mutation path; the fixture audits the workflow surface but does not execute the signer."
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-policy.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-production-topology.yml",
+      "disposition": "external-admission-only",
+      "fixture_workflows": [],
+      "reason": "Velnor source workflow surface is admitted but not executed by this fixture."
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-unit-collector.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-velnor-bench.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-velnor-client.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-velnor-control.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-velnor-model.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-velnor-render.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-velnor-runner.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-velnor-tools.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-velnor-workflow.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "local:./.github/workflows/ci-rust-velnorctl.yml",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "opentofu/setup-opentofu",
+      "disposition": "hosted-only",
+      "fixture_workflows": [],
+      "reason": "The fixture has no positive OpenTofu setup lane yet."
+    },
+    {
+      "uses": "oven-sh/setup-bun",
+      "disposition": "hosted-only",
+      "fixture_workflows": [],
+      "reason": "The fixture has no positive Bun setup lane yet."
+    },
+    {
+      "uses": "rui314/setup-mold",
+      "disposition": "covered",
+      "fixture_workflows": [
+        "_rust-suite.yml"
+      ]
+    },
+    {
+      "uses": "taiki-e/install-action",
+      "disposition": "hosted-only",
+      "fixture_workflows": [],
+      "reason": "The fixture installs its Rust tools through its own pinned toolchain lane."
+    },
+    {
+      "uses": "tailrocks/velnor/.github/actions/setup-velnor-workflow",
+      "disposition": "external-admission-only",
+      "fixture_workflows": [],
+      "reason": "Base-owned Velnor workflow setup action is admitted on source workflows; the fixture executes its local pinned runtime setup instead."
+    },
+    {
+      "uses": "tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml",
+      "disposition": "external-admission-only",
+      "fixture_workflows": [],
+      "reason": "The policy workflow is a base-owned external reusable workflow; local policy structure is audited, not executed here."
+    }
+  ]
+}

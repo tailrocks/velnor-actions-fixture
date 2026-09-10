@@ -7,7 +7,3 @@ publish.workspace = true
 
 [lib]
 path = "src/lib.rs"
-
-[[bin]]
-name = "evidence"
-path = "src/bin/evidence.rs"

@@ -6,6 +6,7 @@ members = [
     "crates/fixture-harness",
     "crates/l2-contract",
     "crates/shared",
+    "crates/verifier",
 ]
 
 [workspace.package]
