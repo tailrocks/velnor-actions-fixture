@@ -26,7 +26,7 @@
         "coverage/velnor-capabilities.json"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -46,7 +46,7 @@
         "coverage/velnor-capabilities.json"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -76,7 +76,7 @@
         ".github/workflows/_rust-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -105,7 +105,7 @@
         ".github/workflows/_rust-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -131,7 +131,7 @@
         ".github/workflows/l2-provenance.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -159,7 +159,7 @@
         ".github/workflows/app-token-probe.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -187,7 +187,7 @@
         ".github/workflows/_actions-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -210,7 +210,7 @@
         ".github/workflows/_actions-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -235,7 +235,7 @@
         ".github/workflows/_actions-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -257,7 +257,7 @@
         ".github/workflows/pages.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -281,7 +281,7 @@
         ".github/workflows/_actions-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -307,7 +307,7 @@
         ".github/workflows/pages.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -335,7 +335,7 @@
         ".github/workflows/compat.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -365,7 +365,7 @@
         ".github/workflows/_rust-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -404,7 +404,7 @@
         ".github/workflows/schedule.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -440,7 +440,7 @@
         ".github/workflows/compat.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -463,7 +463,7 @@
         ".github/workflows/compat.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -484,7 +484,7 @@
         ".github/workflows/_rust-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -507,7 +507,7 @@
         ".github/workflows/_actions-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -528,7 +528,7 @@
         ".github/workflows/multi-arch.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -551,7 +551,7 @@
         ".github/workflows/renovate.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -579,7 +579,7 @@
         ".github/workflows/docker.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -604,7 +604,7 @@
         ".github/workflows/multi-arch.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -628,7 +628,7 @@
         ".github/workflows/multi-arch.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -662,7 +662,7 @@
         ".github/workflows/docker.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -686,7 +686,7 @@
         ".github/workflows/docker.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -721,7 +721,7 @@
         ".github/workflows/_actions-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -746,7 +746,7 @@
         ".github/workflows/multi-arch.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -768,7 +768,7 @@
         ".github/workflows/_docker-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     }
   ],
@@ -798,7 +798,7 @@
         "coverage/velnor-capabilities.json"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     }
   ],
@@ -813,7 +813,7 @@
         ".github/workflows/_runtime-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -828,7 +828,7 @@
         ".github/workflows/_runtime-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -841,7 +841,7 @@
         ".github/workflows/_runtime-suite.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -858,7 +858,7 @@
         "crates/fixture-harness/src/lib.rs"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -871,7 +871,7 @@
         ".github/workflows/compat.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -884,7 +884,7 @@
         ".github/workflows/compat.yml"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -902,7 +902,7 @@
         "crates/fixture-harness/src/lib.rs"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -919,7 +919,7 @@
         "crates/fixture-harness/src/lib.rs"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -937,7 +937,7 @@
         "crates/fixture-harness/src/lib.rs"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     },
     {
@@ -954,7 +954,7 @@
         "crates/fixture-harness/src/lib.rs"
       ],
       "comparator": [
-        ".github/scripts/audit_capability_coverage.py"
+        "scripts/audit_capability_coverage.py"
       ]
     }
   ],
