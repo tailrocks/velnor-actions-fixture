@@ -433,26 +433,35 @@ loosened to hide stale identity.
 
 ## Velnor-side capability surface defects (reported, not edited)
 
-Confirmed against `perf/docker-rust-mbx`. None is fixed here; this repository
-does not write to the runner.
+Reported against `perf/docker-rust-mbx`; none was fixed here — this repository
+does not write to the runner. All three were re-verified fixed at the
+converged tip `d7dc92dfdbb7f18ea9a0fe948366f4630f386c6a`
+(`origin/perf/docker-rust-mbx`) on 2026-09-12 and are CLOSED. Line numbers
+below are at that commit.
 
-1. `crates/velnor-tools/src/main.rs:2375` lists `submodules` among the
-   `actions/checkout` inputs `target_audit` treats as supported. The manifest's
-   checkout rule set has no `submodules` entry, and `validate_inputs` raises a
-   violation for any input with no matching rule, so admission rejects it. The
-   audit greenlights a target the runner will refuse.
-2. `crates/velnor-tools/src/main.rs:2520` records `actions/setup-python` in
-   `expected_target_uses()`, the surface `target_audit` asserts and then prints
-   "target audit passed" for. No `actions/setup-python` capability exists in the
-   manifest, so that surface is unadmitted. `baptiste0928/cargo-install` and
-   `dtolnay/rust-toolchain` in the same list have the same problem.
-3. `clean` and `fetch-tags` are admitted by the manifest
-   (`InputRule::Literal("clean", …)`, `InputRule::Literal("fetch-tags", …)`) and
-   honoured by the checkout implementation (`checkout.rs:136-138`), but are
-   absent from that same supported list, so `collect_step` records them as
-   unsupported and `target_audit` bails at the `unsupported target workflow
-   surface` check. A target using either input is rejected by the audit for
-   using something the runner supports.
+1. CLOSED — `crates/velnor-tools/src/main.rs:2150-2160`
+   (`CHECKOUT_SUPPORTED_INPUTS`) no longer lists `submodules`; it holds
+   exactly the nine manifest-backed inputs. The manifest checkout rule set
+   (`crates/velnor-runner/src/manifest.rs:452-462`) has no `submodules` entry
+   (zero `submodules` hits in `manifest.rs`/`action.rs`), and
+   `collect_step` (`main.rs:2401-2412`) still records unlisted inputs as
+   unsupported, so a `submodules: recursive` step is now correctly reported as
+   `unsupported actions/checkout input submodules` (`main.rs:4914-4927`).
+2. CLOSED — `expected_target_uses()` (`main.rs:2539-2562`) no longer records
+   `actions/setup-python`, `baptiste0928/cargo-install`, or
+   `dtolnay/rust-toolchain` (zero hits for any of the three in `main.rs`;
+   none has a capability in `manifest.rs`). The guard test
+   `target_capability_surface_stays_backed_by_runner_manifest`
+   (`main.rs:4848-4928`) asserts every advertised use is admitted by the
+   manifest (`main.rs:4857-4866`) and passes at the converged tip.
+3. CLOSED — `clean` and `fetch-tags` are now in the supported list
+   (`main.rs:2156-2157`), matching the manifest
+   (`InputRule::Literal("clean", …)` at `manifest.rs:458`,
+   `InputRule::Literal("fetch-tags", …)` at `manifest.rs:460`) and the
+   checkout implementation (`checkout.rs:136,138`). The guard test asserts
+   advertised checkout inputs equal the manifest rule set exactly
+   (`main.rs:4872-4889`) and accepts all nine (`main.rs:4891-4911`), so this
+   skew class is structurally closed.
 
 ## Continuation anchor — verifier identity refresh `3d08299`
 
@@ -644,3 +653,231 @@ capability-contract, workflow-surface, 57 Python tests, locked workspace check,
 54 Rust nextest tests, formatting, Python checks, and L2 closure all pass
 locally. This anchor does not claim live fixture dual-lane execution until the
 Velnor-backed PR checks and deployed Sentry proof complete.
+
+## Continuation anchor — goal-branch recreation and living-plan refresh `2026-09-12`
+
+Evidence basis: direct inspection of both recreated tips on 2026-09-12.
+Fixture `codex/verifier-completion-fixes` =
+`5c2cbfdf8519520a744f3bdaf8dbbbc0e4c56db3` = `origin/main` (verified:
+`git rev-parse HEAD origin/codex/verifier-completion-fixes origin/main`
+agree); Velnor `perf/docker-rust-mbx` =
+`96bf1ed60933a351178f8811b4d33c976f74e3f9` = its `origin/main`. The Sep-4
+lines merged to main, the remotes went main-only, and the goal branches were
+recreated at the main tips; the original starting SHAs
+(`5c8b57aa64dcbfd8fe6b2f6edae625ae344fc496` here,
+`2858e92df0eb78df4f1a6fe2ad4cbf86f1d56355` in Velnor) are history, not heads
+— they are not direct ancestors of the recreated tips (PR-merge lineage).
+The eight prior workflow child results assigned to this refresh
+(architecture+packages, red-team, six audits) arrived as `structured result
+submitted` summaries with no inspectable evidence, so they were treated as
+pointers, not reused; nothing below is attributed to them. Unresolved
+evidence: the full text of those eight results.
+
+Current identity at this anchor: checked-in
+`coverage/velnor-capabilities.json` is manifest v13 / crate `0.1.274`,
+source `6e59b98d5d1a6d42017465b045554a18d97d7e68` (Velnor rearch phase 2a),
+capability identity
+`79a3a913b2e182b01ca2e40ea5478f7474bc5d5914957418581a2cd4c73cb785`, 29
+admitted actions. Older identity fields at the top of this file (fixture
+`0dd8425…`, Velnor `ba6ff17…` on a deleted generator branch, manifest v13
+prose from earlier anchors) are stale snapshots; the baseline JSON plus this
+anchor are current. A `just refresh-capability-baseline` against Velnor
+`96bf1ed6` is due (source moved from `6e59b98d`); capability identity is
+content-derived, so the refresh is required only if the surface changed.
+
+Current architecture: `.github` is fully generated by Velnor's generic
+`velnor-workflow` crate (sole-generator #570; phases 0/1/2a merged); only
+`.github/AGENTS.md` is hand-maintained — never hand-edit generated files,
+change the generator or this repo's generation config and regenerate. Audits
+live in `scripts/` (`audit_capability_coverage.py` with `--refresh-baseline`
+/ `--contract-only`, `audit_workflow_surface.py`, `test_audits.py`) plus the
+`verifier` Rust crate (`record`, `provenance`, `observe`, `compare`) with
+mutation tests; fixture-harness `--field` evidence, `write-result.py` and
+`compare-results.py` are deleted (V-1). Runner policy (`.github/AGENTS.md`):
+`both` is the default for positive paths; `github`/`velnor` are diagnostic
+selectors only; default transparent-mbx Rust path is the baseline; explicit
+sccache is one local-only 20 GiB compat scenario; `cargo nextest run`, never
+`cargo test`; full-SHA action pins; measured timeouts; intentional
+concurrency; workspace-owned cache state, never `sudo` repair.
+
+Target architecture and invariants: the eight target verifier invariants at
+the top of this file stand (dual-lane default; deterministic provenance-bound
+evidence; missing/stale/single-lane evidence fails; semantic comparison;
+default-mbx primary; generated coverage with explicit negative dispositions;
+Rust-first verifier logic; negatives never substitute for positive proof).
+V-1 target properties A–D (baseline binding, collected evidence with
+provenance, comparison that can fail, mutation discipline) are the
+mechanism; I-25/I-26 (evidence envelope, derived baseline + identity
+comparison) are the Velnor-side counterparts.
+
+Bug classes (F1–F9): F1 (vacuous comparison), F2 (stale evidence), F5
+(false-coverage rows), F6 (recursive normalization + silent single-lane
+success) fixed by V-1's twelve tasks (all complete: nine producers on
+`collect-evidence`, comparators on `compare-evidence`, backend asserted
+per-lane in `backend-parity.yml`). F3 (stale baseline undetectable), F4
+(cardinality drift), F7 (unperformable refresh), F9 (compiler-cache backend
+contract) closed. F8 (microVM sccache claim) corrected to
+`expected-unsupported` with the runner's reason. Velnor-side surface defects
+1–3 (`submodules`/`setup-python`/`clean`/`fetch-tags` audit-vs-manifest
+skew) remain reported-against-Velnor, not edited here.
+
+Bottlenecks and baseline plan: no live dual-lane verdict or deployed image
+identity has been accepted at any anchor — that is the binding constraint on
+every readiness claim, unchanged. Benchmark validation (V6) waits on V1/V2
+plus Velnor WP-17 (real remote MBX driver, injection seams, fault catalogue,
+soak); bench scaffolding (record integrity, env isolation, ownership-safe
+cleanup) is in the runner but no product benchmark exists (BC-27).
+
+Dependencies: Velnor runner source or live `capabilities export` (readiness
+requires one; contract-only never substitutes); toolchain follows Velnor
+1.98.1; renovate action v46.2.6; `velnor-workflow` generator rev must stay in
+lockstep with the checked-in `.github` (regeneration fails closed on drift).
+
+Decisions and rejected alternatives: refresh-by-regeneration only, never
+hand-edit baselines (`--refresh-baseline` re-runs readiness; a refresh that
+does not certify is not a refresh); identity comparison, never cardinality;
+provenance from the GitHub environment, never from arguments; literals can no
+longer be observations (the `--field` mechanism is deleted, not deprecated);
+SHA restatements in prose docs deleted rather than updated; negatives and
+diagnostics never substitute for mandatory dual-lane positive proof; a
+recommended baseline/surface split was correctly refused (single refresh
+recipe owns both).
+
+Dependency graph and P0–P3: V0 (exact identity + baseline — done, refresh
+due at `96bf1ed6`) → V1 (Rust matrix: default mbx, explicit sccache,
+opt-out, cache interaction, parallel matrix) + V2 (semantic schema +
+live dual-lane) + V3 (action/workflow coverage + negative admission) → V4
+(cancel/timeout/post/completion/artifact/fault/soak; blocked on V2 and
+Velnor WP-3/WP-4 lifecycle+cancel) → V5 (Rust verifier completion; no
+duplicated parallel implementation) + V6 (bench validation) → V7 (final
+independent + red-team reviews, required before readiness). V-1 (evidence
+half of V0/V2) complete; V-3 (refresh + blocked coverage) landed.
+
+Tests: `just check` is the gate — capability-audit (readiness), workflow-check
+(actionlint, python-check, python-test, readiness), audit-workflows,
+fmt-check, rust-check, nextest workspace, l2-closure — plus workspace Clippy
+with warnings denied. Record missing/stale/skipped evidence as failure; every
+check carries a mutation test proving it rejects bad input.
+
+Status: branch clean at the recreated tip; no push pending at refresh time.
+Next bounded work: refresh the baseline against Velnor `96bf1ed6`, then V1
+Rust matrix and V2 live dual-lane execution — all unclaimed.
+
+Agent ownership: this repository does not write to the runner (surface
+defects are reported to Velnor, fixed there). Shared-branch discipline as in
+the Velnor plan §1: isolated worktrees, small signed-off commits
+(`git commit -s` + `Co-authored-by: Codex <codex@openai.com>`),
+rebase-before-push, never force-push. No new claims made by this refresh
+(read-only).
+
+## Continuation anchor — Velnor trust/cache finalize `2026-09-12`
+
+Evidence basis: the six Velnor `accept` verdicts and the six non-accept
+final-verification areas arrived as the finalize brief (IDs + finding text,
+no inspectable review bodies — verdicts attributed, not reused as
+evidence). Re-inspected live in this checkout: checked-in
+`coverage/velnor-capabilities.json` still binds `source_sha 6e59b98d…`
+(crate `0.1.274`), so the staleness findings below rest on direct file
+evidence; every other item is attributed to the final-verification report,
+whose full text is the unresolved evidence where not re-inspected. This
+anchor makes no readiness claim — it records why none can be made.
+
+Velnor wave status (from the brief): job-trust-class, gha-cache-prefix-max,
+trust-admission-fork, gha-cache-repo-namespace, gha-cache-fork-isolation,
+and cache-trust-regression are all accepted; remaining implementation scope
+is none. The wave is split across two Velnor lines — the trust half on
+`origin/perf/docker-rust-mbx@0b5448ae`, the cache half on
+`fix/runner-acquisition-intent-recovery@843b9f06` (dirty tree: uncommitted
+acquisition-recovery work) — which have not converged; the red-team F-V1
+finding (trust decision unrecorded for admitted jobs, confirmed in
+perf-line source) BLOCKS any activation relying on admission records.
+Fixture-side consequence: there is no single converged Velnor SHA to bind
+a refreshed baseline to yet — the refresh below must target the converged
+tip once it exists, not either line head alone.
+
+Verifier-coverage findings carried from the report (all open):
+
+- Readiness artifacts stale vs the assigned tip: the `6e59b98d`-bound
+  inventory fails readiness against `perf/docker-rust-mbx@0b5448ae` with
+  21 inventory-drift errors (generator-rev/cache-key churn only;
+  capability binding passes). Fix is procedural: run
+  `just refresh-capability-baseline` against the converged tip — no
+  hand-edit. Blocks any readiness claim until done. The red-team F-A1 note
+  agrees (all 25 inventory hashes match the declared baseline; v13 content
+  identity holds across baseline→perf→fix-HEAD for `manifest.rs`/`action.rs`).
+- No live dual-lane verdict, deployed image identity, fault/soak proof, or
+  benchmark validation accepted at any anchor (plan-declared open V2/V4/V6);
+  the fixture contains no benchmark-validation logic (required by
+  Gates/invariant 7).
+- Plan staleness in this file: Velnor-side surface defects 1–3
+  (`submodules`/`setup-python`/`clean`/`fetch-tags`) are fixed at the perf
+  tip (`CHECKOUT_SUPPORTED_INPUTS` corrected, submodules asserted
+  unsupported, `expected_target_uses` cleaned) but still listed open above
+  — re-verify against the converged tip and close in the next plan edit.
+- No automated generated-`.github` drift gate exists fixture-side (header
+  comments only); the generator's `has_drift` is never invoked from
+  `scripts/` or workflows.
+- `compare-evidence` self-documents that runner-reported
+  `VELNOR_SOURCE_SHA` is shape/consistency-checked only, not authenticated
+  against the release binary; independent runner/release attestation is
+  still required at that trust boundary.
+
+Other non-accept areas relevant fixture-side: semantic-parity gaps (mixed
+post-action ordering, `failure()`/`success()`/`cancelled()` branches,
+stdout workflow commands, `hashFiles` flag, matchers, unsecure opt-ins) and
+the reliability gaps (step-log publisher timeouts, V4 live cancel/timeout)
+are Velnor-owned but need dual-lane pins here before any parity claim; the
+Rust/Docker performance area confirms no product benchmark exists (BC-27)
+and V5/V6 validation is pending.
+
+Status: branch clean at `8b1ced8` before this anchor; no fixture code
+changed by the finalize. Next bounded work, in order: wait for the Velnor
+F-V1 fix + line convergence → `just refresh-capability-baseline` against
+the converged tip → close surface defects 1–3 → V1/V2 live dual-lane
+execution. Readiness remains blocked on the refresh plus V2/V4/V6 live
+evidence.
+
+## Continuation anchor — converged-tip baseline refresh `2026-09-12`
+
+Evidence basis: direct execution in an isolated fixture worktree on
+2026-09-12 against Velnor `origin/perf/docker-rust-mbx` =
+`d7dc92dfdbb7f18ea9a0fe948366f4630f386c6a` (the converged
+perf+fix+main tip: merges `02c2e9db` + `0f2b02f5` plus §104 record; verified
+`git rev-parse origin/perf/docker-rust-mbx` agrees and the worktree HEAD is
+exactly that SHA, clean).
+
+Refresh: `VELNOR_SOURCE_DIR=<converged checkout> just
+refresh-capability-baseline` — procedural, no hand-edit of generated
+artifacts. Result: manifest v13 / crate `0.1.274`, capability identity
+`79a3a913b2e182b01ca2e40ea5478f7474bc5d5914957418581a2cd4c73cb785`
+(unchanged — the convergence changed no capability content), source
+provenance `6e59b98d…` → `d7dc92df…`. Files rewritten by the tool:
+`coverage/velnor-capabilities.json` (source SHA only),
+`coverage/source-workflow-inventory.json` + `.md` (regenerated hashes).
+`coverage/fixture-coverage.json` untouched — its manifest stamp still
+matches, confirming zero surface drift.
+
+Readiness: `just capability-audit` against the converged checkout passes
+with zero drift errors (the refresh recipe's post-refresh gate also
+passed); `just audit-workflows` passes. The 21 inventory-drift errors from
+the prior anchor are gone — they were the `6e59b98d`-bound inventory vs the
+moved tip, resolved by regeneration.
+
+Defects: Velnor-side surface defects 1–3 closed above, re-verified at the
+converged tip with file cites (manifest checkout rules
+`manifest.rs:452-462`; `CHECKOUT_SUPPORTED_INPUTS` `main.rs:2150-2160`;
+`expected_target_uses` `main.rs:2539-2562`; `collect_step`
+`main.rs:2401-2412`; `checkout.rs:136,138`). Guard test
+`velnor-tools::tests::target_capability_surface_stays_backed_by_runner_manifest`
+passes at the converged tip (1 passed / 0 failed), structurally closing
+the audit-vs-manifest skew class. This resolves the plan staleness noted
+in the prior anchor.
+
+Still open, unchanged: no live dual-lane verdict, deployed image
+identity, fault/soak proof, or benchmark validation accepted at any
+anchor (V2/V4/V6); no automated generated-`.github` drift gate
+fixture-side; runner-reported `VELNOR_SOURCE_SHA` unauthenticated at the
+`compare-evidence` boundary; Velnor-owned semantic-parity and reliability
+gaps need dual-lane pins here. Next bounded work: V1 Rust matrix and V2
+live dual-lane execution — all unclaimed. No readiness claim is made by
+this refresh (static/provenance evidence only).
