@@ -2,3 +2,42 @@ schema = 1
 
 [generator]
 repository = "tailrocks/velnor-actions-fixture"
+
+[workflow]
+github_runner = "ubuntu-26.04"
+velnor_labels = ["velnor-cp-queue-validation", "velnor-target-mvp"]
+templates = ".github-gen/generated-templates"
+[policy]
+actionlint_config_variables_null = true
+
+[[static_files]]
+file = ".github/workflows/AGENTS.md"
+source = ".github-gen/sources/workflows-AGENTS.md"
+
+[[static_files]]
+file = ".github/actions/aggregate-needs/action.yml"
+source = ".github-gen/sources/actions/aggregate-needs/action.yml"
+
+[[static_files]]
+file = ".github/actions/check-deployed-docs/action.yml"
+source = ".github-gen/sources/actions/check-deployed-docs/action.yml"
+
+[[static_files]]
+file = ".github/actions/check-fixture-output/action.yml"
+source = ".github-gen/sources/actions/check-fixture-output/action.yml"
+
+[[static_files]]
+file = ".github/actions/collect-evidence/action.yml"
+source = ".github-gen/sources/actions/collect-evidence/action.yml"
+
+[[static_files]]
+file = ".github/actions/compare-evidence/action.yml"
+source = ".github-gen/sources/actions/compare-evidence/action.yml"
+
+[[static_files]]
+file = ".github/actions/l2-nested/action.yml"
+source = ".github-gen/sources/actions/l2-nested/action.yml"
+
+[[static_files]]
+file = ".github/actions/l2-root/action.yml"
+source = ".github-gen/sources/actions/l2-root/action.yml"
