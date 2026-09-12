@@ -1,5 +1,10 @@
 # Generated ownership state; do not edit.
-schema = 1
+schema = 2
+[inputs]
+config	08f44b07b5901a25
+scan	38bf018f0c26b8fc
+generator	1
+[outputs]
 .github/actionlint.yaml	ac662d08ffc17121
 .github/actions/aggregate-needs/action.yml	ebcc5cc11afb2e43
 .github/actions/check-deployed-docs/action.yml	1ef814d1b5ec06b0
@@ -16,7 +21,7 @@ schema = 1
 .github/ci/workflow-templates/app-token-probe.yml	2699fe0003d1e4a0
 .github/ci/workflow-templates/attestation-negative.yml	2c22a33f6cd7019c
 .github/ci/workflow-templates/backend-parity.yml	c4d126bf552fdead
-.github/ci/workflow-templates/ci.yml	9a2770ae76b1f480
+.github/ci/workflow-templates/ci.yml	f7c42f53cd417274
 .github/ci/workflow-templates/compat-public-unmerged.yml	8a87ac8f0fc8fdd8
 .github/ci/workflow-templates/compat.yml	5bf318dd40837275
 .github/ci/workflow-templates/control-plane.yml	af843255b853209f
@@ -39,7 +44,7 @@ schema = 1
 .github/workflows/app-token-probe.yml	2699fe0003d1e4a0
 .github/workflows/attestation-negative.yml	2c22a33f6cd7019c
 .github/workflows/backend-parity.yml	c4d126bf552fdead
-.github/workflows/ci.yml	9a2770ae76b1f480
+.github/workflows/ci.yml	f7c42f53cd417274
 .github/workflows/compat-public-unmerged.yml	8a87ac8f0fc8fdd8
 .github/workflows/compat.yml	5bf318dd40837275
 .github/workflows/control-plane.yml	af843255b853209f
