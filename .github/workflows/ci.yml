@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: tailrocks/velnor
-          ref: eafd266a151153b371d33357dcd34335719076ad
+          ref: 6e59b98d5d1a6d42017465b045554a18d97d7e68
           path: .velnor-source
           persist-credentials: false
       - name: Audit capability contract
@@ -48,7 +48,7 @@ jobs:
       - name: Audit readiness coverage
         env:
           VELNOR_SOURCE_DIR: ${{ github.workspace }}/.velnor-source
-          VELNOR_SOURCE_SHA: eafd266a151153b371d33357dcd34335719076ad
+          VELNOR_SOURCE_SHA: 6e59b98d5d1a6d42017465b045554a18d97d7e68
         run: python3 scripts/audit_capability_coverage.py
 
   rust:
