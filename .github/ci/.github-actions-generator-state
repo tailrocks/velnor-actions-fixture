@@ -2,8 +2,8 @@
 schema = 2
 [inputs]
 config	60dc0410e15aaea1
-scan	a1cc1f1ddcd668ef
-generator	2
+scan	1983ab475e11b661
+generator	4
 [outputs]
 .github/actionlint.yaml	ac662d08ffc17121
 .github/actions/aggregate-needs/action.yml	ebcc5cc11afb2e43
@@ -21,7 +21,7 @@ generator	2
 .github/ci/workflow-templates/app-token-probe.yml	2699fe0003d1e4a0
 .github/ci/workflow-templates/attestation-negative.yml	2c22a33f6cd7019c
 .github/ci/workflow-templates/backend-parity.yml	c4d126bf552fdead
-.github/ci/workflow-templates/ci.yml	ba94ce503845c1f0
+.github/ci/workflow-templates/ci.yml	8086a14c41f66d5c
 .github/ci/workflow-templates/compat-public-unmerged.yml	8a87ac8f0fc8fdd8
 .github/ci/workflow-templates/compat.yml	f17f2f2df72ab4a3
 .github/ci/workflow-templates/control-plane.yml	af843255b853209f
@@ -44,7 +44,7 @@ generator	2
 .github/workflows/app-token-probe.yml	2699fe0003d1e4a0
 .github/workflows/attestation-negative.yml	2c22a33f6cd7019c
 .github/workflows/backend-parity.yml	c4d126bf552fdead
-.github/workflows/ci.yml	ba94ce503845c1f0
+.github/workflows/ci.yml	8086a14c41f66d5c
 .github/workflows/compat-public-unmerged.yml	8a87ac8f0fc8fdd8
 .github/workflows/compat.yml	f17f2f2df72ab4a3
 .github/workflows/control-plane.yml	af843255b853209f
