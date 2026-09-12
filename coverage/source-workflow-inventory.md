@@ -9,7 +9,7 @@ surface, or mapping.
 
 - Velnor source: [`5c7781a05f4aec07e30b648c3af1e3328d668b8c`](https://github.com/tailrocks/velnor/tree/5c7781a05f4aec07e30b648c3af1e3328d668b8c).
 - Capability manifest: v13, runner crate `0.1.274`.
-- Capability identity: `15e1cfdfbee9e3eeabde796f881a1b86f4e456326793aef90df122c864552207`.
+- Capability identity: `79a3a913b2e182b01ca2e40ea5478f7474bc5d5914957418581a2cd4c73cb785`.
 - Runner scope: Linux jobs through Docker and the GitHub V2 JIT flow. macOS,
   native scheduling, and production release mutation remain admission surfaces.
 
