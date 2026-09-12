@@ -1,13 +1,13 @@
 # Source Workflow Inventory
 
-Current source inventory captured from Velnor `eafd266a151153b371d33357dcd34335719076ad`. The JSON
+Current source inventory captured from Velnor `97e53e779426ccb7b196342df13e6cd6144c8502`. The JSON
 contract and this document are regenerated together whenever the target Velnor
 source changes; readiness rejects a stale source digest, workflow hash, action
 surface, or mapping.
 
 ## Scan basis
 
-- Velnor source: [`eafd266a151153b371d33357dcd34335719076ad`](https://github.com/tailrocks/velnor/tree/eafd266a151153b371d33357dcd34335719076ad).
+- Velnor source: [`97e53e779426ccb7b196342df13e6cd6144c8502`](https://github.com/tailrocks/velnor/tree/97e53e779426ccb7b196342df13e6cd6144c8502).
 - Capability manifest: v13, runner crate `0.1.274`.
 - Capability identity: `79a3a913b2e182b01ca2e40ea5478f7474bc5d5914957418581a2cd4c73cb785`.
 - Runner scope: Linux jobs through Docker and the GitHub V2 JIT flow. macOS,
@@ -39,7 +39,7 @@ surface, or mapping.
 | `.github/workflows/ci-rust-velnorctl.yml` | `d128cb9444e0e43166e527e11ecb579679b7bc5eb4a45703e7914effdee1c95d` | `_rust-suite.yml` | `actions/cache/restore`, `actions/cache/save`, `actions/checkout`, `actions/download-artifact`, `jdx/mise-action`, `jdx/mr-boxington-action` |
 | `.github/workflows/maintenance.yml` | `0532765034745428f2c5c0905bad584c7adf4a9d883520622a83a94cf0180c3e` | `schedule.yml` | `actions/upload-artifact` |
 | `.github/workflows/nightly.yml` | `c9bfef5909ab1334e7974ab6f3c485947382e52d44bbc89ff8f7cd5c5694fa71` | `schedule.yml` | `actions/checkout`, `actions/upload-artifact`, `local:./.github/workflows/ci-bun-velnor.yml`, `local:./.github/workflows/ci-docker-docker.yml`, `local:./.github/workflows/ci-docs-docs.yml`, `local:./.github/workflows/ci-opentofu-opentofu.yml`, `local:./.github/workflows/ci-rust-policy.yml`, `local:./.github/workflows/ci-rust-production-topology.yml`, `local:./.github/workflows/ci-rust-unit-collector.yml`, `local:./.github/workflows/ci-rust-velnor-bench.yml`, `local:./.github/workflows/ci-rust-velnor-client.yml`, `local:./.github/workflows/ci-rust-velnor-control.yml`, `local:./.github/workflows/ci-rust-velnor-model.yml`, `local:./.github/workflows/ci-rust-velnor-render.yml`, `local:./.github/workflows/ci-rust-velnor-runner.yml`, `local:./.github/workflows/ci-rust-velnor-tools.yml`, `local:./.github/workflows/ci-rust-velnor-workflow.yml`, `local:./.github/workflows/ci-rust-velnorctl.yml`, `tailrocks/velnor/.github/actions/setup-velnor-workflow`, `tailrocks/velnor/.github/workflows/velnor-workflow-policy.yml` |
-| `.github/workflows/preview.yml` | `422114a540320684886dd90760ea3ff79f422fd7aac78046dae9b6c394091b94` | `ci.yml` | `actions/cache`, `actions/checkout`, `actions/download-artifact`, `actions/upload-artifact`, `jdx/mise-action`, `jdx/mr-boxington-action`, `local:./.github/workflows/ci-release-package-signer.yml`, `rui314/setup-mold` |
+| `.github/workflows/preview.yml` | `8788a4b335e30710e821d701156b1758ab6e2bc4a3d7e66eb00a99c2f02b7771` | `ci.yml` | `actions/cache`, `actions/checkout`, `actions/download-artifact`, `actions/upload-artifact`, `jdx/mise-action`, `jdx/mr-boxington-action`, `local:./.github/workflows/ci-release-package-signer.yml`, `rui314/setup-mold` |
 | `.github/workflows/release.yml` | `86da73802d929d5a36fdefe5787417d1f7537f4e26e2c490747724ad6082a68d` | `ci.yml` | `actions/cache`, `actions/checkout`, `actions/download-artifact`, `actions/upload-artifact`, `docker/build-push-action`, `docker/login-action`, `docker/setup-buildx-action`, `jdx/mise-action`, `jdx/mr-boxington-action`, `local:./.github/workflows/ci-release-package-signer.yml`, `rui314/setup-mold` |
 | `.github/workflows/velnor-workflow-policy.yml` | `5f360c080d9aeb9ec00465979b44e7bfc43618363578fdf5518f48b136f2c8d2` | `ci.yml` | `actions/checkout`, `jdx/mr-boxington-action` |
 
