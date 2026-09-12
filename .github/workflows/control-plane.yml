@@ -780,7 +780,7 @@ jobs:
           else
             verb=compare
           fi
-          python3 .github/scripts/workflow_evidence.py "${verb}" \
+          python3 scripts/workflow_evidence.py "${verb}" \
             --directory cp-evidence \
             --scenario "${SCENARIO}" \
             --lanes "${expected_lanes[@]}"

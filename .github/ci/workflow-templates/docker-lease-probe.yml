@@ -69,7 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence
-          python3 .github/scripts/workflow_evidence.py docker-probe \
+          python3 scripts/workflow_evidence.py docker-probe \
             --lane "${LANE_ID}" \
             --runner-name "${RUNNER_NAME}" \
             --output evidence/docker-lease-probe.json
@@ -127,7 +127,7 @@ jobs:
           else
             verb=compare
           fi
-          python3 .github/scripts/workflow_evidence.py "${verb}" \
+          python3 scripts/workflow_evidence.py "${verb}" \
             --directory evidence \
             --scenario docker-lease-probe \
             --lanes "${expected_lanes[@]}"

@@ -10,17 +10,17 @@ nextest package:
     cargo nextest run --locked -p "{{package}}"
 
 python-check:
-    python3 -c 'import ast; from pathlib import Path; paths=sorted(Path(".github/scripts").rglob("*.py")); assert paths, "no Python scripts found"; [ast.parse(path.read_text(encoding="utf-8"), filename=str(path)) for path in paths]'
+    python3 -c 'import ast; from pathlib import Path; paths=sorted(Path("scripts").rglob("*.py")); assert paths, "no Python scripts found"; [ast.parse(path.read_text(encoding="utf-8"), filename=str(path)) for path in paths]'
 
 python-test:
-    python3 .github/scripts/test_audits.py
+    python3 scripts/test_audits.py
 
 # Readiness requires the capability manifest of the Velnor build under test.
 # Set VELNOR_CAPABILITIES_EXPORT to a `velnor-runner capabilities export`
 # document, or VELNOR_SOURCE_DIR to a Velnor checkout. An audit that cannot see
 # the runner cannot certify it, and now says so instead of passing.
 capability-audit:
-    python3 .github/scripts/audit_capability_coverage.py
+    python3 scripts/audit_capability_coverage.py
 
 # The only supported way to refresh the cached baseline. It rewrites the
 # capability export and source-workflow inventory from the Velnor build under
@@ -40,15 +40,15 @@ refresh-capability-baseline:
       VELNOR_SOURCE_SHA="$(git -C "${VELNOR_SOURCE_DIR}" rev-parse HEAD)"
       export VELNOR_SOURCE_SHA
     fi
-    python3 .github/scripts/audit_capability_coverage.py --refresh-baseline
+    python3 scripts/audit_capability_coverage.py --refresh-baseline
 
 # Contract-only mode checks the checked-in documents against each other. It
 # does not establish readiness and must never be substituted for the gate above.
 capability-contract:
-    python3 .github/scripts/audit_capability_coverage.py --contract-only
+    python3 scripts/audit_capability_coverage.py --contract-only
 
 audit-workflows:
-    python3 .github/scripts/audit_workflow_surface.py
+    python3 scripts/audit_workflow_surface.py
 
 rust-check:
     cargo check --workspace --all-targets --locked
@@ -63,7 +63,7 @@ workflow-check:
     actionlint
     just python-check
     just python-test
-    python3 .github/scripts/audit_capability_coverage.py
+    python3 scripts/audit_capability_coverage.py
 
 check:
     just capability-audit

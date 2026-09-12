@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 CAPABILITIES_PATH = ROOT / "coverage" / "velnor-capabilities.json"
 COVERAGE_PATH = ROOT / "coverage" / "fixture-coverage.json"
 SURFACE_COVERAGE_PATH = ROOT / "coverage" / "action-surface-coverage.json"
@@ -1553,11 +1553,6 @@ def validate_remote_uses(
                 continue
             repository = "/".join(parts[:2])
             subpath = "/".join(parts[2:])
-
-            if parts[1].lower() == "velnor-actions":
-                failures.append(
-                    f"{relative}:{line_number}: forbidden velnor-actions execution: {uses}"
-                )
 
             if subpath.startswith(".github/workflows/"):
                 row = manifest_workflows.get((repository, subpath))

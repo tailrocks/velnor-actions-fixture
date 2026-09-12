@@ -391,7 +391,7 @@
           "kind": "input",
           "name": "artifact_name",
           "workflow": ".github/workflows/pages.yml",
-          "reference": "actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128"
+          "reference": "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346"
         }
       ],
       "expected_unsupported": [
@@ -399,35 +399,35 @@
           "kind": "input",
           "name": "token",
           "workflow": ".github/workflows/pages.yml",
-          "reference": "actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128",
+          "reference": "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
           "reason": "Pages deployment optional input is hosted-service-only and not selected by the writer."
         },
         {
           "kind": "input",
           "name": "timeout",
           "workflow": ".github/workflows/pages.yml",
-          "reference": "actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128",
+          "reference": "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
           "reason": "Pages deployment optional input is hosted-service-only and not selected by the writer."
         },
         {
           "kind": "input",
           "name": "error_count",
           "workflow": ".github/workflows/pages.yml",
-          "reference": "actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128",
+          "reference": "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
           "reason": "Pages deployment optional input is hosted-service-only and not selected by the writer."
         },
         {
           "kind": "input",
           "name": "reporting_interval",
           "workflow": ".github/workflows/pages.yml",
-          "reference": "actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128",
+          "reference": "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
           "reason": "Pages deployment optional input is hosted-service-only and not selected by the writer."
         },
         {
           "kind": "input",
           "name": "preview",
           "workflow": ".github/workflows/pages.yml",
-          "reference": "actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128",
+          "reference": "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
           "reason": "Pages deployment optional input is hosted-service-only and not selected by the writer."
         }
       ],
@@ -708,19 +708,19 @@
           "kind": "input",
           "name": "shared-key",
           "workflow": ".github/workflows/_actions-suite.yml",
-          "reference": "swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae"
+          "reference": "swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6"
         },
         {
           "kind": "input",
           "name": "cache-directories",
           "workflow": ".github/workflows/_actions-suite.yml",
-          "reference": "swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae"
+          "reference": "swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6"
         },
         {
           "kind": "input",
           "name": "cache-on-failure",
           "workflow": ".github/workflows/_actions-suite.yml",
-          "reference": "swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae"
+          "reference": "swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6"
         }
       ],
       "expected_unsupported": [],
@@ -740,21 +740,21 @@
           "kind": "input",
           "name": "token",
           "workflow": ".github/workflows/renovate.yml",
-          "reference": "renovatebot/github-action@5402b206248e5a8c8427a15102702eb9c1793efc",
+          "reference": "renovatebot/github-action@39b914146caeff8cd512e61c8992f1d5913af85c",
           "reason": "Renovate credentials are supplied through the intentionally explicit environment contract."
         },
         {
           "kind": "input",
           "name": "renovate-version",
           "workflow": ".github/workflows/renovate.yml",
-          "reference": "renovatebot/github-action@5402b206248e5a8c8427a15102702eb9c1793efc",
+          "reference": "renovatebot/github-action@39b914146caeff8cd512e61c8992f1d5913af85c",
           "reason": "Fixture uses the action's resolved default Renovate version."
         },
         {
           "kind": "input",
           "name": "renovate-image",
           "workflow": ".github/workflows/renovate.yml",
-          "reference": "renovatebot/github-action@5402b206248e5a8c8427a15102702eb9c1793efc",
+          "reference": "renovatebot/github-action@39b914146caeff8cd512e61c8992f1d5913af85c",
           "reason": "Fixture uses the action's resolved default Renovate image."
         }
       ],
@@ -1085,13 +1085,13 @@
           "kind": "input",
           "name": "platforms",
           "workflow": ".github/workflows/_docker-suite.yml",
-          "reference": "docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8"
+          "reference": "docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a"
         },
         {
           "kind": "input",
           "name": "reset",
           "workflow": ".github/workflows/_docker-suite.yml",
-          "reference": "docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8"
+          "reference": "docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a"
         }
       ],
       "expected_unsupported": [
@@ -1099,7 +1099,7 @@
           "kind": "input",
           "name": "image",
           "workflow": ".github/workflows/_docker-suite.yml",
-          "reference": "docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8",
+          "reference": "docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a",
           "reason": "Optional QEMU image input is not selected by the fixture."
         }
       ],

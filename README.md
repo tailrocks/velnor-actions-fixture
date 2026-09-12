@@ -60,7 +60,7 @@ diagnostic checks, not substitutes for mandatory dual-lane proof.
   Velnor-only; failure is the expected exception and its logs must contain
   exactly one marked `controlled-failure` error.
 - `docker-lease-probe.yml` uses the repository-local raw-wire helper
-  `.github/scripts/workflow_evidence.py docker-probe` and compares per-lane
+  `scripts/workflow_evidence.py docker-probe` and compares per-lane
   Docker lease evidence in a hosted job.
 - `attestation-negative.yml` uses `assert-negative` to assert the expected
   per-lane failure or success conclusion for each negative attestation case.

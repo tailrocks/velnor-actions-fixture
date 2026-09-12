@@ -14,11 +14,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_module(name: str, filename: str):
-    path = ROOT / ".github" / "scripts" / filename
+    path = ROOT / "scripts" / filename
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load {path}")
@@ -33,7 +33,7 @@ workflow_evidence = load_module("workflow_evidence", "workflow_evidence.py")
 
 
 def load_fixture(name: str):
-    path = ROOT / ".github" / "fixtures" / "capability-coverage" / name
+    path = ROOT / "fixtures" / "capability-coverage" / name
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -577,8 +577,8 @@ class CitationTests(unittest.TestCase):
 
     def row(self, evidence):
         return {
-            "producer": [".github/scripts/audit_capability_coverage.py"],
-            "comparator": [".github/scripts/audit_capability_coverage.py"],
+            "producer": ["scripts/audit_capability_coverage.py"],
+            "comparator": ["scripts/audit_capability_coverage.py"],
             "evidence": evidence,
         }
 

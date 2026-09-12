@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-pub const CLOSURE: &str = include_str!("../../../.github/fixtures/l2/closure.json");
+pub const CLOSURE: &str = include_str!("../../../fixtures/l2/closure.json");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClosureEntry {
@@ -150,32 +150,32 @@ mod tests {
     fn every_negative_class_fails_closed() {
         for (fixture, class) in [
             (
-                include_str!("../../../.github/fixtures/l2/mutable-ref.json"),
+                include_str!("../../../fixtures/l2/mutable-ref.json"),
                 "mutable-ref",
             ),
             (
-                include_str!("../../../.github/fixtures/l2/unknown-repository.json"),
+                include_str!("../../../fixtures/l2/unknown-repository.json"),
                 "unknown repository",
             ),
             (
-                include_str!("../../../.github/fixtures/l2/unknown-input.json"),
+                include_str!("../../../fixtures/l2/unknown-input.json"),
                 "unknown-input",
             ),
             (
-                include_str!("../../../.github/fixtures/l2/unknown-subpath.json"),
+                include_str!("../../../fixtures/l2/unknown-subpath.json"),
                 "unknown local action",
             ),
             (
-                include_str!("../../../.github/fixtures/l2/unresolved-expression.json"),
+                include_str!("../../../fixtures/l2/unresolved-expression.json"),
                 "unresolved-expression",
             ),
         ] {
             assert!(validate_closure(fixture).unwrap_err().contains(class));
         }
-        assert!(validate_disposable_lock(include_str!(
-            "../../../.github/fixtures/l2/invalid-mise.lock"
-        ))
-        .unwrap_err()
-        .contains("invalid-disposable-lock"));
+        assert!(
+            validate_disposable_lock(include_str!("../../../fixtures/l2/invalid-mise.lock"))
+                .unwrap_err()
+                .contains("invalid-disposable-lock")
+        );
     }
 }
