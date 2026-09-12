@@ -2,8 +2,8 @@
 schema = 2
 [inputs]
 config	721bf423086120e0
-scan	38bf018f0c26b8fc
-generator	1
+scan	a1cc1f1ddcd668ef
+generator	2
 [outputs]
 .github/actionlint.yaml	ac662d08ffc17121
 .github/actions/aggregate-needs/action.yml	ebcc5cc11afb2e43
