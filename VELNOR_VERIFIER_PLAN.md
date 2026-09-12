@@ -760,3 +760,70 @@ the Velnor plan §1: isolated worktrees, small signed-off commits
 (`git commit -s` + `Co-authored-by: Codex <codex@openai.com>`),
 rebase-before-push, never force-push. No new claims made by this refresh
 (read-only).
+
+## Continuation anchor — Velnor trust/cache finalize `2026-09-12`
+
+Evidence basis: the six Velnor `accept` verdicts and the six non-accept
+final-verification areas arrived as the finalize brief (IDs + finding text,
+no inspectable review bodies — verdicts attributed, not reused as
+evidence). Re-inspected live in this checkout: checked-in
+`coverage/velnor-capabilities.json` still binds `source_sha 6e59b98d…`
+(crate `0.1.274`), so the staleness findings below rest on direct file
+evidence; every other item is attributed to the final-verification report,
+whose full text is the unresolved evidence where not re-inspected. This
+anchor makes no readiness claim — it records why none can be made.
+
+Velnor wave status (from the brief): job-trust-class, gha-cache-prefix-max,
+trust-admission-fork, gha-cache-repo-namespace, gha-cache-fork-isolation,
+and cache-trust-regression are all accepted; remaining implementation scope
+is none. The wave is split across two Velnor lines — the trust half on
+`origin/perf/docker-rust-mbx@0b5448ae`, the cache half on
+`fix/runner-acquisition-intent-recovery@843b9f06` (dirty tree: uncommitted
+acquisition-recovery work) — which have not converged; the red-team F-V1
+finding (trust decision unrecorded for admitted jobs, confirmed in
+perf-line source) BLOCKS any activation relying on admission records.
+Fixture-side consequence: there is no single converged Velnor SHA to bind
+a refreshed baseline to yet — the refresh below must target the converged
+tip once it exists, not either line head alone.
+
+Verifier-coverage findings carried from the report (all open):
+
+- Readiness artifacts stale vs the assigned tip: the `6e59b98d`-bound
+  inventory fails readiness against `perf/docker-rust-mbx@0b5448ae` with
+  21 inventory-drift errors (generator-rev/cache-key churn only;
+  capability binding passes). Fix is procedural: run
+  `just refresh-capability-baseline` against the converged tip — no
+  hand-edit. Blocks any readiness claim until done. The red-team F-A1 note
+  agrees (all 25 inventory hashes match the declared baseline; v13 content
+  identity holds across baseline→perf→fix-HEAD for `manifest.rs`/`action.rs`).
+- No live dual-lane verdict, deployed image identity, fault/soak proof, or
+  benchmark validation accepted at any anchor (plan-declared open V2/V4/V6);
+  the fixture contains no benchmark-validation logic (required by
+  Gates/invariant 7).
+- Plan staleness in this file: Velnor-side surface defects 1–3
+  (`submodules`/`setup-python`/`clean`/`fetch-tags`) are fixed at the perf
+  tip (`CHECKOUT_SUPPORTED_INPUTS` corrected, submodules asserted
+  unsupported, `expected_target_uses` cleaned) but still listed open above
+  — re-verify against the converged tip and close in the next plan edit.
+- No automated generated-`.github` drift gate exists fixture-side (header
+  comments only); the generator's `has_drift` is never invoked from
+  `scripts/` or workflows.
+- `compare-evidence` self-documents that runner-reported
+  `VELNOR_SOURCE_SHA` is shape/consistency-checked only, not authenticated
+  against the release binary; independent runner/release attestation is
+  still required at that trust boundary.
+
+Other non-accept areas relevant fixture-side: semantic-parity gaps (mixed
+post-action ordering, `failure()`/`success()`/`cancelled()` branches,
+stdout workflow commands, `hashFiles` flag, matchers, unsecure opt-ins) and
+the reliability gaps (step-log publisher timeouts, V4 live cancel/timeout)
+are Velnor-owned but need dual-lane pins here before any parity claim; the
+Rust/Docker performance area confirms no product benchmark exists (BC-27)
+and V5/V6 validation is pending.
+
+Status: branch clean at `8b1ced8` before this anchor; no fixture code
+changed by the finalize. Next bounded work, in order: wait for the Velnor
+F-V1 fix + line convergence → `just refresh-capability-baseline` against
+the converged tip → close surface defects 1–3 → V1/V2 live dual-lane
+execution. Readiness remains blocked on the refresh plus V2/V4/V6 live
+evidence.
