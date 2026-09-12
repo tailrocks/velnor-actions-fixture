@@ -433,26 +433,35 @@ loosened to hide stale identity.
 
 ## Velnor-side capability surface defects (reported, not edited)
 
-Confirmed against `perf/docker-rust-mbx`. None is fixed here; this repository
-does not write to the runner.
+Reported against `perf/docker-rust-mbx`; none was fixed here — this repository
+does not write to the runner. All three were re-verified fixed at the
+converged tip `d7dc92dfdbb7f18ea9a0fe948366f4630f386c6a`
+(`origin/perf/docker-rust-mbx`) on 2026-09-12 and are CLOSED. Line numbers
+below are at that commit.
 
-1. `crates/velnor-tools/src/main.rs:2375` lists `submodules` among the
-   `actions/checkout` inputs `target_audit` treats as supported. The manifest's
-   checkout rule set has no `submodules` entry, and `validate_inputs` raises a
-   violation for any input with no matching rule, so admission rejects it. The
-   audit greenlights a target the runner will refuse.
-2. `crates/velnor-tools/src/main.rs:2520` records `actions/setup-python` in
-   `expected_target_uses()`, the surface `target_audit` asserts and then prints
-   "target audit passed" for. No `actions/setup-python` capability exists in the
-   manifest, so that surface is unadmitted. `baptiste0928/cargo-install` and
-   `dtolnay/rust-toolchain` in the same list have the same problem.
-3. `clean` and `fetch-tags` are admitted by the manifest
-   (`InputRule::Literal("clean", …)`, `InputRule::Literal("fetch-tags", …)`) and
-   honoured by the checkout implementation (`checkout.rs:136-138`), but are
-   absent from that same supported list, so `collect_step` records them as
-   unsupported and `target_audit` bails at the `unsupported target workflow
-   surface` check. A target using either input is rejected by the audit for
-   using something the runner supports.
+1. CLOSED — `crates/velnor-tools/src/main.rs:2150-2160`
+   (`CHECKOUT_SUPPORTED_INPUTS`) no longer lists `submodules`; it holds
+   exactly the nine manifest-backed inputs. The manifest checkout rule set
+   (`crates/velnor-runner/src/manifest.rs:452-462`) has no `submodules` entry
+   (zero `submodules` hits in `manifest.rs`/`action.rs`), and
+   `collect_step` (`main.rs:2401-2412`) still records unlisted inputs as
+   unsupported, so a `submodules: recursive` step is now correctly reported as
+   `unsupported actions/checkout input submodules` (`main.rs:4914-4927`).
+2. CLOSED — `expected_target_uses()` (`main.rs:2539-2562`) no longer records
+   `actions/setup-python`, `baptiste0928/cargo-install`, or
+   `dtolnay/rust-toolchain` (zero hits for any of the three in `main.rs`;
+   none has a capability in `manifest.rs`). The guard test
+   `target_capability_surface_stays_backed_by_runner_manifest`
+   (`main.rs:4848-4928`) asserts every advertised use is admitted by the
+   manifest (`main.rs:4857-4866`) and passes at the converged tip.
+3. CLOSED — `clean` and `fetch-tags` are now in the supported list
+   (`main.rs:2156-2157`), matching the manifest
+   (`InputRule::Literal("clean", …)` at `manifest.rs:458`,
+   `InputRule::Literal("fetch-tags", …)` at `manifest.rs:460`) and the
+   checkout implementation (`checkout.rs:136,138`). The guard test asserts
+   advertised checkout inputs equal the manifest rule set exactly
+   (`main.rs:4872-4889`) and accepts all nine (`main.rs:4891-4911`), so this
+   skew class is structurally closed.
 
 ## Continuation anchor — verifier identity refresh `3d08299`
 
@@ -827,3 +836,48 @@ F-V1 fix + line convergence → `just refresh-capability-baseline` against
 the converged tip → close surface defects 1–3 → V1/V2 live dual-lane
 execution. Readiness remains blocked on the refresh plus V2/V4/V6 live
 evidence.
+
+## Continuation anchor — converged-tip baseline refresh `2026-09-12`
+
+Evidence basis: direct execution in an isolated fixture worktree on
+2026-09-12 against Velnor `origin/perf/docker-rust-mbx` =
+`d7dc92dfdbb7f18ea9a0fe948366f4630f386c6a` (the converged
+perf+fix+main tip: merges `02c2e9db` + `0f2b02f5` plus §104 record; verified
+`git rev-parse origin/perf/docker-rust-mbx` agrees and the worktree HEAD is
+exactly that SHA, clean).
+
+Refresh: `VELNOR_SOURCE_DIR=<converged checkout> just
+refresh-capability-baseline` — procedural, no hand-edit of generated
+artifacts. Result: manifest v13 / crate `0.1.274`, capability identity
+`79a3a913b2e182b01ca2e40ea5478f7474bc5d5914957418581a2cd4c73cb785`
+(unchanged — the convergence changed no capability content), source
+provenance `6e59b98d…` → `d7dc92df…`. Files rewritten by the tool:
+`coverage/velnor-capabilities.json` (source SHA only),
+`coverage/source-workflow-inventory.json` + `.md` (regenerated hashes).
+`coverage/fixture-coverage.json` untouched — its manifest stamp still
+matches, confirming zero surface drift.
+
+Readiness: `just capability-audit` against the converged checkout passes
+with zero drift errors (the refresh recipe's post-refresh gate also
+passed); `just audit-workflows` passes. The 21 inventory-drift errors from
+the prior anchor are gone — they were the `6e59b98d`-bound inventory vs the
+moved tip, resolved by regeneration.
+
+Defects: Velnor-side surface defects 1–3 closed above, re-verified at the
+converged tip with file cites (manifest checkout rules
+`manifest.rs:452-462`; `CHECKOUT_SUPPORTED_INPUTS` `main.rs:2150-2160`;
+`expected_target_uses` `main.rs:2539-2562`; `collect_step`
+`main.rs:2401-2412`; `checkout.rs:136,138`). Guard test
+`velnor-tools::tests::target_capability_surface_stays_backed_by_runner_manifest`
+passes at the converged tip (1 passed / 0 failed), structurally closing
+the audit-vs-manifest skew class. This resolves the plan staleness noted
+in the prior anchor.
+
+Still open, unchanged: no live dual-lane verdict, deployed image
+identity, fault/soak proof, or benchmark validation accepted at any
+anchor (V2/V4/V6); no automated generated-`.github` drift gate
+fixture-side; runner-reported `VELNOR_SOURCE_SHA` unauthenticated at the
+`compare-evidence` boundary; Velnor-owned semantic-parity and reliability
+gaps need dual-lane pins here. Next bounded work: V1 Rust matrix and V2
+live dual-lane execution — all unclaimed. No readiness claim is made by
+this refresh (static/provenance evidence only).
