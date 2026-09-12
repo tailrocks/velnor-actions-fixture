@@ -1,0 +1,4 @@
+schema = 1
+
+[generator]
+repository = "tailrocks/velnor-actions-fixture"
