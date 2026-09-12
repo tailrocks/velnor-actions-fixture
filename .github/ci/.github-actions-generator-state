@@ -16,9 +16,9 @@ schema = 1
 .github/ci/workflow-templates/app-token-probe.yml	2699fe0003d1e4a0
 .github/ci/workflow-templates/attestation-negative.yml	2c22a33f6cd7019c
 .github/ci/workflow-templates/backend-parity.yml	c4d126bf552fdead
-.github/ci/workflow-templates/ci.yml	562dd075b7ea5fb8
+.github/ci/workflow-templates/ci.yml	9a2770ae76b1f480
 .github/ci/workflow-templates/compat-public-unmerged.yml	8a87ac8f0fc8fdd8
-.github/ci/workflow-templates/compat.yml	b42679a623d5d10e
+.github/ci/workflow-templates/compat.yml	5bf318dd40837275
 .github/ci/workflow-templates/control-plane.yml	af843255b853209f
 .github/ci/workflow-templates/docker-lease-probe.yml	3dd36332efcd0e65
 .github/ci/workflow-templates/docker.yml	2ce26299003ad2b8
@@ -28,9 +28,10 @@ schema = 1
 .github/ci/workflow-templates/l2-runtime.yml	c14827d401010f29
 .github/ci/workflow-templates/multi-arch.yml	fafe2112898f4a8f
 .github/ci/workflow-templates/pages.yml	5e52f4d28eca707d
-.github/ci/workflow-templates/renovate.yml	0ce4bec10af08475
+.github/ci/workflow-templates/renovate.yml	08ee723a9e5ae76a
 .github/ci/workflow-templates/reuse-caller.yml	0e24bed4e945a345
 .github/ci/workflow-templates/schedule.yml	c04a1f40973ac3af
+.github/workflows/AGENTS.md	81c8ab9ea68cc549
 .github/workflows/_actions-suite.yml	d25b865603f9e10d
 .github/workflows/_docker-suite.yml	4339f9dfb003e8de
 .github/workflows/_runtime-suite.yml	5d78094b80737269
@@ -38,9 +39,9 @@ schema = 1
 .github/workflows/app-token-probe.yml	2699fe0003d1e4a0
 .github/workflows/attestation-negative.yml	2c22a33f6cd7019c
 .github/workflows/backend-parity.yml	c4d126bf552fdead
-.github/workflows/ci.yml	562dd075b7ea5fb8
+.github/workflows/ci.yml	9a2770ae76b1f480
 .github/workflows/compat-public-unmerged.yml	8a87ac8f0fc8fdd8
-.github/workflows/compat.yml	b42679a623d5d10e
+.github/workflows/compat.yml	5bf318dd40837275
 .github/workflows/control-plane.yml	af843255b853209f
 .github/workflows/docker-lease-probe.yml	3dd36332efcd0e65
 .github/workflows/docker.yml	2ce26299003ad2b8
@@ -50,6 +51,6 @@ schema = 1
 .github/workflows/l2-runtime.yml	c14827d401010f29
 .github/workflows/multi-arch.yml	fafe2112898f4a8f
 .github/workflows/pages.yml	5e52f4d28eca707d
-.github/workflows/renovate.yml	0ce4bec10af08475
+.github/workflows/renovate.yml	08ee723a9e5ae76a
 .github/workflows/reuse-caller.yml	0e24bed4e945a345
 .github/workflows/schedule.yml	c04a1f40973ac3af

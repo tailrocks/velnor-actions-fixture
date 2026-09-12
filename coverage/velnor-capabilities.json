@@ -1,6 +1,6 @@
 {
   "version": 13,
-  "source_sha": "5c7781a05f4aec07e30b648c3af1e3328d668b8c",
+  "source_sha": "eafd266a151153b371d33357dcd34335719076ad",
   "crate_version": "0.1.274",
   "actions": [
     {
@@ -349,6 +349,7 @@
       "repository": "renovatebot/github-action",
       "adapter": "Native(Renovate)",
       "allowed_refs": [
+        "37beffda261423addd537c33f2d126df7f6ffbab",
         "39b914146caeff8cd512e61c8992f1d5913af85c",
         "5402b206248e5a8c8427a15102702eb9c1793efc",
         "0a7b68676027570f113b1d6e7b69b231b56167ab",
@@ -531,5 +532,5 @@
       "notes": "server-expanded reusable workflow; identity/full-SHA/inputs admitted, jobs.<id>.uses never parsed as a runner action"
     }
   ],
-  "capability_id": "15e1cfdfbee9e3eeabde796f881a1b86f4e456326793aef90df122c864552207"
+  "capability_id": "79a3a913b2e182b01ca2e40ea5478f7474bc5d5914957418581a2cd4c73cb785"
 }
