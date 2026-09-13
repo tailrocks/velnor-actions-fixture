@@ -37,7 +37,7 @@
         "bounded": "job timeout-minutes 20; single git invocation, no retry loop",
         "diagnostics": "steps observation carries the failure; stderr retained in the job log",
         "github_result": "step outcome failure on both lanes via continue-on-error",
-        "no_contamination": "read-only remote probe; nothing written outside the job workspace",
+        "no_contamination": "dry-run push probe; nothing written to the remote or outside the job workspace",
         "no_orphans": "no processes or objects created",
         "recoverable": "healthy-after-faults step succeeds after the contained fault"
       },
@@ -47,7 +47,7 @@
         "job": "step-faults",
         "markers": [
           "fail-auth",
-          "git ls-remote",
+          "git push --dry-run",
           "hygiene=ok"
         ],
         "workflow": "fault-suite.yml"
@@ -269,21 +269,21 @@
     },
     {
       "assertions": {
-        "bounded": "job timeout-minutes 15; unroutable registry fails fast at setup",
-        "diagnostics": "assert job reports per-lane conclusions; run logs retained",
-        "github_result": "job outcome failure contained to success via job-level continue-on-error; must-not-run never executes and a setup step fails on every lane",
-        "no_contamination": "nothing runs, so nothing is shared",
+        "bounded": "job timeout-minutes 15; unroutable registry fails the pull fast",
+        "diagnostics": "step outcome asserted in-job; run logs retained",
+        "github_result": "step outcome failure on both lanes via continue-on-error; the job stays green",
+        "no_contamination": "the failed pull shares nothing; no container ever starts",
         "no_orphans": "no container ever starts; nothing to reap",
-        "recoverable": "sibling assert job runs via always() and fails closed when any lane misbehaves"
+        "recoverable": "the in-job assert runs after the contained fault and fails closed when the pull unexpectedly succeeds"
       },
       "goal": "service readiness failure",
       "id": "service-readiness-failure",
       "probe": {
         "job": "service-failure",
         "markers": [
-          "must-not-run",
+          "pull-service-image",
           "example.invalid",
-          "service failure ({lane})"
+          "docker pull"
         ],
         "workflow": "fault-suite.yml"
       },
@@ -340,7 +340,7 @@
       "assertions": {
         "bounded": "jobs timeout-minutes 10 each; fixed tiny payload",
         "diagnostics": "sha256 of restored content compared verbatim across lanes",
-        "github_result": "restore-miss degrades (cache-hit false, job continues); roundtrip hits with identical hash",
+        "github_result": "restore-miss degrades (cache-hit not true, job continues); roundtrip hits with identical hash",
         "no_contamination": "run-scoped cache keys; restore-miss uses an absent key",
         "no_orphans": "tiny payload only; GitHub cache eviction owns lifecycle",
         "recoverable": "miss never fails the job; save then verify proves the writable path"

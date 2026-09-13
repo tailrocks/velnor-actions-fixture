@@ -103,7 +103,11 @@ jobs:
         run: |
           set -uo pipefail
           code=0
-          git ls-remote "https://velnor-fixture:${FIXTURE_EXPIRED_TOKEN}@github.com/tailrocks/velnor-actions-fixture.git" HEAD 2>auth-stderr.txt || code=$?
+          # Push, not ls-remote: public reads need no auth, so ls-remote
+          # succeeds with a bogus token. Push requires write auth on every
+          # repo, so the expired credential is rejected; --dry-run writes
+          # nothing (belt and braces: the credential could not write anyway).
+          git push --dry-run "https://velnor-fixture:${FIXTURE_EXPIRED_TOKEN}@github.com/tailrocks/velnor-actions-fixture.git" HEAD:refs/heads/fault-suite-auth-probe-never-pushed 2>auth-stderr.txt || code=$?
           if [[ "${code}" -ne 0 ]]; then
             echo "auth_failed=true" > auth-verdict.txt
           else
@@ -311,7 +315,9 @@ jobs:
         run: |
           set -euo pipefail
           test "${RESTORE_OUTCOME}" = success
-          test "${CACHE_HIT}" = false
+          # actions/cache/restore leaves cache-hit empty (not "false") on a
+          # miss, so the miss signal is not-true rather than literally false.
+          test "${CACHE_HIT}" != true
           printf 'cache_hit=false\n' > miss-verdict.txt
       - name: Dump runner-computed step outcomes
         if: always()
@@ -435,14 +441,13 @@ jobs:
           path: evidence/result.json
           if-no-files-found: error
 
-  # The service image below never resolves, so this job fails at setup on
-  # every lane before any step runs. Job-level continue-on-error contains the
-  # expected failure (l2-negative probe pattern); the sibling assert job
-  # proves fail-before-effect from the jobs API: the run stays green only
-  # when must-not-run never executed and a setup step failed on every lane.
+  # The service image below never resolves, so the pull fails fast on every
+  # lane. A services: probe would die in Initialize-containers, which
+  # job-level continue-on-error cannot contain (permanent red by design), so
+  # the fault is injected from a run step with step-level continue-on-error
+  # and asserted from the runner-computed step outcome.
   service-failure:
     name: service failure (${{ matrix.config.lane }})
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -452,79 +457,21 @@ jobs:
     concurrency:
       group: fault-suite-${{ github.run_id }}-service-failure-${{ matrix.config.lane }}
       cancel-in-progress: false
-    services:
-      broken:
-        image: example.invalid/fault-suite-absent:never
-    steps:
-      - name: must-not-run
-        run: |
-          echo "service setup was supposed to fail before any step" >&2
-          exit 1
-
-  assert-service-failure:
-    name: assert service failure
-    needs: [service-failure]
-    if: always()
-    runs-on: ubuntu-26.04
-    timeout-minutes: 10
-    concurrency:
-      group: fault-suite-${{ github.run_id }}-assert-service
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      actions: read
     env:
-      GH_TOKEN: ${{ github.token }}
-      IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
-      DISPATCH_LANES: ${{ github.event_name == 'workflow_dispatch' && inputs.lanes || 'both' }}
+      # example.invalid never resolves: the pull fails deterministically on
+      # every lane and needs no network beyond the failed lookup itself.
+      ABSENT_SERVICE_IMAGE: example.invalid/fault-suite-absent:never
     steps:
-      - name: Assert every lane failed before any step
+      - id: pull-service-image
+        name: Fail the unpullable service image pull
+        continue-on-error: true
+        run: docker pull "${ABSENT_SERVICE_IMAGE}"
+      - name: Assert the service image pull failed
+        env:
+          OUTCOME_PULL: ${{ steps.pull-service-image.outcome }}
         run: |
           set -euo pipefail
-          lanes=()
-          if [[ "${IS_FORK}" == "true" || "${DISPATCH_LANES}" == "github" ]]; then
-            lanes=("GitHub")
-          elif [[ "${DISPATCH_LANES}" == "velnor" ]]; then
-            lanes=("Velnor")
-          else
-            lanes=("GitHub" "Velnor")
-          fi
-          jobs_file="$(mktemp)"
-          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" > "${jobs_file}"
-          python3 "${jobs_file}" "${lanes[@]}" <<'PY'
-          import json
-          import sys
-
-          with open(sys.argv[1], encoding="utf-8") as handle:
-              jobs = json.load(handle)["jobs"]
-          code = 0
-          for lane in sys.argv[2:]:
-              name = f"service failure ({lane})"
-              matches = [job for job in jobs if job["name"] == name]
-              if len(matches) != 1:
-                  print(f"::error::expected exactly one job {name!r}, found {len(matches)}")
-                  code = 1
-                  continue
-              job = matches[0]
-              # continue-on-error contains the expected setup failure, so the
-              # job concludes success; anything else means the probe itself
-              # broke (cancelled, wedged) rather than measured the fault.
-              if job["conclusion"] != "success":
-                  print(f"::error::{name}: want contained success, got {job['conclusion']!r}")
-                  code = 1
-                  continue
-              steps = job.get("steps", [])
-              names = [step["name"] for step in steps]
-              if "must-not-run" in names:
-                  print(f"::error::{name}: must-not-run executed; setup did not fail first")
-                  code = 1
-              elif not any(step.get("conclusion") == "failure" for step in steps):
-                  print(f"::error::{name}: no failed setup step; the fault was not measured")
-                  code = 1
-              else:
-                  print(f"::notice::{name}: failed before effect as required")
-          sys.exit(code)
-          PY
+          test "${OUTCOME_PULL}" = failure
 
   # Cancellation races need a victim run to cancel, which only an API-driven
   # dispatcher can provide. Each matrix leg races one lane: cancel mid-step
