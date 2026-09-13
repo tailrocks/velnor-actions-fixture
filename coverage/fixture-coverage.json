@@ -966,6 +966,7 @@
       "_rust-suite.yml",
       "backend-parity.yml",
       "ci.yml",
+      "command-surface.yml",
       "compat-public-unmerged.yml",
       "compat.yml",
       "control-plane.yml",
@@ -978,7 +979,8 @@
       "pages.yml",
       "renovate.yml",
       "reuse-caller.yml",
-      "schedule.yml"
+      "schedule.yml",
+      "status-conditions.yml"
     ],
     "negative": {
       "attestation-negative.yml": "attestation rejection probe",
