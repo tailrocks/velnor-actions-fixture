@@ -943,3 +943,18 @@ Velnor-owned semantic-parity and reliability gaps need dual-lane pins here.
 Next bounded work: V1 Rust matrix and V2 live dual-lane execution — all
 unclaimed. No readiness claim is made by this refresh (static/provenance
 evidence only).
+
+## Correction note `2026-09-13` — baseline re-targeted to pinned runner `6e59b98d`
+
+The `1d03c9d2` refresh above was wrongly targeted: fixture CI tests the
+pinned runner `6e59b98d5d1a6d42017465b045554a18d97d7e68`
+(`VELNOR_SOURCE_SHA` in `.github/workflows/ci.yml`), and the readiness
+audit fails closed on a baseline/pin mismatch. The capability baseline
+(`coverage/velnor-capabilities.json` +
+`coverage/source-workflow-inventory.json`/`.md`) was regenerated
+procedurally — `VELNOR_SOURCE_DIR=<6e59b98d checkout>
+VELNOR_SOURCE_SHA=6e59b98d… just refresh-capability-baseline`, no
+hand-edit — back to source provenance `6e59b98d…` (capability identity
+unchanged). `just capability-audit` against the pinned checkout passes.
+Pin advancement belongs to a separate effort (`wp15-pin-advance` branch),
+never to this baseline fix.
