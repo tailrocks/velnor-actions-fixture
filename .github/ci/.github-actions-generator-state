@@ -30,7 +30,7 @@ generator	4
 .github/ci/workflow-templates/fixture-rust-check.yml	26a9cc1126f91f1e
 .github/ci/workflow-templates/l2-negative.yml	29c6aa1644ad8fcc
 .github/ci/workflow-templates/l2-provenance.yml	ce571065d1932c6a
-.github/ci/workflow-templates/l2-runtime.yml	c14827d401010f29
+.github/ci/workflow-templates/l2-runtime.yml	075a40ec085d7212
 .github/ci/workflow-templates/multi-arch.yml	fafe2112898f4a8f
 .github/ci/workflow-templates/pages.yml	5e52f4d28eca707d
 .github/ci/workflow-templates/renovate.yml	08ee723a9e5ae76a
@@ -53,7 +53,7 @@ generator	4
 .github/workflows/fixture-rust-check.yml	26a9cc1126f91f1e
 .github/workflows/l2-negative.yml	29c6aa1644ad8fcc
 .github/workflows/l2-provenance.yml	ce571065d1932c6a
-.github/workflows/l2-runtime.yml	c14827d401010f29
+.github/workflows/l2-runtime.yml	075a40ec085d7212
 .github/workflows/multi-arch.yml	fafe2112898f4a8f
 .github/workflows/pages.yml	5e52f4d28eca707d
 .github/workflows/renovate.yml	08ee723a9e5ae76a
