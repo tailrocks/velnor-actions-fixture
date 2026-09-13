@@ -437,7 +437,12 @@ Reported against `perf/docker-rust-mbx`; none was fixed here — this repository
 does not write to the runner. All three were re-verified fixed at the
 converged tip `d7dc92dfdbb7f18ea9a0fe948366f4630f386c6a`
 (`origin/perf/docker-rust-mbx`) on 2026-09-12 and are CLOSED. Line numbers
-below are at that commit.
+below are at that commit, and still hold at
+`1d03c9d245b7640bd7439d493fdec36a6e39cbce` (the only
+`d7dc92df..1d03c9d2` changes are `executor.rs`, `trust_class.rs`, and plan
+prose — `main.rs`, `manifest.rs`, `action.rs`, and `checkout.rs` are
+byte-identical; the guard test passes at the new tip, see the latest
+anchor).
 
 1. CLOSED — `crates/velnor-tools/src/main.rs:2150-2160`
    (`CHECKOUT_SUPPORTED_INPUTS`) no longer lists `submodules`; it holds
@@ -881,3 +886,75 @@ fixture-side; runner-reported `VELNOR_SOURCE_SHA` unauthenticated at the
 gaps need dual-lane pins here. Next bounded work: V1 Rust matrix and V2
 live dual-lane execution — all unclaimed. No readiness claim is made by
 this refresh (static/provenance evidence only).
+
+## Continuation anchor — converged-tip re-refresh `1d03c9d2` `2026-09-12`
+
+Evidence basis: direct execution in an isolated fixture worktree on
+2026-09-12 against Velnor `origin/perf/docker-rust-mbx` =
+`1d03c9d245b7640bd7439d493fdec36a6e39cbce` (verified `git rev-parse
+origin/perf/docker-rust-mbx` agrees and the source worktree HEAD is exactly
+that SHA, clean; `origin/fix/runner-acquisition-intent-recovery` is deleted
+— its line converged into perf via `02c2e9db`).
+
+Why a re-refresh was due: the prior anchor's refresh (to `d7dc92df`) did
+not survive onto `origin/main` — main's `coverage/velnor-capabilities.json`
+still bound `6e59b98d`, so readiness against the converged tip failed with
+21 inventory-drift errors (1 source-SHA mismatch + 20 changed workflow
+digests; capability binding passed). The perf tip had also advanced
+`d7dc92df..1d03c9d2` (telemetry-fixture adaptation `96e4b460`, merge
+`c2ff9138`, plan prose) — none of it capability content.
+
+Refresh: `VELNOR_SOURCE_DIR=<1d03c9d2 checkout> just
+refresh-capability-baseline` — procedural, no hand-edit of generated
+artifacts. Result: manifest v13 / crate `0.1.274`, capability identity
+`79a3a913b2e182b01ca2e40ea5478f7474bc5d5914957418581a2cd4c73cb785`
+(unchanged), source provenance `6e59b98d…` → `1d03c9d2…`. Files rewritten
+by the tool: `coverage/velnor-capabilities.json` (source SHA only),
+`coverage/source-workflow-inventory.json` + `.md` (source SHA + sha256
+hashes only; mappings/uses unchanged).
+`coverage/fixture-coverage.json` untouched — its manifest stamp still
+matches, confirming zero surface drift.
+
+Readiness: `just capability-audit` against the `1d03c9d2` checkout passes
+with zero drift errors (the refresh recipe's post-refresh gate also
+passed); `just capability-contract` and `just audit-workflows` pass; the
+21 drift errors are gone.
+
+Defects: Velnor-side surface defects 1–3 stay CLOSED at `1d03c9d2` —
+re-verified by inspection (`CHECKOUT_SUPPORTED_INPUTS` `main.rs:2150-2160`
+holds exactly the nine manifest-backed inputs; zero `submodules` hits in
+`manifest.rs`/`action.rs` with the 7 `main.rs` hits all in the guard test
+asserting the unsupported-input report; zero `setup-python` /
+`cargo-install` / `rust-toolchain` hits in `main.rs`; `clean` /
+`fetch-tags` match the manifest literals) and by execution:
+`velnor-tools::tests::target_capability_surface_stays_backed_by_runner_manifest`
+passes at the new tip (1 passed / 0 failed).
+
+Gates run in the refresh worktree, all green: capability-audit,
+capability-contract, audit-workflows, python-test, python-check, fmt-check,
+workspace Clippy with warnings denied, rust-check, nextest workspace (54
+passed), l2-closure.
+
+Still open, unchanged: no live dual-lane verdict, deployed image identity,
+fault/soak proof, or benchmark validation accepted at any anchor (V2/V4/V6);
+no automated generated-`.github` drift gate fixture-side; runner-reported
+`VELNOR_SOURCE_SHA` unauthenticated at the `compare-evidence` boundary;
+Velnor-owned semantic-parity and reliability gaps need dual-lane pins here.
+Next bounded work: V1 Rust matrix and V2 live dual-lane execution — all
+unclaimed. No readiness claim is made by this refresh (static/provenance
+evidence only).
+
+## Correction note `2026-09-13` — baseline re-targeted to pinned runner `6e59b98d`
+
+The `1d03c9d2` refresh above was wrongly targeted: fixture CI tests the
+pinned runner `6e59b98d5d1a6d42017465b045554a18d97d7e68`
+(`VELNOR_SOURCE_SHA` in `.github/workflows/ci.yml`), and the readiness
+audit fails closed on a baseline/pin mismatch. The capability baseline
+(`coverage/velnor-capabilities.json` +
+`coverage/source-workflow-inventory.json`/`.md`) was regenerated
+procedurally — `VELNOR_SOURCE_DIR=<6e59b98d checkout>
+VELNOR_SOURCE_SHA=6e59b98d… just refresh-capability-baseline`, no
+hand-edit — back to source provenance `6e59b98d…` (capability identity
+unchanged). `just capability-audit` against the pinned checkout passes.
+Pin advancement belongs to a separate effort (`wp15-pin-advance` branch),
+never to this baseline fix.
