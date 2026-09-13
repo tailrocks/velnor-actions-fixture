@@ -232,6 +232,20 @@ class WorkflowPolicyTests(unittest.TestCase):
         failures = workflow_audit.pages_policy_failures({"pages.yml": text})
         self.assertIn("only push, GitHub dispatch", "\n".join(failures))
 
+    def test_config_matrix_fromjson_lines_contain_no_backslashes(self):
+        # GitHub expression strings treat backslash literally, so a
+        # backslash-escaped quote inside format() reaches fromJSON verbatim
+        # and the whole matrix evaluates to zero legs. The dual-lane config
+        # lines must carry raw JSON in single quotes instead.
+        checked = 0
+        for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+            for number, line in enumerate(path.read_text().splitlines(), 1):
+                if line.strip().startswith("config:") and "fromJSON" in line:
+                    checked += 1
+                    with self.subTest(workflow=path.name, line=number):
+                        self.assertNotIn("\\", line)
+        self.assertGreater(checked, 0)
+
 
 class SurfaceCoverageTests(unittest.TestCase):
     manifest_actions = {

@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"},{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]')) }}
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 20
     concurrency:
@@ -174,7 +174,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"},{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]')) }}
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 20
     concurrency:
@@ -280,7 +280,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"},{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]')) }}
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     concurrency:
@@ -348,7 +348,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"},{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]')) }}
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 10
     concurrency:
@@ -374,7 +374,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"},{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]')) }}
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 10
     concurrency:
@@ -446,7 +446,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"},{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]')) }}
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
     runs-on: ${{ matrix.config.runner }}
     timeout-minutes: 15
     concurrency:
@@ -529,11 +529,13 @@ jobs:
   # Cancellation races need a victim run to cancel, which only an API-driven
   # dispatcher can provide. Each matrix leg races one lane: cancel mid-step
   # (the sleep is provably executing first) and cancel-before-start, then
-  # asserts the runner-computed conclusions. Fork tokens are read-only, so
-  # this job skips fork pull requests.
+  # asserts the runner-computed conclusions. gh workflow run by filename
+  # resolves the victim on main, so pre-merge dispatch 404s: this job runs
+  # post-merge only (main push/schedule behind the main-head gate) and
+  # dispatches --ref main like rejection-schedule.yml.
   cancel-victim:
     name: cancel race (${{ matrix.victim }} victim)
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && github.ref == 'refs/heads/main' }}
     strategy:
       fail-fast: false
       matrix:
@@ -549,7 +551,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       VICTIM_LANE: ${{ matrix.victim }}
-      HEAD_REF: ${{ github.head_ref || github.ref_name }}
     steps:
       - name: Race cancellation against one lane victim
         run: |
@@ -559,7 +560,7 @@ jobs:
           # only when its jobs name our victim lane.
           find_mine() {
             local floor="$1" exclude="${2:-}" ids id
-            ids="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow fault-cancel-target.yml --branch "${HEAD_REF}" --limit 20 --json databaseId,createdAt,event --jq "[.[] | select(.event == \"workflow_dispatch\") | select(.createdAt >= \"${floor}\")] | sort_by(.createdAt) | .[].databaseId")"
+            ids="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow fault-cancel-target.yml --branch main --limit 20 --json databaseId,createdAt,event --jq "[.[] | select(.event == \"workflow_dispatch\") | select(.createdAt >= \"${floor}\")] | sort_by(.createdAt) | .[].databaseId")"
             for id in ${ids}; do
               if [[ "${id}" == "${exclude}" ]]; then continue; fi
               if gh api --repo "${GITHUB_REPOSITORY}" "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=10" --jq -e "[.jobs[].name] | any(. == \"victim (${VICTIM_LANE})\")" >/dev/null 2>&1; then
@@ -571,7 +572,7 @@ jobs:
           }
           floor="$(date -u -d '2 minutes ago' +%FT%TZ)"
           echo "dispatching in-progress victim on lane ${VICTIM_LANE}"
-          gh workflow run fault-cancel-target.yml --repo "${GITHUB_REPOSITORY}" --ref "${HEAD_REF}" -f lanes="${VICTIM_LANE}" >/dev/null
+          gh workflow run fault-cancel-target.yml --repo "${GITHUB_REPOSITORY}" --ref main -f lanes="${VICTIM_LANE}" >/dev/null
           victim=""
           deadline=$(( $(date +%s) + 180 ))
           while [[ "$(date +%s)" -lt "${deadline}" ]]; do
@@ -625,7 +626,7 @@ jobs:
           # Second race: cancel before start. Whatever wins, no step may run.
           echo "dispatching queued-victim on lane ${VICTIM_LANE}"
           floor="$(date -u -d '2 minutes ago' +%FT%TZ)"
-          gh workflow run fault-cancel-target.yml --repo "${GITHUB_REPOSITORY}" --ref "${HEAD_REF}" -f lanes="${VICTIM_LANE}" >/dev/null
+          gh workflow run fault-cancel-target.yml --repo "${GITHUB_REPOSITORY}" --ref main -f lanes="${VICTIM_LANE}" >/dev/null
           queued=""
           deadline=$(( $(date +%s) + 180 ))
           while [[ "$(date +%s)" -lt "${deadline}" ]]; do

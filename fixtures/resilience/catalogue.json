@@ -430,16 +430,9 @@
       },
       "goal": "cancellation race",
       "id": "cancellation-race",
-      "probe": {
-        "workflow": "fault-suite.yml",
-        "job": "cancel-victim",
-        "markers": [
-          "fault-cancel-target.yml",
-          "cancelled-marker"
-        ]
-      },
+      "owner": "fault-suite.yml cancel-victim on main pushes only: untestable on-PR by GitHub API design (gh workflow run by filename requires fault-cancel-target.yml on main, so pre-merge dispatch 404s)",
       "seam": "workflow",
-      "status": "measured"
+      "status": "declared"
     },
     {
       "assertions": {

@@ -67,8 +67,10 @@ diagnostic checks, not substitutes for mandatory dual-lane proof.
 - `fault-suite.yml` injects workflow-observable faults on both lanes on every
   pull request and main push (failing steps, hung steps, quota-bounded
   writes, absent artifacts, expired auth, absent images, mid-step SIGKILL,
-  cache miss/roundtrip, unstartable services, mid-step and queued
-  cancellation) and compares the containment as v2 evidence.
+  cache miss/roundtrip, unstartable services) and compares the containment
+  as v2 evidence. The mid-step and queued cancellation races run on main
+  pushes only: `gh workflow run` by filename requires the victim on main,
+  so they are untestable on-PR by GitHub API design.
 - `soak-suite.yml` repeats tiny jobs round after round with per-round Docker
   residue census plus repeated warm builds and checkouts, and compares the
   zero-residue, bounded-growth verdict as v2 evidence.
