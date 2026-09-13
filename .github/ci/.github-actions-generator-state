@@ -1,9 +1,9 @@
 # Generated ownership state; do not edit.
 schema = 2
 [inputs]
-config	721bf423086120e0
-scan	a1cc1f1ddcd668ef
-generator	2
+config	60dc0410e15aaea1
+scan	1983ab475e11b661
+generator	4
 [outputs]
 .github/actionlint.yaml	ac662d08ffc17121
 .github/actions/aggregate-needs/action.yml	ebcc5cc11afb2e43
@@ -21,7 +21,7 @@ generator	2
 .github/ci/workflow-templates/app-token-probe.yml	2699fe0003d1e4a0
 .github/ci/workflow-templates/attestation-negative.yml	2c22a33f6cd7019c
 .github/ci/workflow-templates/backend-parity.yml	c4d126bf552fdead
-.github/ci/workflow-templates/ci.yml	ba94ce503845c1f0
+.github/ci/workflow-templates/ci.yml	8086a14c41f66d5c
 .github/ci/workflow-templates/compat-public-unmerged.yml	8a87ac8f0fc8fdd8
 .github/ci/workflow-templates/compat.yml	f17f2f2df72ab4a3
 .github/ci/workflow-templates/control-plane.yml	af843255b853209f
@@ -30,7 +30,7 @@ generator	2
 .github/ci/workflow-templates/fixture-rust-check.yml	26a9cc1126f91f1e
 .github/ci/workflow-templates/l2-negative.yml	29c6aa1644ad8fcc
 .github/ci/workflow-templates/l2-provenance.yml	ce571065d1932c6a
-.github/ci/workflow-templates/l2-runtime.yml	c14827d401010f29
+.github/ci/workflow-templates/l2-runtime.yml	075a40ec085d7212
 .github/ci/workflow-templates/multi-arch.yml	fafe2112898f4a8f
 .github/ci/workflow-templates/pages.yml	5e52f4d28eca707d
 .github/ci/workflow-templates/renovate.yml	08ee723a9e5ae76a
@@ -44,7 +44,7 @@ generator	2
 .github/workflows/app-token-probe.yml	2699fe0003d1e4a0
 .github/workflows/attestation-negative.yml	2c22a33f6cd7019c
 .github/workflows/backend-parity.yml	c4d126bf552fdead
-.github/workflows/ci.yml	ba94ce503845c1f0
+.github/workflows/ci.yml	8086a14c41f66d5c
 .github/workflows/compat-public-unmerged.yml	8a87ac8f0fc8fdd8
 .github/workflows/compat.yml	f17f2f2df72ab4a3
 .github/workflows/control-plane.yml	af843255b853209f
@@ -53,7 +53,7 @@ generator	2
 .github/workflows/fixture-rust-check.yml	26a9cc1126f91f1e
 .github/workflows/l2-negative.yml	29c6aa1644ad8fcc
 .github/workflows/l2-provenance.yml	ce571065d1932c6a
-.github/workflows/l2-runtime.yml	c14827d401010f29
+.github/workflows/l2-runtime.yml	075a40ec085d7212
 .github/workflows/multi-arch.yml	fafe2112898f4a8f
 .github/workflows/pages.yml	5e52f4d28eca707d
 .github/workflows/renovate.yml	08ee723a9e5ae76a
