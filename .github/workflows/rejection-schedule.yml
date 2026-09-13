@@ -1,0 +1,95 @@
+# Repo-owned scheduled driver for the L2 rejection probes. l2-negative.yml
+# cannot run on pull requests by design (admit-default-head requires the
+# main head), so this workflow dispatches all six cases on main pushes and
+# the Sunday schedule and asserts every child run concludes green: the L2
+# probes are self-asserting, so green means every rejection held and red
+# means the fleet admitted something it must refuse. attestation-negative
+# stays dispatch-only (its probe jobs conclude red by design and need
+# generator-side rework) and app-token-probe stays dispatch-only
+# (secret-gated); see fixtures/resilience/catalogue.json. Follows the
+# fixture #143 hand-owned pattern. Not generator output: edit here.
+name: rejection-schedule
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Single flight: case-to-run correlation counts fresh child runs, so two
+# overlapping drives would confuse each other.
+concurrency:
+  group: rejection-schedule-main
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  drive-l2-negatives:
+    name: drive L2 rejection probes
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    concurrency:
+      group: rejection-schedule-${{ github.run_id }}-drive
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Dispatch every L2 negative case and assert green
+        run: |
+          set -euo pipefail
+          floor="$(date -u -d '1 minute ago' +%FT%TZ)"
+          fresh_runs() {
+            gh run list --repo "${GITHUB_REPOSITORY}" --workflow l2-negative.yml --branch main --limit 30 --json databaseId,createdAt,event --jq "[.[] | select(.event == \"workflow_dispatch\") | select(.createdAt >= \"${floor}\")] | sort_by(.createdAt)"
+          }
+          run_ids=""
+          expected=0
+          for case in mutable-ref unknown-repository unknown-input unknown-subpath-input unresolved-expression invalid-lock; do
+            echo "dispatching l2-negative case=${case}"
+            gh workflow run l2-negative.yml --repo "${GITHUB_REPOSITORY}" --ref main -f case="${case}" -f lanes=both >/dev/null
+            expected=$((expected + 1))
+            run_id=""
+            deadline=$(( $(date +%s) + 300 ))
+            while [[ "$(date +%s)" -lt "${deadline}" ]]; do
+              fresh="$(fresh_runs)"
+              if [[ "$(printf '%s' "${fresh}" | jq 'length')" == "${expected}" ]]; then
+                run_id="$(printf '%s' "${fresh}" | jq -r 'last.databaseId')"
+                break
+              fi
+              sleep 10
+            done
+            if [[ -z "${run_id}" ]]; then
+              echo "case=${case}: dispatched run never appeared" >&2
+              exit 1
+            fi
+            echo "case=${case}: run ${run_id}"
+            run_ids="${run_ids} ${case}=${run_id}"
+          done
+          failures=0
+          for pair in ${run_ids}; do
+            case="${pair%%=*}"
+            run_id="${pair##*=}"
+            run_state="unknown"
+            deadline=$(( $(date +%s) + 1500 ))
+            while [[ "$(date +%s)" -lt "${deadline}" ]]; do
+              run_state="$(gh api --repo "${GITHUB_REPOSITORY}" "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '"\(.status)/\(.conclusion // "none")"')"
+              if [[ "${run_state}" == completed/* ]]; then break; fi
+              sleep 15
+            done
+            if [[ "${run_state}" != "completed/success" ]]; then
+              echo "case=${case}: want completed/success, got ${run_state}" >&2
+              failures=$((failures + 1))
+            else
+              echo "case=${case}: rejection held"
+            fi
+          done
+          test "${failures}" = 0

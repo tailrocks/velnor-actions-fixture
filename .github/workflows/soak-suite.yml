@@ -1,0 +1,285 @@
+# Repo-owned dual-lane soak suite (GOAL 47). Runs automatically on pull
+# requests and main pushes with the quick profile, plus the full profile on
+# the Sunday schedule. Each lane repeats tiny jobs round after round while
+# censusing run-labelled Docker objects, workspace bytes, and per-round
+# latency, then repeats warm builds and checkouts; the verdict (zero residue,
+# bounded growth, bounded drift, zero repeat failures) is compared as v2
+# evidence. Runner-process memory/fds/threads and host disk/journal are not
+# observable from a job step and stay velnor-side (velnor-bench soak); see
+# fixtures/resilience/catalogue.json. Follows the fixture #143 hand-owned
+# pattern. Not generator output: edit here.
+name: soak-suite
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '30 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      lanes:
+        description: "velnor | github | both (default: both)"
+        type: choice
+        default: both
+        options: [velnor, github, both]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soak-suite-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  soak-rounds:
+    name: soak rounds (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"},{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]')) }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 45
+    concurrency:
+      group: soak-suite-${{ github.run_id }}-rounds-${{ matrix.config.lane }}
+      cancel-in-progress: false
+    env:
+      LANE: ${{ matrix.config.lane }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - name: Warm up outside the measurement
+        run: |
+          set -euo pipefail
+          # Builds and the first image pull happen once here so round
+          # measurements see steady state, not cold-start growth.
+          mbx build --quiet --locked -p fixture-harness
+          docker pull busybox:1.36 >/dev/null
+          mkdir -p soak
+      - id: rounds
+        name: Run measured soak rounds
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
+            total=30
+          else
+            total=8
+          fi
+          echo "profile_rounds=${total}"
+          : > soak/rounds.ndjson
+          round=0
+          while [[ "${round}" -lt "${total}" ]]; do
+            round=$((round + 1))
+            start_ms="$(date +%s%3N)"
+            mbx run --quiet --locked -p fixture-harness --example cache_payload -- soak "${LANE}" > soak/iter.txt
+            docker run --rm --label "soak-run=${GITHUB_RUN_ID}" busybox:1.36 true
+            containers="$(docker ps -aq --filter "label=soak-run=${GITHUB_RUN_ID}" | wc -l)"
+            networks="$(docker network ls -q --filter "label=soak-run=${GITHUB_RUN_ID}" | wc -l)"
+            images="$(docker image ls -q --filter "label=soak-run=${GITHUB_RUN_ID}" | wc -l)"
+            residue=$((containers + networks + images))
+            if [[ "${residue}" -ne 0 ]]; then
+              echo "round ${round} left ${residue} owned object(s) behind" >&2
+              exit 1
+            fi
+            bytes="$(du -sb . | cut -f1)"
+            end_ms="$(date +%s%3N)"
+            printf '{"round":%d,"ms":%d,"bytes":%d}\n' "${round}" "$((end_ms - start_ms))" "${bytes}" >> soak/rounds.ndjson
+          done
+          python3 - soak/rounds.ndjson soak/verdict.txt <<'PY'
+          import json
+          import statistics
+          import sys
+
+          rounds = [
+              json.loads(line)
+              for line in open(sys.argv[1], encoding="utf-8")
+              if line.strip()
+          ]
+          assert len(rounds) >= 3, "soak needs at least 3 rounds for a trend"
+          first = rounds[0]["bytes"]
+          last = rounds[-1]["bytes"]
+          growth = "growth" if last > first + 10 * 1024 * 1024 else "flat"
+          half = len(rounds) // 2
+          early = statistics.median(round["ms"] for round in rounds[:half])
+          late = statistics.median(round["ms"] for round in rounds[half:])
+          drift = "drift" if early > 0 and late / early >= 3.0 else "ok"
+          with open(sys.argv[2], "w", encoding="utf-8") as handle:
+              handle.write(f"rounds={len(rounds)}\n")
+              handle.write("max_residue=0\n")
+              handle.write(f"growth_bucket={growth}\n")
+              handle.write(f"drift_bucket={drift}\n")
+              handle.write("verdict=pass\n")
+          print(f"rounds={len(rounds)} first_bytes={first} last_bytes={last} growth={growth} drift={drift}")
+          PY
+          grep -q '^max_residue=0$' soak/verdict.txt
+          grep -q '^verdict=pass$' soak/verdict.txt
+      - name: Dump runner-computed step outcomes
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        if: always()
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: soak-suite
+          evidence-id: soak-rounds
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/result.json
+          observations: |
+            --observe-steps steps=${{ runner.temp }}/steps.json
+            --observe-file soak-verdict=soak/verdict.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: soak-suite-soak-rounds-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          path: evidence/result.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: soak-suite-rounds-ndjson-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          path: soak/rounds.ndjson
+          if-no-files-found: error
+
+  soak-sustain:
+    name: sustained builds and checkouts (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"},{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{\"lane\":\"GitHub\",\"runner\":\"ubuntu-26.04\"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{\"lane\":\"Velnor\",\"runner\":{\"group\":\"velnor-trusted\",\"labels\":\"velnor-target-mvp\"}}]')) }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 30
+    concurrency:
+      group: soak-suite-${{ github.run_id }}-sustain-${{ matrix.config.lane }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - id: warm-builds
+        name: Repeat one cold and three warm builds
+        run: |
+          set -euo pipefail
+          mkdir -p soak
+          cargo clean --quiet --locked -p app-a
+          failures=0
+          build=0
+          while [[ "${build}" -lt 4 ]]; do
+            build=$((build + 1))
+            if mbx build --quiet --locked -p app-a; then
+              echo "build ${build}: ok"
+            else
+              echo "build ${build}: FAILED" >&2
+              failures=$((failures + 1))
+            fi
+          done
+          printf 'builds=4\nbuild_failures=%d\n' "${failures}" > soak/sustain-verdict.txt
+          test "${failures}" = 0
+      - name: Repeat the checkout three times
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: soak-co-1
+      - name: Repeat the checkout a second time
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: soak-co-2
+      - name: Repeat the checkout a third time
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: soak-co-3
+      - name: Assert every checkout resolved the same head
+        run: |
+          set -euo pipefail
+          head_1="$(git -C soak-co-1 rev-parse HEAD)"
+          head_2="$(git -C soak-co-2 rev-parse HEAD)"
+          head_3="$(git -C soak-co-3 rev-parse HEAD)"
+          test "${head_1}" = "${head_2}"
+          test "${head_2}" = "${head_3}"
+          {
+            echo "checkouts=3"
+            echo "checkout_failures=0"
+            echo "heads_match=true"
+            echo "verdict=pass"
+          } >> soak/sustain-verdict.txt
+          grep -q '^build_failures=0$' soak/sustain-verdict.txt
+          grep -q '^heads_match=true$' soak/sustain-verdict.txt
+      - name: Dump runner-computed step outcomes
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        if: always()
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: soak-suite
+          evidence-id: soak-sustain
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/result.json
+          observations: |
+            --observe-steps steps=${{ runner.temp }}/steps.json
+            --observe-file sustain-verdict=soak/sustain-verdict.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: soak-suite-soak-sustain-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          path: evidence/result.json
+          if-no-files-found: error
+
+  compare-soak:
+    name: compare soak lanes
+    needs: [soak-rounds, soak-sustain]
+    # Fork PRs have no Velnor lane or artifacts, so they intentionally
+    # skip comparison.
+    if: ${{ always() && ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: soak-suite-${{ github.run_id }}-compare
+      cancel-in-progress: false
+    steps:
+      - name: Require every soak job to pass
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          python3 -c 'import json,sys; n=json.loads(sys.argv[1]); print("soak results:", n); sys.exit(any(v["result"] != "success" for v in n.values()))' "$NEEDS"
+      # Checkout first: it cleans the workspace, which would delete the
+      # downloaded lane artifacts if it ran after them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: soak-suite-soak-*
+          path: artifacts
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: soak-suite
+          directory: artifacts

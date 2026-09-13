@@ -895,5 +895,109 @@ class CompareEvidenceActionTests(unittest.TestCase):
         )
 
 
+class ResilienceCatalogueTests(unittest.TestCase):
+    GOAL_46_FAULTS = frozenset(
+        [
+            "github-5xx",
+            "github-429",
+            "expired-auth",
+            "registration-disappearance",
+            "broker-disconnect",
+            "run-service-disconnect",
+            "lease-renew-failure",
+            "completion-failure",
+            "publisher-failure",
+            "process-sigkill",
+            "daemon-restart",
+            "slot-restart",
+            "docker-daemon-disconnect",
+            "docker-command-hang",
+            "container-start-failure",
+            "service-readiness-failure",
+            "disk-full",
+            "low-disk",
+            "cache-corruption",
+            "malformed-archive",
+            "stale-lock",
+            "sqlite-busy",
+            "slow-filesystem",
+            "cancellation-race",
+            "completion-cancellation-race",
+            "cleanup-failure",
+        ]
+    )
+    ASSERTION_DIMENSIONS = frozenset(
+        [
+            "bounded",
+            "github_result",
+            "no_orphans",
+            "no_contamination",
+            "recoverable",
+            "diagnostics",
+        ]
+    )
+
+    def catalogue(self):
+        path = ROOT / "fixtures" / "resilience" / "catalogue.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_catalogue_covers_every_goal_46_fault(self):
+        catalogue = self.catalogue()
+        observed = {fault["id"] for fault in catalogue["faults"]}
+        self.assertEqual(observed, self.GOAL_46_FAULTS)
+
+    def test_every_fault_has_a_disposition_and_all_assertion_dimensions(self):
+        for fault in self.catalogue()["faults"]:
+            with self.subTest(fault=fault["id"]):
+                self.assertIn(fault["status"], ("measured", "declared", "declared-unrun"))
+                self.assertEqual(set(fault["assertions"]), self.ASSERTION_DIMENSIONS)
+                for dimension, text in fault["assertions"].items():
+                    self.assertTrue(text.strip(), dimension)
+                if fault["status"] == "measured":
+                    self.assertIn("probe", fault)
+                    self.assertNotIn("owner", fault)
+                else:
+                    self.assertIn("owner", fault)
+                    self.assertNotIn("probe", fault)
+
+    def test_every_measured_probe_exists_in_its_workflow(self):
+        for fault in self.catalogue()["faults"]:
+            probe = fault.get("probe")
+            if probe is None:
+                continue
+            with self.subTest(fault=fault["id"]):
+                text = (
+                    ROOT / ".github" / "workflows" / probe["workflow"]
+                ).read_text(encoding="utf-8")
+                self.assertIn(f"\n  {probe['job']}:", text)
+                for marker in probe["markers"]:
+                    self.assertIn(marker, text)
+
+    def test_soak_profiles_have_minimum_rounds_and_signals(self):
+        soak = self.catalogue()["soak"]
+        self.assertTrue(
+            (ROOT / ".github" / "workflows" / soak["workflow"]).is_file()
+        )
+        for name, profile in soak["profiles"].items():
+            with self.subTest(profile=name):
+                self.assertGreaterEqual(profile["rounds"], 3)
+        self.assertTrue(soak["signals"])
+
+    def test_rejection_probe_dispositions_reference_real_workflows(self):
+        catalogue = self.catalogue()
+        for name, probe in catalogue["rejection_probes"].items():
+            with self.subTest(probe=name):
+                self.assertTrue(
+                    (ROOT / ".github" / "workflows" / probe["workflow"]).is_file()
+                )
+                self.assertIn(probe["disposition"], ("scheduled", "dispatch-only"))
+                self.assertTrue(probe["reason"].strip())
+                if probe["disposition"] == "scheduled":
+                    driver = (
+                        ROOT / ".github" / "workflows" / probe["scheduled_by"]
+                    ).read_text(encoding="utf-8")
+                    self.assertIn(probe["workflow"].removesuffix(".yml"), driver)
+
+
 if __name__ == "__main__":
     unittest.main()

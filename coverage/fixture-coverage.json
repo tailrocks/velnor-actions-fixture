@@ -972,6 +972,8 @@
       "control-plane.yml",
       "docker-lease-probe.yml",
       "docker.yml",
+      "fault-cancel-target.yml",
+      "fault-suite.yml",
       "fixture-rust-check.yml",
       "l2-provenance.yml",
       "l2-runtime.yml",
@@ -980,12 +982,14 @@
       "renovate.yml",
       "reuse-caller.yml",
       "schedule.yml",
+      "soak-suite.yml",
       "status-conditions.yml"
     ],
     "negative": {
       "attestation-negative.yml": "attestation rejection probe",
       "l2-negative.yml": "L2 negative-use rejection probe",
-      "app-token-probe.yml": "app-token rejection probe"
+      "app-token-probe.yml": "app-token rejection probe",
+      "rejection-schedule.yml": "scheduled driver asserting L2 rejection-probe verdicts"
     },
     "expected_negative_uses": {
       "l2-negative.yml": [

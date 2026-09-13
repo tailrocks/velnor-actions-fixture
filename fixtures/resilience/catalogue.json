@@ -1,0 +1,535 @@
+{
+  "$schema": "velnor.fixture.resilience-catalogue.v1",
+  "doc": "Traceability for GOAL-46 fault injection, GOAL-47 soak, and the rejection-probe dispositions. `measured` faults are injected by the named repo-owned workflow probe on both lanes and compared as v2 evidence or asserted per lane fail-closed; `runner-internal` faults cannot be injected from a GitHub Actions workflow on either lane (the runner host is not reachable from a job) and name the velnor-side owner that must prove them. scripts/test_audits.py locks this catalogue against drift.",
+  "faults": [
+    {
+      "assertions": {
+        "bounded": "timeout-minutes 20 on the job; 1-minute step timeout kills the hung command",
+        "diagnostics": "steps observation carries outcome/conclusion per probe; per-lane logs retained",
+        "github_result": "step outcome failure on both lanes, job continues via continue-on-error",
+        "no_contamination": "no shared state written; probes run in one job workspace",
+        "no_orphans": "nothing spawned; nothing to reap",
+        "recoverable": "healthy-after-faults step succeeds after every contained fault"
+      },
+      "goal": "GitHub transient 5xx",
+      "id": "github-5xx",
+      "owner": "velnor-bench fault catalogue broker-5xx (declared-unrun; needs velnor-job driver)",
+      "seam": "runner-internal",
+      "status": "declared-unrun"
+    },
+    {
+      "assertions": {
+        "bounded": "timeout-minutes 20 on the job; 1-minute step timeout kills the hung command",
+        "diagnostics": "steps observation carries outcome/conclusion per probe; per-lane logs retained",
+        "github_result": "step outcome failure on both lanes, job continues via continue-on-error",
+        "no_contamination": "no shared state written; probes run in one job workspace",
+        "no_orphans": "nothing spawned; nothing to reap",
+        "recoverable": "healthy-after-faults step succeeds after every contained fault"
+      },
+      "goal": "GitHub 429/rate limit",
+      "id": "github-429",
+      "owner": "velnor-bench fault catalogue broker-5xx (declared-unrun; needs velnor-job driver)",
+      "seam": "runner-internal",
+      "status": "declared-unrun"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 20; single git invocation, no retry loop",
+        "diagnostics": "steps observation carries the failure; stderr retained in the job log",
+        "github_result": "step outcome failure on both lanes via continue-on-error",
+        "no_contamination": "read-only remote probe; nothing written outside the job workspace",
+        "no_orphans": "no processes or objects created",
+        "recoverable": "healthy-after-faults step succeeds after the contained fault"
+      },
+      "goal": "expired auth",
+      "id": "expired-auth",
+      "probe": {
+        "job": "step-faults",
+        "markers": [
+          "fail-auth",
+          "git ls-remote",
+          "hygiene=ok"
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture; velnor-side must bound re-registration",
+        "diagnostics": "n/a from fixture; velnor-side must log disappearance and recovery",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must re-register without running unowned jobs"
+      },
+      "goal": "registration disappearance",
+      "id": "registration-disappearance",
+      "owner": "velnor-runner registration/session tests (no bench class yet)",
+      "seam": "runner-internal",
+      "status": "declared"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture; velnor-side must bound reconnect backoff",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must re-poll without losing or duplicating jobs"
+      },
+      "goal": "broker disconnect",
+      "id": "broker-disconnect",
+      "owner": "velnor-bench fault catalogue broker-long-poll-timeout (declared-unrun; needs velnor-job driver)",
+      "seam": "runner-internal",
+      "status": "declared-unrun"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must drop the taken message and process the next one"
+      },
+      "goal": "run-service disconnect",
+      "id": "run-service-disconnect",
+      "owner": "velnor-bench fault catalogue run-service-acquire-conflict (declared-unrun; needs velnor-job driver)",
+      "seam": "runner-internal",
+      "status": "declared-unrun"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must renew or fail the job with a capacity note"
+      },
+      "goal": "lease-renew failure",
+      "id": "lease-renew-failure",
+      "owner": "velnor-runner docker-lease handling (no bench class yet); fixture docker-lease-probe.yml covers the healthy path only",
+      "seam": "runner-internal",
+      "status": "declared"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture; velnor-side must bound completion retries",
+        "diagnostics": "n/a from fixture",
+        "github_result": "velnor-side must deliver exactly once",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must retry at-least-once and never double-complete"
+      },
+      "goal": "completion failure",
+      "id": "completion-failure",
+      "owner": "velnor-bench fault catalogue completion-delivery-failure (declared-unrun; needs velnor-job driver)",
+      "seam": "runner-internal",
+      "status": "declared-unrun"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 20; the action fails fast on absent artifact",
+        "diagnostics": "steps observation carries the failure; action error retained in the log",
+        "github_result": "step outcome failure on both lanes via continue-on-error",
+        "no_contamination": "read-only probe against a run-scoped absent name",
+        "no_orphans": "nothing uploaded or created",
+        "recoverable": "healthy-after-faults step succeeds after the contained fault"
+      },
+      "goal": "publisher failure",
+      "id": "publisher-failure",
+      "note": "Server-side publisher outage is not injectable from a workflow; the probe measures the artifact-service error path (absent artifact fails bounded) on both lanes.",
+      "probe": {
+        "job": "step-faults",
+        "markers": [
+          "fail-artifact-missing",
+          "fault-suite-absent"
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 20; 1-minute step timeout kills the hung command",
+        "diagnostics": "steps observation carries outcome/conclusion per probe",
+        "github_result": "step outcome failure on both lanes via continue-on-error",
+        "no_contamination": "no shared state written",
+        "no_orphans": "nothing spawned; nothing to reap",
+        "recoverable": "healthy-after-faults step succeeds after every contained fault"
+      },
+      "goal": "process SIGKILL",
+      "id": "process-sigkill",
+      "note": "Daemon SIGKILL is runner-internal (see daemon-restart); the workflow probe measures step-level kill semantics: a hung command is killed by timeout-minutes and the job continues contained.",
+      "probe": {
+        "job": "step-faults",
+        "markers": [
+          "fail-timeout",
+          "timeout-minutes: 1"
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must reap the job exactly once from durable state"
+      },
+      "goal": "daemon restart",
+      "id": "daemon-restart",
+      "owner": "velnor-bench fault catalogue runner-restart-mid-job (declared-unrun; needs a killable runner)",
+      "seam": "runner-internal",
+      "status": "declared-unrun"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must reap the job exactly once from durable state"
+      },
+      "goal": "slot restart",
+      "id": "slot-restart",
+      "owner": "velnor-bench fault catalogue runner-restart-mid-job (declared-unrun; needs a killable runner)",
+      "seam": "runner-internal",
+      "status": "declared-unrun"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture; DOCKER_HOST tricks would test the docker client, not the runner",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must fail before the first container with no residue"
+      },
+      "goal": "Docker daemon disconnect/restart",
+      "id": "docker-daemon-disconnect",
+      "owner": "velnor-bench fault catalogue docker-daemon-unreachable (declared-unrun; needs velnor-job driver)",
+      "seam": "runner-internal",
+      "status": "declared-unrun"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 20; 1-minute step timeout kills the hung command",
+        "diagnostics": "steps observation carries the failure",
+        "github_result": "step outcome failure on both lanes via continue-on-error",
+        "no_contamination": "no shared state written",
+        "no_orphans": "nothing spawned",
+        "recoverable": "healthy-after-faults step succeeds after the contained fault"
+      },
+      "goal": "Docker command/API hang",
+      "id": "docker-command-hang",
+      "note": "Runner-side daemon-hang containment is velnor-bench docker-command-timeout (declared-unrun); the workflow probe measures the observable half: a hung command is killed by the step timeout on both lanes.",
+      "probe": {
+        "job": "step-faults",
+        "markers": [
+          "fail-timeout",
+          "timeout-minutes: 1"
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 20; pull fails fast on an unroutable registry",
+        "diagnostics": "steps observation carries the failure; daemon error retained in the log",
+        "github_result": "step outcome failure on both lanes via continue-on-error",
+        "no_contamination": "absent image is never shared; pulls are read-only",
+        "no_orphans": "residue census asserts zero run-labelled containers, networks, images",
+        "recoverable": "healthy follow-up steps and the residue census succeed after the fault"
+      },
+      "goal": "container start failure",
+      "id": "container-start-failure",
+      "probe": {
+        "job": "docker-faults",
+        "markers": [
+          "run-absent",
+          "example.invalid"
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 15; unroutable registry fails fast at setup",
+        "diagnostics": "assert job reports per-lane conclusions; run logs retained",
+        "github_result": "job outcome failure contained to success via job-level continue-on-error; must-not-run never executes and a setup step fails on every lane",
+        "no_contamination": "nothing runs, so nothing is shared",
+        "no_orphans": "no container ever starts; nothing to reap",
+        "recoverable": "sibling assert job runs via always() and fails closed when any lane misbehaves"
+      },
+      "goal": "service readiness failure",
+      "id": "service-readiness-failure",
+      "probe": {
+        "job": "service-failure",
+        "markers": [
+          "must-not-run",
+          "example.invalid"
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 20; the write fails at the quota, no unbounded fill",
+        "diagnostics": "steps observation carries the failure",
+        "github_result": "step outcome failure on both lanes via continue-on-error",
+        "no_contamination": "quota applies to the probe shell only; file removed after",
+        "no_orphans": "quota file removed in the assert step",
+        "recoverable": "healthy-after-faults step succeeds after the contained fault"
+      },
+      "goal": "disk full",
+      "id": "disk-full",
+      "note": "Host disk exhaustion is not reachable from a job step; the probe measures quota-bounded write failure (ulimit -f) which exercises the same step-failure path deterministically and fast.",
+      "probe": {
+        "job": "step-faults",
+        "markers": [
+          "fail-quota",
+          "ulimit -f"
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 20; the write fails at the quota, no unbounded fill",
+        "diagnostics": "steps observation carries the failure",
+        "github_result": "step outcome failure on both lanes via continue-on-error",
+        "no_contamination": "quota applies to the probe shell only; file removed after",
+        "no_orphans": "quota file removed in the assert step",
+        "recoverable": "healthy-after-faults step succeeds after the contained fault"
+      },
+      "goal": "low disk",
+      "id": "low-disk",
+      "note": "Same quota probe as disk-full: low-disk and disk-full share the observable step behavior (bounded write failure, contained job).",
+      "probe": {
+        "job": "step-faults",
+        "markers": [
+          "fail-quota",
+          "ulimit -f"
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "jobs timeout-minutes 10 each; fixed tiny payload",
+        "diagnostics": "sha256 of restored content compared verbatim across lanes",
+        "github_result": "restore-miss degrades (cache-hit false, job continues); roundtrip hits with identical hash",
+        "no_contamination": "run-scoped cache keys; restore-miss uses an absent key",
+        "no_orphans": "tiny payload only; GitHub cache eviction owns lifecycle",
+        "recoverable": "miss never fails the job; save then verify proves the writable path"
+      },
+      "goal": "cache corruption",
+      "id": "cache-corruption",
+      "note": "Server-side entry corruption is not injectable from a workflow; the probe measures roundtrip integrity (hash equality) plus the miss-degraded path on both lanes.",
+      "probe": {
+        "job": "cache-verify",
+        "markers": [
+          "sha256",
+          "cache_hit="
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must fail the restore without partial extraction"
+      },
+      "goal": "malformed archive",
+      "id": "malformed-archive",
+      "owner": "velnor-runner cache/artifact extraction (no bench class yet)",
+      "seam": "runner-internal",
+      "status": "declared"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must break or fail on stale locks without wedging the slot"
+      },
+      "goal": "stale lock",
+      "id": "stale-lock",
+      "owner": "velnor-runner storage tests (no bench class yet)",
+      "seam": "runner-internal",
+      "status": "declared"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "velnor-side must retry or fail bounded without wedging the slot"
+      },
+      "goal": "SQLite busy",
+      "id": "sqlite-busy",
+      "owner": "velnor-runner storage tests (no bench class yet)",
+      "seam": "runner-internal",
+      "status": "declared"
+    },
+    {
+      "assertions": {
+        "bounded": "n/a from fixture",
+        "diagnostics": "n/a from fixture",
+        "github_result": "n/a from fixture",
+        "no_contamination": "n/a from fixture",
+        "no_orphans": "n/a from fixture",
+        "recoverable": "n/a from fixture"
+      },
+      "goal": "slow filesystem",
+      "id": "slow-filesystem",
+      "owner": "velnor-bench soak disk monitors observe growth; delay injection needs the velnor-job driver",
+      "seam": "runner-internal",
+      "status": "declared"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 30; bounded poll for start then cancel then conclusion",
+        "diagnostics": "victim job/step conclusions asserted via the jobs API; cancelled() marker step must succeed",
+        "github_result": "victim run conclusion cancelled; sleep step cancelled; post-cancel step succeeds",
+        "no_contamination": "victim touches nothing shared; zero artifacts asserted on the cancelled run",
+        "no_orphans": "zero artifacts on the cancelled run; victim sleeps bounded even if cancel is lost (job timeout 10)",
+        "recoverable": "dispatcher asserts and stays green; a lost cancel fails the probe loudly"
+      },
+      "goal": "cancellation race",
+      "id": "cancellation-race",
+      "probe": {
+        "workflow": "fault-suite.yml",
+        "job": "cancel-victim",
+        "markers": [
+          "fault-cancel-target.yml",
+          "cancelled-marker"
+        ]
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "job timeout-minutes 30; immediate cancel, bounded poll for conclusion",
+        "diagnostics": "victim job conclusion asserted via the jobs API; no step may have run",
+        "github_result": "victim run conclusion cancelled without any step running",
+        "no_contamination": "victim touches nothing shared",
+        "no_orphans": "zero artifacts on the cancelled run",
+        "recoverable": "dispatcher asserts and stays green"
+      },
+      "goal": "completion/cancellation race",
+      "id": "completion-cancellation-race",
+      "probe": {
+        "workflow": "fault-suite.yml",
+        "job": "cancel-victim",
+        "markers": [
+          "queued-victim",
+          "no step with a terminal run conclusion"
+        ]
+      },
+      "seam": "workflow",
+      "status": "measured"
+    },
+    {
+      "assertions": {
+        "bounded": "every probe job carries timeout-minutes; residue census is one docker invocation per kind",
+        "diagnostics": "residue counts carried in normalized verdict files and compared verbatim",
+        "github_result": "census steps succeed with zero residue on both lanes",
+        "no_contamination": "run-scoped docker labels isolate the census from other runs",
+        "no_orphans": "the census itself is the orphan assertion: zero run-labelled containers, networks, images",
+        "recoverable": "teardown completeness proved by healthy-after-faults and post-fault census steps"
+      },
+      "goal": "cleanup failure",
+      "id": "cleanup-failure",
+      "probe": {
+        "job": "docker-faults",
+        "markers": [
+          "residue-census",
+          "max_residue=0"
+        ],
+        "workflow": "fault-suite.yml"
+      },
+      "seam": "workflow",
+      "status": "measured"
+    }
+  ],
+  "rejection_probes": {
+    "app-token-probe.yml": {
+      "disposition": "dispatch-only",
+      "reason": "Secret-gated by design: without VELNOR_APP_ID/VELNOR_APP_PRIVATE_KEY it emits not-ready evidence, never a pass; automatic runs would assert nothing.",
+      "workflow": "app-token-probe.yml"
+    },
+    "attestation-negative.yml": {
+      "disposition": "dispatch-only",
+      "reason": "Probe jobs lack job-level continue-on-error, so runs conclude red by design even when assert-negative holds; automatic wiring needs generator-side rework to the l2-negative green-run shape. Generated file: cannot fix from this repo while regen is blocked.",
+      "workflow": "attestation-negative.yml"
+    },
+    "l2-negative.yml": {
+      "disposition": "scheduled",
+      "reason": "Main-head gate (admit-default-head) forbids PR execution by design; fleet admission is asserted on main pushes and the Sunday schedule via rejection-schedule.yml.",
+      "scheduled_by": "rejection-schedule.yml",
+      "workflow": "l2-negative.yml"
+    }
+  },
+  "soak": {
+    "bounds": {
+      "drift_ratio_below": 3.0,
+      "growth_bytes_above_first_plus": 10485760,
+      "max_residue": 0
+    },
+    "note": "Runner-process memory/fds/threads and host disk/journal are not observable from a job step; those signals stay velnor-side (velnor-bench soak). The fixture soak asserts the workflow-observable half: zero residue per round, bounded workspace growth, bounded latency drift, repeated warm builds and checkouts. Random cancellation is deliberately deterministic here (fault-suite cancel-race); periodic daemon restart and GC are runner-internal.",
+    "profiles": {
+      "full": {
+        "checkouts": 3,
+        "rounds": 30,
+        "trigger": "schedule",
+        "warm_builds": 3
+      },
+      "quick": {
+        "checkouts": 3,
+        "rounds": 8,
+        "trigger": "pull_request,push,workflow_dispatch",
+        "warm_builds": 3
+      }
+    },
+    "signals": [
+      "owned docker objects per round (label-censused, must be zero)",
+      "workspace bytes first/last per round (growth bucket)",
+      "per-round duration second-half/first-half median (drift bucket)",
+      "warm build failures (must be zero)",
+      "checkout head mismatches (must be zero)"
+    ],
+    "workflow": "soak-suite.yml"
+  }
+}
