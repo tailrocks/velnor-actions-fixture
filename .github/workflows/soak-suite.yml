@@ -116,15 +116,18 @@ jobs:
           early = statistics.median(round["ms"] for round in rounds[:half])
           late = statistics.median(round["ms"] for round in rounds[half:])
           drift = "drift" if early > 0 and late / early >= 3.0 else "ok"
+          verdict = "pass" if growth == "flat" and drift == "ok" else "fail"
           with open(sys.argv[2], "w", encoding="utf-8") as handle:
               handle.write(f"rounds={len(rounds)}\n")
               handle.write("max_residue=0\n")
               handle.write(f"growth_bucket={growth}\n")
               handle.write(f"drift_bucket={drift}\n")
-              handle.write("verdict=pass\n")
-          print(f"rounds={len(rounds)} first_bytes={first} last_bytes={last} growth={growth} drift={drift}")
+              handle.write(f"verdict={verdict}\n")
+          print(f"rounds={len(rounds)} first_bytes={first} last_bytes={last} growth={growth} drift={drift} verdict={verdict}")
           PY
           grep -q '^max_residue=0$' soak/verdict.txt
+          grep -q '^growth_bucket=flat$' soak/verdict.txt
+          grep -q '^drift_bucket=ok$' soak/verdict.txt
           grep -q '^verdict=pass$' soak/verdict.txt
       - name: Dump runner-computed step outcomes
         if: always()

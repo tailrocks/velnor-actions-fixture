@@ -983,6 +983,31 @@ class ResilienceCatalogueTests(unittest.TestCase):
                 self.assertGreaterEqual(profile["rounds"], 3)
         self.assertTrue(soak["signals"])
 
+    def test_soak_verdict_asserts_growth_and_drift_buckets(self):
+        soak = self.catalogue()["soak"]
+        text = (
+            ROOT / ".github" / "workflows" / soak["workflow"]
+        ).read_text(encoding="utf-8")
+        # The verdict must fail closed on growth/drift, never pass
+        # unconditionally: both the Python verdict logic and the shell
+        # greps must pin the flat/ok buckets.
+        self.assertIn("growth_bucket=flat", text)
+        self.assertIn("drift_bucket=ok", text)
+        self.assertIn("grep -q '^growth_bucket=flat$' soak/verdict.txt", text)
+        self.assertIn("grep -q '^drift_bucket=ok$' soak/verdict.txt", text)
+        self.assertIn("grep -q '^verdict=pass$' soak/verdict.txt", text)
+        self.assertNotIn('handle.write("verdict=pass\\n")', text)
+        self.assertIn("verdict={verdict}", text)
+        # Catalogue bounds must match the workflow constants they document.
+        self.assertEqual(soak["bounds"]["max_residue"], 0)
+        self.assertEqual(soak["bounds"]["growth_bytes_above_first_plus"], 10 * 1024 * 1024)
+        self.assertEqual(soak["bounds"]["drift_ratio_below"], 3.0)
+        self.assertIn("10 * 1024 * 1024", text)
+        self.assertIn(">= 3.0", text)
+        signals = "\n".join(soak["signals"])
+        self.assertIn("growth bucket", signals)
+        self.assertIn("drift bucket", signals)
+
     def test_rejection_probe_dispositions_reference_real_workflows(self):
         catalogue = self.catalogue()
         for name, probe in catalogue["rejection_probes"].items():

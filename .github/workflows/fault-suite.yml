@@ -83,12 +83,20 @@ jobs:
           ulimit -f 512
           dd if=/dev/zero of=quota.img bs=1M count=8
       - id: fail-artifact-missing
-        name: Fail an absent artifact download
+        name: Fail an absent artifact download (consumer fault)
         continue-on-error: true
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: fault-suite-absent-${{ github.run_id }}
           path: fault-absent
+      - id: fail-upload-missing
+        name: Fail an absent artifact upload (publisher fault)
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fault-suite-absent-${{ github.run_id }}
+          path: fault-absent-upload
+          if-no-files-found: error
       - id: fail-auth
         name: Fail expired auth without leaking it
         continue-on-error: true
@@ -116,6 +124,7 @@ jobs:
           OUTCOME_TIMEOUT: ${{ steps.fail-timeout.outcome }}
           OUTCOME_QUOTA: ${{ steps.fail-quota.outcome }}
           OUTCOME_ARTIFACT: ${{ steps.fail-artifact-missing.outcome }}
+          OUTCOME_UPLOAD: ${{ steps.fail-upload-missing.outcome }}
           OUTCOME_AUTH: ${{ steps.fail-auth.outcome }}
         run: |
           set -euo pipefail
@@ -123,6 +132,7 @@ jobs:
           test "${OUTCOME_TIMEOUT}" = failure
           test "${OUTCOME_QUOTA}" = failure
           test "${OUTCOME_ARTIFACT}" = failure
+          test "${OUTCOME_UPLOAD}" = failure
           test "${OUTCOME_AUTH}" = failure
           grep -q '^auth_failed=true$' auth-verdict.txt
           grep -q '^hygiene=ok$' auth-verdict.txt
@@ -489,7 +499,7 @@ jobs:
               jobs = json.load(handle)["jobs"]
           code = 0
           for lane in sys.argv[2:]:
-              name = f"service-failure ({lane})"
+              name = f"service failure ({lane})"
               matches = [job for job in jobs if job["name"] == name]
               if len(matches) != 1:
                   print(f"::error::expected exactly one job {name!r}, found {len(matches)}")

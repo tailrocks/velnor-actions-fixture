@@ -132,21 +132,22 @@
     },
     {
       "assertions": {
-        "bounded": "job timeout-minutes 20; the action fails fast on absent artifact",
+        "bounded": "job timeout-minutes 20; the action fails fast on the absent upload path via if-no-files-found error",
         "diagnostics": "steps observation carries the failure; action error retained in the log",
         "github_result": "step outcome failure on both lanes via continue-on-error",
-        "no_contamination": "read-only probe against a run-scoped absent name",
+        "no_contamination": "absent path uploads nothing; no artifact is created",
         "no_orphans": "nothing uploaded or created",
         "recoverable": "healthy-after-faults step succeeds after the contained fault"
       },
       "goal": "publisher failure",
       "id": "publisher-failure",
-      "note": "Server-side publisher outage is not injectable from a workflow; the probe measures the artifact-service error path (absent artifact fails bounded) on both lanes.",
+      "note": "Server-side publisher outage is not injectable from a workflow; the probe measures the publish error path (upload with an absent path and if-no-files-found error fails bounded) on both lanes. The companion fail-artifact-missing download probe measures the consumer error path.",
       "probe": {
         "job": "step-faults",
         "markers": [
-          "fail-artifact-missing",
-          "fault-suite-absent"
+          "fail-upload-missing",
+          "fault-absent-upload",
+          "steps.fail-upload-missing.outcome"
         ],
         "workflow": "fault-suite.yml"
       },
@@ -281,7 +282,8 @@
         "job": "service-failure",
         "markers": [
           "must-not-run",
-          "example.invalid"
+          "example.invalid",
+          "service failure ({lane})"
         ],
         "workflow": "fault-suite.yml"
       },
