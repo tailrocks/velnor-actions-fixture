@@ -23,14 +23,21 @@ inputs:
 runs:
   using: composite
   steps:
-    # Ask the runner which Velnor build it is. On the GitHub-hosted lane there
-    # is no such binary and the identity is legitimately absent; on the Velnor
-    # lane its absence is a real defect, and the comparator reports it as one
-    # rather than quietly accepting an unattributable record.
+    # The runner may inject the Velnor build identity into the environment. When
+    # both variables are already present, trust them and skip the probe.
+    # Otherwise ask the runner binary which Velnor build it is. On the
+    # GitHub-hosted lane there is no such binary and the identity is
+    # legitimately absent; on the Velnor lane its absence is a real defect,
+    # and the comparator reports it as one rather than quietly accepting an
+    # unattributable record.
     - name: Record the Velnor build identity
       shell: bash
       run: |
         set -euo pipefail
+        if [[ -n "${VELNOR_SOURCE_SHA:-}" && -n "${VELNOR_MANIFEST_VERSION:-}" ]]; then
+          echo "Velnor build identity already present in environment; skipping probe"
+          exit 0
+        fi
         if ! command -v velnor-runner >/dev/null 2>&1; then
           echo "velnor-runner is not on PATH; no Velnor build identity to record"
           exit 0
