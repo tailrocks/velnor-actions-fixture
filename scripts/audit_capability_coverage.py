@@ -805,28 +805,30 @@ def export_from_runner_source(directory: Path, failures: list[str]) -> dict[str,
 
 
 def bind_baseline(
-    capabilities: dict[str, Any], baseline: dict[str, Any], failures: list[str]
+    baseline: dict[str, Any], runner: dict[str, Any], failures: list[str]
 ) -> None:
     """Fail loudly on any drift between the checked-in baseline and the runner.
 
-    The content-derived identity ignores only the source commit, which is build
-    provenance rather than capability content. The admitted action *set* is
-    still compared directly, not by size: swapping one repository for another
-    leaves the count unchanged and must still fail.
+    ``baseline`` is the checked-in ``coverage/velnor-capabilities.json``
+    content; ``runner`` is the capability manifest of the Velnor build under
+    test. The content-derived identity ignores only the source commit, which
+    is build provenance rather than capability content. The admitted action
+    *set* is still compared directly, not by size: swapping one repository
+    for another leaves the count unchanged and must still fail.
     """
-    validate_source_sha(baseline, "runner capabilities", failures)
-    validate_capability_identity(baseline, "runner capabilities", failures)
+    validate_source_sha(runner, "runner capabilities", failures)
+    validate_capability_identity(runner, "runner capabilities", failures)
     for field in ("version", "crate_version", CAPABILITY_ID_FIELD):
         expected = baseline.get(field)
-        actual = capabilities.get(field)
+        actual = runner.get(field)
         if actual != expected:
             failures.append(
-                f"coverage/velnor-capabilities.json {field} is {actual!r}, but the Velnor "
-                f"build under test reports {expected!r}; the baseline is stale"
+                f"coverage/velnor-capabilities.json {field} is {expected!r}, but the Velnor "
+                f"build under test reports {actual!r}; the baseline is stale"
             )
 
     expected_actions = index_export(baseline.get("actions"), ("repository",))
-    actual_actions = index_export(capabilities.get("actions"), ("repository",))
+    actual_actions = index_export(runner.get("actions"), ("repository",))
     if expected_actions is None or actual_actions is None:
         failures.append("capabilities.actions: both documents must list action objects")
         return
@@ -838,7 +840,7 @@ def bind_baseline(
         baseline.get("reusable_workflows"), ("repository", "path")
     )
     actual_workflows = index_export(
-        capabilities.get("reusable_workflows"), ("repository", "path")
+        runner.get("reusable_workflows"), ("repository", "path")
     )
     if expected_workflows is None or actual_workflows is None:
         failures.append(
@@ -875,12 +877,13 @@ def compare_identity(
     label: str,
     failures: list[str],
 ) -> None:
-    for key in sorted(set(expected) - set(actual)):
+    """Report drift between the runner index (``actual``) and the baseline index (``expected``)."""
+    for key in sorted(set(actual) - set(expected)):
         failures.append(
             f"{label}: the runner under test admits {':'.join(key)}, but the baseline "
             "does not list it"
         )
-    for key in sorted(set(actual) - set(expected)):
+    for key in sorted(set(expected) - set(actual)):
         failures.append(
             f"{label}: the baseline lists {':'.join(key)}, but the runner under test "
             "does not admit it"
@@ -890,8 +893,8 @@ def compare_identity(
             if actual[key].get(field) != expected[key].get(field):
                 failures.append(
                     f"{label}[{':'.join(key)}].{field}: baseline has "
-                    f"{actual[key].get(field)!r}, the runner under test has "
-                    f"{expected[key].get(field)!r}"
+                    f"{expected[key].get(field)!r}, the runner under test has "
+                    f"{actual[key].get(field)!r}"
                 )
 
 
@@ -1897,21 +1900,23 @@ def audit(
     source_inventory = load_json(SOURCE_WORKFLOW_INVENTORY_PATH, failures)
     manifest_actions, manifest_workflows = validate_manifest(capabilities, failures)
 
-    baseline: dict[str, Any] | None = None
+    runner_capabilities: dict[str, Any] | None = None
     if not contract_only:
         # Readiness binds the checked-in baseline to the Velnor build under
         # test. Without this the baseline is an unverifiable assertion, and a
         # stale one certifies whatever runner happens to be running.
-        baseline = load_runner_baseline(
+        runner_capabilities = load_runner_baseline(
             capabilities_export, runner_source, velnor_source_sha, failures
         )
-        if baseline is not None:
-            bind_baseline(capabilities, baseline, failures)
+        if runner_capabilities is not None:
+            bind_baseline(capabilities, runner_capabilities, failures)
 
     validate_source_workflow_inventory(
         source_inventory,
         runner_source=None if contract_only else runner_source,
-        source_sha=baseline.get("source_sha") if baseline is not None else None,
+        source_sha=runner_capabilities.get("source_sha")
+        if runner_capabilities is not None
+        else None,
         failures=failures,
     )
 
@@ -1958,29 +1963,31 @@ def refresh_baseline(
     command's failure.
     """
     failures: list[str] = []
-    baseline = load_runner_baseline(
+    runner_capabilities = load_runner_baseline(
         capabilities_export, runner_source, velnor_source_sha, failures
     )
-    if baseline is None or failures:
+    if runner_capabilities is None or failures:
         return report(failures or ["the runner under test produced no capability manifest"])
 
     # The runner's own document must satisfy the shape the audit requires
     # before it is allowed to become the baseline. A development build whose
     # commit was never named is rejected here rather than written out.
-    validate_manifest(baseline, failures)
+    validate_manifest(runner_capabilities, failures)
     if failures:
         return report(failures)
 
     if runner_source is not None:
         failures = refresh_source_workflow_inventory(
             runner_source,
-            baseline["source_sha"],
-            baseline,
+            runner_capabilities["source_sha"],
+            runner_capabilities,
         )
         if failures:
             return report(failures)
 
-    CAPABILITIES_PATH.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
+    CAPABILITIES_PATH.write_text(
+        json.dumps(runner_capabilities, indent=2) + "\n", encoding="utf-8"
+    )
 
     # The coverage document records the content identity it was written
     # against; readiness compares the two. Leaving it behind would only move
@@ -1989,15 +1996,15 @@ def refresh_baseline(
     if failures:
         return report(failures)
     coverage["manifest"] = {
-        "version": baseline["version"],
-        CAPABILITY_ID_FIELD: baseline[CAPABILITY_ID_FIELD],
+        "version": runner_capabilities["version"],
+        CAPABILITY_ID_FIELD: runner_capabilities[CAPABILITY_ID_FIELD],
     }
     COVERAGE_PATH.write_text(json.dumps(coverage, indent=2) + "\n", encoding="utf-8")
 
     print(
         "refreshed coverage/velnor-capabilities.json from the runner under test: "
-        f"manifest v{baseline['version']}, crate {baseline['crate_version']}, "
-        f"capability {baseline[CAPABILITY_ID_FIELD]}, source {baseline['source_sha']}"
+        f"manifest v{runner_capabilities['version']}, crate {runner_capabilities['crate_version']}, "
+        f"capability {runner_capabilities[CAPABILITY_ID_FIELD]}, source {runner_capabilities['source_sha']}"
     )
     failures = audit(
         contract_only=False,
