@@ -43,7 +43,7 @@ jobs:
           install -d -m 0777 /tmp/renovate /tmp/renovate/cache /tmp/renovate/repos
           chmod -R a+rwX /tmp/renovate
       - if: matrix.config.writer
-        uses: renovatebot/github-action@37beffda261423addd537c33f2d126df7f6ffbab # v46.2.6
+        uses: renovatebot/github-action@c314dda4a9a93b08239ec978f2043b9a433b9ac4 # v46.3.0
         env:
           # The PAT named "tailrocks-renovate" (fine-grained, not classic) must be
           # stored in the repo secret GH_RENOVATE_TOKEN.
