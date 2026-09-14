@@ -270,8 +270,8 @@
     {
       "assertions": {
         "bounded": "job timeout-minutes 15; unroutable registry fails the pull fast",
-        "diagnostics": "step outcome asserted in-job; run logs retained",
-        "github_result": "step outcome failure on both lanes via continue-on-error; the job stays green",
+        "diagnostics": "runner-computed step outcomes are collected as v2 evidence; run logs retained",
+        "github_result": "step outcome failure on both lanes via continue-on-error; the job stays green and evidence is compared",
         "no_contamination": "the failed pull shares nothing; no container ever starts",
         "no_orphans": "no container ever starts; nothing to reap",
         "recoverable": "the in-job assert runs after the contained fault and fails closed when the pull unexpectedly succeeds"
@@ -283,7 +283,9 @@
         "markers": [
           "pull-service-image",
           "example.invalid",
-          "docker pull"
+          "docker pull",
+          "Collect observed lane evidence",
+          "fault-suite-service-failure"
         ],
         "workflow": "fault-suite.yml"
       },
@@ -437,8 +439,8 @@
     {
       "assertions": {
         "bounded": "job timeout-minutes 30; immediate cancel, bounded poll for conclusion",
-        "diagnostics": "victim job conclusion asserted via the jobs API; no step may have run",
-        "github_result": "victim run conclusion cancelled without any step running",
+        "diagnostics": "victim job/step started timestamps and conclusions asserted via the jobs API",
+        "github_result": "victim run conclusion cancelled with no started job or step",
         "no_contamination": "victim touches nothing shared",
         "no_orphans": "zero artifacts on the cancelled run",
         "recoverable": "dispatcher asserts and stays green"
@@ -450,7 +452,8 @@
         "job": "cancel-victim",
         "markers": [
           "queued-victim",
-          "no step with a terminal run conclusion"
+          "started_at",
+          "no job or step started"
         ]
       },
       "seam": "workflow",
@@ -459,17 +462,21 @@
     {
       "assertions": {
         "bounded": "every probe job carries timeout-minutes; residue census is one docker invocation per kind",
-        "diagnostics": "residue counts carried in normalized verdict files and compared verbatim",
-        "github_result": "census steps succeed with zero residue on both lanes",
+        "diagnostics": "cleanup step outcome and recovery verdict plus residue counts are compared verbatim",
+        "github_result": "cleanup step fails once, is contained, and census succeeds with zero residue on both lanes",
         "no_contamination": "run-scoped docker labels isolate the census from other runs",
-        "no_orphans": "the census itself is the orphan assertion: zero run-labelled containers, networks, images",
-        "recoverable": "teardown completeness proved by healthy-after-faults and post-fault census steps"
+        "no_orphans": "forced recovery plus the census asserts zero run-labelled containers, networks, images",
+        "recoverable": "a non-forced remove fails on a running container, forced recovery succeeds, and post-fault census passes"
       },
       "goal": "cleanup failure",
       "id": "cleanup-failure",
+      "note": "Workflow-level cleanup fault: docker rm intentionally fails against a running run-labelled container, then docker rm --force recovers it; the runner-computed failure and zero-residue census are recorded.",
       "probe": {
         "job": "docker-faults",
         "markers": [
+          "fail-cleanup",
+          "cleanup_failed=true",
+          "cleanup_recovered=true",
           "residue-census",
           "max_residue=0"
         ],
@@ -492,7 +499,7 @@
     },
     "l2-negative.yml": {
       "disposition": "scheduled",
-      "reason": "Main-head gate (admit-default-head) forbids PR execution by design; fleet admission is asserted on main pushes and the Sunday schedule via rejection-schedule.yml.",
+      "reason": "Main-head gate (admit-default-head) forbids PR execution by design; rejection-schedule.yml correlates each initiating dispatch to one new main child run and its case-specific GitHub evidence before asserting success.",
       "scheduled_by": "rejection-schedule.yml",
       "workflow": "l2-negative.yml"
     }

@@ -20,8 +20,8 @@ on:
 permissions:
   contents: read
 
-# Single flight: case-to-run correlation counts fresh child runs, so two
-# overlapping drives would confuse each other.
+# Single flight: each dispatch is correlated to exactly one newly-created child
+# run and that run's case-specific evidence before its conclusion is trusted.
 concurrency:
   group: rejection-schedule-main
   cancel-in-progress: false
@@ -47,35 +47,67 @@ jobs:
       - name: Dispatch every L2 negative case and assert green
         run: |
           set -euo pipefail
-          floor="$(date -u -d '1 minute ago' +%FT%TZ)"
+          workflow="l2-negative.yml"
           fresh_runs() {
-            gh run list --repo "${GITHUB_REPOSITORY}" --workflow l2-negative.yml --branch main --limit 30 --json databaseId,createdAt,event --jq "[.[] | select(.event == \"workflow_dispatch\") | select(.createdAt >= \"${floor}\")] | sort_by(.createdAt)"
+            gh run list --repo "${GITHUB_REPOSITORY}" --workflow "${workflow}" --branch main --limit 100 --json databaseId,createdAt,event,headBranch,headSha,status,conclusion --jq '[.[] | select(.event == "workflow_dispatch") | select(.headBranch == "main")] | sort_by(.createdAt)'
           }
-          run_ids=""
-          expected=0
-          for case in mutable-ref unknown-repository unknown-input unknown-subpath-input unresolved-expression invalid-lock; do
-            echo "dispatching l2-negative case=${case}"
-            gh workflow run l2-negative.yml --repo "${GITHUB_REPOSITORY}" --ref main -f case="${case}" -f lanes=both >/dev/null
-            expected=$((expected + 1))
-            run_id=""
+
+          find_child_for_dispatch() {
+            local before_json="$1"
+            local expected_case="$2"
+            local dispatch_started="$3"
+            local deadline
             deadline=$(( $(date +%s) + 300 ))
             while [[ "$(date +%s)" -lt "${deadline}" ]]; do
-              fresh="$(fresh_runs)"
-              if [[ "$(printf '%s' "${fresh}" | jq 'length')" == "${expected}" ]]; then
-                run_id="$(printf '%s' "${fresh}" | jq -r 'last.databaseId')"
-                break
+              local after candidates candidate_count candidate_id candidate_status
+              local artifact_dir evidence_file
+              after="$(fresh_runs)"
+              candidates="$(jq -c \
+                --argjson before "${before_json}" \
+                --arg floor "${dispatch_started}" \
+                --arg sha "${GITHUB_SHA}" \
+                '[.[] | select(.createdAt >= $floor and .headSha == $sha) | . as $run | select(($before | index($run.databaseId)) == null)]' \
+                <<<"${after}")"
+              candidate_count="$(jq 'length' <<<"${candidates}")"
+              if [[ "${candidate_count}" -gt 1 ]]; then
+                echo "case=${expected_case}: dispatch matched multiple new child runs" >&2
+                return 1
+              fi
+              if [[ "${candidate_count}" == 1 ]]; then
+                candidate_id="$(jq -r '.[0].databaseId' <<<"${candidates}")"
+                candidate_status="$(jq -r '.[0].status' <<<"${candidates}")"
+                if [[ "${candidate_status}" == completed ]]; then
+                  artifact_dir="${RUNNER_TEMP}/rejection-schedule-${GITHUB_RUN_ID}-${expected_case}"
+                  mkdir -p "${artifact_dir}"
+                  if gh run download "${candidate_id}" --repo "${GITHUB_REPOSITORY}" --name l2-negative-github --dir "${artifact_dir}" >/dev/null 2>&1; then
+                    evidence_file="$(find "${artifact_dir}" -type f -name l2-negative-github.json -print -quit)"
+                    if [[ -n "${evidence_file}" ]] && jq -e --arg expected_case "${expected_case}" '(.case == $expected_case and .lane == "github" and .status == "passed" and .fail_before_effect == true)' "${evidence_file}" >/dev/null; then
+                      echo "${candidate_id}"
+                      return 0
+                    fi
+                  fi
+                  echo "case=${expected_case}: child ${candidate_id} completed without matching case evidence" >&2
+                  return 1
+                fi
               fi
               sleep 10
             done
-            if [[ -z "${run_id}" ]]; then
-              echo "case=${case}: dispatched run never appeared" >&2
-              exit 1
-            fi
+            echo "case=${expected_case}: initiating dispatch did not yield one correlated child run" >&2
+            return 1
+          }
+
+          dispatched=()
+          for case in mutable-ref unknown-repository unknown-input unknown-subpath-input unresolved-expression invalid-lock; do
+            echo "dispatching l2-negative case=${case}"
+            dispatch_started="$(date -u +%FT%TZ)"
+            before="$(fresh_runs | jq -c '[.[].databaseId]')"
+            gh workflow run "${workflow}" --repo "${GITHUB_REPOSITORY}" --ref main -f case="${case}" -f lanes=both >/dev/null
+            run_id="$(find_child_for_dispatch "${before}" "${case}" "${dispatch_started}")"
             echo "case=${case}: run ${run_id}"
-            run_ids="${run_ids} ${case}=${run_id}"
+            dispatched+=("${case}=${run_id}")
           done
           failures=0
-          for pair in ${run_ids}; do
+          for pair in "${dispatched[@]}"; do
             case="${pair%%=*}"
             run_id="${pair##*=}"
             run_state="unknown"
