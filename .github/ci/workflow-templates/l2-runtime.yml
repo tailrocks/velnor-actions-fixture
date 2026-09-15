@@ -52,7 +52,7 @@ jobs:
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 25
     env:
-      CACHE_NAMESPACE: l2-${{ github.run_id }}-${{ matrix.lane }}
+      CACHE_NAMESPACE: l2-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
       SCCACHE_GHA_ENABLED: "false"
       SCCACHE_CACHE_SIZE: 20G
       RUSTC_WRAPPER: sccache
@@ -158,7 +158,7 @@ jobs:
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 15
     env:
-      CACHE_NAMESPACE: l2-${{ github.run_id }}-${{ matrix.lane }}
+      CACHE_NAMESPACE: l2-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
     steps:
       - name: Create identical contention bytes
         run: mkdir -p .l2-cache/contention && printf '%s\n' contention > .l2-cache/contention/value
@@ -186,7 +186,7 @@ jobs:
     runs-on: ${{ matrix.lane == 'velnor' && fromJSON('{"group":"velnor-trusted","labels":"velnor-target-mvp"}') || 'ubuntu-26.04' }}
     timeout-minutes: 20
     env:
-      CACHE_NAMESPACE: l2-${{ github.run_id }}-${{ matrix.lane }}
+      CACHE_NAMESPACE: l2-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
