@@ -641,7 +641,11 @@ jobs:
             measurements/rust-parallel-${{ matrix.lane }}-${{ matrix.shard }}.txt
           if-no-files-found: error
 
-  # One comparator leg per scenario, so a divergence names its scenario.
+  # One comparator leg per scenario, so a divergence names its scenario. The
+  # explicit-sccache interaction is its own leg: its artifacts share the
+  # `suite-rust-cache-interaction-` prefix and the `rust-cache-interaction`
+  # record scenario with scenario D, so the leg maps its matrix name onto
+  # that shared prefix and scenario explicitly.
   compare:
     name: compare ${{ matrix.scenario }} lanes
     if: (inputs.lanes || inputs.lane) == 'both'
@@ -660,6 +664,7 @@ jobs:
           - rust-sccache
           - rust-accel-optout
           - rust-cache-interaction
+          - rust-cache-interaction-sccache
           - rust-parallel
     runs-on: ubuntu-26.04
     timeout-minutes: 10
@@ -667,11 +672,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: suite-${{ matrix.scenario }}-*
+          pattern: ${{ matrix.scenario == 'rust-cache-interaction-sccache' && 'suite-rust-cache-interaction-*-explicit-sccache' || format('suite-{0}-*', matrix.scenario) }}
           path: artifacts
       - uses: ./.github/actions/compare-evidence
         with:
-          scenario: ${{ matrix.scenario }}
+          scenario: ${{ matrix.scenario == 'rust-cache-interaction-sccache' && 'rust-cache-interaction' || matrix.scenario }}
           directory: artifacts
       # Scheduling and compile deduplication are lane-dependent by design, so
       # they are reported instead of compared. Overlap is the property that
