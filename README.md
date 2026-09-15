@@ -64,6 +64,35 @@ diagnostic checks, not substitutes for mandatory dual-lane proof.
   Docker lease evidence in a hosted job.
 - `attestation-negative.yml` uses `assert-negative` to assert the expected
   per-lane failure or success conclusion for each negative attestation case.
+- `fault-suite.yml` injects workflow-observable faults on both lanes on every
+  pull request and main push (failing steps, hung steps, quota-bounded
+  writes, absent artifacts, expired auth, absent images, mid-step SIGKILL,
+  cache miss/roundtrip, unpullable service images) and compares the containment
+  as v2 evidence. The mid-step and queued cancellation races run on main
+  pushes only: `gh workflow run` by filename requires the victim on main,
+  so they are untestable on-PR by GitHub API design.
+- `soak-suite.yml` repeats tiny jobs round after round with per-round Docker
+  residue census plus repeated warm builds and checkouts, and compares the
+  zero-residue, bounded-growth verdict as v2 evidence.
+- `rejection-schedule.yml` dispatches all six `l2-negative.yml` cases on main
+  pushes and the Sunday schedule and asserts every child run stays green.
+
+## Resilience suites
+
+`fixtures/resilience/catalogue.json` traces every GOAL 46 fault to either a
+`fault-suite.yml` probe or its velnor-side owner: runner-internal faults
+(broker disconnect, daemon SIGKILL, SQLite busy and friends) cannot be
+injected from a job step on either lane, so the fixture measures the
+workflow-observable half and names the bench catalogue or runner tests that
+must prove the rest. Soak bounds live there too.
+
+Rejection-probe dispositions: `l2-negative.yml` is wired into the automatic
+path via `rejection-schedule.yml` (its main-head gate forbids pull-request
+execution by design). `attestation-negative.yml` stays dispatch-only because
+its probe jobs conclude red by design and need generator-side rework to the
+green-run shape. `app-token-probe.yml` stays dispatch-only because it is
+secret-gated: without app credentials it emits not-ready evidence, never a
+pass.
 
 The local `check` gate runs capability coverage, workflow-surface and
 actionlint checks, side-effect-free Python syntax parsing, Rust formatting,

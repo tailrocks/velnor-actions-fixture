@@ -1,0 +1,704 @@
+# Repo-owned dual-lane fault-injection suite (GOAL 46). Runs automatically on
+# pull requests and main pushes plus manual dispatch. Each probe injects a
+# real fault observable at the workflow level on both lanes and asserts the
+# containment: bounded behavior, the correct GitHub result, no orphaned
+# resources, no cross-job contamination, recoverable state, and diagnostics.
+# Runner-internal faults (broker disconnect, daemon SIGKILL, SQLite busy and
+# friends) cannot be injected from a job step on either lane; they are owned
+# velnor-side and traced in fixtures/resilience/catalogue.json. Follows the
+# fixture #143 hand-owned pattern. Not generator output: edit here.
+name: fault-suite
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      lanes:
+        description: "velnor | github | both (default: both)"
+        type: choice
+        default: both
+        options: [velnor, github, both]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fault-suite-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  step-faults:
+    name: step faults (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 20
+    concurrency:
+      group: fault-suite-${{ github.run_id }}-step-faults-${{ matrix.config.lane }}
+      cancel-in-progress: false
+    env:
+      LANE: ${{ matrix.config.lane }}
+      # Deliberately expired and worthless: this string is not a credential,
+      # it only proves the remote rejects bad auth without echoing it.
+      FIXTURE_EXPIRED_TOKEN: expired-fixture-token-not-a-secret
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      # Every fail-* step below fails BY DESIGN and is contained with
+      # continue-on-error; the assert step proves the runner reported each
+      # failure and the healthy step proves the job recovered.
+      - id: fail-exit-3
+        name: Fail with exit code 3
+        continue-on-error: true
+        run: exit 3
+      - id: fail-timeout
+        name: Hang past the step timeout
+        continue-on-error: true
+        timeout-minutes: 1
+        run: sleep 240
+      - id: fail-quota
+        name: Fail a quota-bounded write
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # 512 blocks of 512 bytes: the write dies at 256 KiB, proving
+          # disk-pressure step failure without filling any disk.
+          ulimit -f 512
+          dd if=/dev/zero of=quota.img bs=1M count=8
+      - id: fail-artifact-missing
+        name: Fail an absent artifact download (consumer fault)
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: fault-suite-absent-${{ github.run_id }}
+          path: fault-absent
+      - id: fail-upload-missing
+        name: Fail an absent artifact upload (publisher fault)
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fault-suite-absent-${{ github.run_id }}
+          path: fault-absent-upload
+          if-no-files-found: error
+      - id: fail-auth
+        name: Fail expired auth without leaking it
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          code=0
+          # Push, not ls-remote: public reads need no auth, so ls-remote
+          # succeeds with a bogus token. Push requires write auth on every
+          # repo, so the expired credential is rejected; --dry-run writes
+          # nothing (belt and braces: the credential could not write anyway).
+          git push --dry-run "https://velnor-fixture:${FIXTURE_EXPIRED_TOKEN}@github.com/tailrocks/velnor-actions-fixture.git" HEAD:refs/heads/fault-suite-auth-probe-never-pushed 2>auth-stderr.txt || code=$?
+          if [[ "${code}" -ne 0 ]]; then
+            echo "auth_failed=true" > auth-verdict.txt
+          else
+            echo "auth_failed=false" > auth-verdict.txt
+            echo "expired auth unexpectedly succeeded" >&2
+            exit 1
+          fi
+          if grep -q "expired-fixture-token" auth-stderr.txt; then
+            echo "expired token leaked into tool output" >&2
+            exit 1
+          fi
+          echo "hygiene=ok" >> auth-verdict.txt
+          # Fail by design: the step outcome is the cross-lane signal.
+          exit 3
+      - name: Assert every fault was contained
+        env:
+          OUTCOME_EXIT: ${{ steps.fail-exit-3.outcome }}
+          OUTCOME_TIMEOUT: ${{ steps.fail-timeout.outcome }}
+          OUTCOME_QUOTA: ${{ steps.fail-quota.outcome }}
+          OUTCOME_ARTIFACT: ${{ steps.fail-artifact-missing.outcome }}
+          OUTCOME_UPLOAD: ${{ steps.fail-upload-missing.outcome }}
+          OUTCOME_AUTH: ${{ steps.fail-auth.outcome }}
+        run: |
+          set -euo pipefail
+          test "${OUTCOME_EXIT}" = failure
+          test "${OUTCOME_TIMEOUT}" = failure
+          test "${OUTCOME_QUOTA}" = failure
+          test "${OUTCOME_ARTIFACT}" = failure
+          test "${OUTCOME_UPLOAD}" = failure
+          test "${OUTCOME_AUTH}" = failure
+          grep -q '^auth_failed=true$' auth-verdict.txt
+          grep -q '^hygiene=ok$' auth-verdict.txt
+          rm -f quota.img auth-stderr.txt
+          test ! -e quota.img
+      - name: Prove the job recovered after faults
+        run: echo "healthy-after-faults ok"
+      # `steps` is computed by the runner, not written by this workflow, so
+      # the outcome and conclusion of every step above are the behavioural
+      # signal no workflow author can fabricate.
+      - name: Dump runner-computed step outcomes
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        if: always()
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: fault-suite
+          evidence-id: step-faults
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/result.json
+          observations: |
+            --observe-steps steps=${{ runner.temp }}/steps.json
+            --observe-file auth-verdict=auth-verdict.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: fault-suite-step-faults-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          path: evidence/result.json
+          if-no-files-found: error
+
+  docker-faults:
+    name: docker faults (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 20
+    concurrency:
+      group: fault-suite-${{ github.run_id }}-docker-faults-${{ matrix.config.lane }}
+      cancel-in-progress: false
+    env:
+      LANE: ${{ matrix.config.lane }}
+      # example.invalid never resolves: registry failures are deterministic
+      # and need no network beyond the failed lookup itself.
+      ABSENT_IMAGE: example.invalid/fault-suite-absent:never
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - id: pull-absent
+        name: Fail an absent image pull
+        continue-on-error: true
+        run: docker pull "${ABSENT_IMAGE}"
+      - id: run-absent
+        name: Fail an absent container start
+        continue-on-error: true
+        run: docker run --rm "${ABSENT_IMAGE}" true
+      - id: kill-mid-step
+        name: SIGKILL a running container and reap it
+        run: |
+          set -euo pipefail
+          lane_lower="$(printf '%s' "${LANE}" | tr '[:upper:]' '[:lower:]')"
+          victim="fault-victim-${GITHUB_RUN_ID}-${lane_lower}"
+          docker run -d --label "fault-suite-run=${GITHUB_RUN_ID}" --name "${victim}" busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662 sleep 300
+          docker kill "${victim}" >/dev/null
+          code="$(docker inspect --format '{{.State.ExitCode}}' "${victim}")"
+          test "${code}" = 137
+          docker rm "${victim}" >/dev/null
+          test -z "$(docker ps -aq --filter "name=^${victim}$")"
+          printf 'killed=true\nremoved=true\n' > kill-verdict.txt
+      - id: fail-cleanup
+        name: Fail cleanup once, then recover
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          lane_lower="$(printf '%s' "${LANE}" | tr '[:upper:]' '[:lower:]')"
+          victim="fault-cleanup-${GITHUB_RUN_ID}-${lane_lower}"
+          docker run -d --label "fault-suite-run=${GITHUB_RUN_ID}" --name "${victim}" busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662 sleep 300
+          cleanup_code=0
+          docker rm "${victim}" >cleanup-stderr.txt 2>&1 || cleanup_code=$?
+          test "${cleanup_code}" -ne 0
+          docker rm --force "${victim}" >/dev/null
+          test -z "$(docker ps -aq --filter "name=^${victim}$")"
+          printf 'cleanup_failed=true\ncleanup_recovered=true\n' > cleanup-verdict.txt
+          # Fail by design: the failed cleanup is the cross-lane signal.
+          exit 3
+      - id: residue-census
+        name: Prove zero run-labelled residue
+        run: |
+          set -euo pipefail
+          lane_lower="$(printf '%s' "${LANE}" | tr '[:upper:]' '[:lower:]')"
+          net="fault-net-${GITHUB_RUN_ID}-${lane_lower}"
+          docker network create --label "fault-suite-run=${GITHUB_RUN_ID}" "${net}" >/dev/null
+          docker network rm "${net}" >/dev/null
+          containers="$(docker ps -aq --filter "label=fault-suite-run=${GITHUB_RUN_ID}" | wc -l)"
+          networks="$(docker network ls -q --filter "label=fault-suite-run=${GITHUB_RUN_ID}" | wc -l)"
+          images="$(docker image ls -q --filter "label=fault-suite-run=${GITHUB_RUN_ID}" | wc -l)"
+          total=$((containers + networks + images))
+          printf 'containers=%d\nnetworks=%d\nimages=%d\nmax_residue=%d\n' "${containers}" "${networks}" "${images}" "${total}" > census-verdict.txt
+          # Any residue fails closed here; a clean round records max_residue=0.
+          grep -q '^max_residue=0$' census-verdict.txt
+      - name: Assert docker faults were contained
+        env:
+          OUTCOME_PULL: ${{ steps.pull-absent.outcome }}
+          OUTCOME_RUN: ${{ steps.run-absent.outcome }}
+          OUTCOME_KILL: ${{ steps.kill-mid-step.outcome }}
+          OUTCOME_CLEANUP: ${{ steps.fail-cleanup.outcome }}
+          OUTCOME_CENSUS: ${{ steps.residue-census.outcome }}
+        run: |
+          set -euo pipefail
+          test "${OUTCOME_PULL}" = failure
+          test "${OUTCOME_RUN}" = failure
+          test "${OUTCOME_KILL}" = success
+          test "${OUTCOME_CLEANUP}" = failure
+          test "${OUTCOME_CENSUS}" = success
+          grep -q '^killed=true$' kill-verdict.txt
+          grep -q '^removed=true$' kill-verdict.txt
+          grep -q '^cleanup_failed=true$' cleanup-verdict.txt
+          grep -q '^cleanup_recovered=true$' cleanup-verdict.txt
+          grep -q '^max_residue=0$' census-verdict.txt
+      - name: Dump runner-computed step outcomes
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        if: always()
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: fault-suite
+          evidence-id: docker-faults
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/result.json
+          observations: |
+            --observe-steps steps=${{ runner.temp }}/steps.json
+            --observe-file kill-verdict=kill-verdict.txt
+            --observe-file cleanup-verdict=cleanup-verdict.txt
+            --observe-file census-verdict=census-verdict.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: fault-suite-docker-faults-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          path: evidence/result.json
+          if-no-files-found: error
+
+  cache-miss:
+    name: cache miss (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 15
+    concurrency:
+      group: fault-suite-${{ github.run_id }}-cache-miss-${{ matrix.config.lane }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - id: cache-restore
+        name: Restore an absent cache key
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fault-cache-miss
+          key: fault-suite-miss-${{ github.run_id }}-${{ matrix.config.lane }}
+      - name: Assert the miss degraded without failing
+        env:
+          CACHE_HIT: ${{ steps.cache-restore.outputs.cache-hit }}
+          RESTORE_OUTCOME: ${{ steps.cache-restore.outcome }}
+        run: |
+          set -euo pipefail
+          test "${RESTORE_OUTCOME}" = success
+          # actions/cache/restore leaves cache-hit empty (not "false") on a
+          # miss, so the miss signal is not-true rather than literally false.
+          test "${CACHE_HIT}" != true
+          printf 'cache_hit=false\n' > miss-verdict.txt
+      - name: Dump runner-computed step outcomes
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        if: always()
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: fault-suite
+          evidence-id: cache-miss
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/result.json
+          observations: |
+            --observe-steps steps=${{ runner.temp }}/steps.json
+            --observe-file miss-verdict=miss-verdict.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: fault-suite-cache-miss-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          path: evidence/result.json
+          if-no-files-found: error
+
+  # Fork pull requests get a read-only token: cache save is impossible there,
+  # so the save/verify roundtrip is trusted-runs-only and the compare job
+  # skips forks like backend-parity.
+  cache-save:
+    name: cache save (${{ matrix.config.lane }})
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 10
+    concurrency:
+      group: fault-suite-${{ github.run_id }}-cache-save-${{ matrix.config.lane }}
+      cancel-in-progress: false
+    steps:
+      - name: Write the fixed roundtrip payload
+        run: |
+          set -euo pipefail
+          mkdir -p fault-roundtrip
+          printf 'velnor fault-suite roundtrip v1\n' > fault-roundtrip/payload.txt
+      - id: cache-save
+        name: Save the roundtrip entry
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fault-roundtrip
+          key: fault-suite-roundtrip-${{ github.run_id }}-${{ matrix.config.lane }}
+
+  cache-verify:
+    name: cache verify (${{ matrix.config.lane }})
+    needs: [cache-save]
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 10
+    concurrency:
+      group: fault-suite-${{ github.run_id }}-cache-verify-${{ matrix.config.lane }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - id: cache-restore
+        name: Restore the roundtrip entry
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fault-roundtrip
+          key: fault-suite-roundtrip-${{ github.run_id }}-${{ matrix.config.lane }}
+      - name: Assert roundtrip integrity
+        env:
+          CACHE_HIT: ${{ steps.cache-restore.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          test "${CACHE_HIT}" = true
+          test -f fault-roundtrip/payload.txt
+          actual="$(sha256sum fault-roundtrip/payload.txt | cut -d' ' -f1)"
+          expected="$(printf 'velnor fault-suite roundtrip v1\n' | sha256sum | cut -d' ' -f1)"
+          test "${actual}" = "${expected}"
+          printf 'cache_hit=true\nsha256=%s\n' "${actual}" > verify-verdict.txt
+      - name: Dump runner-computed step outcomes
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        if: always()
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: fault-suite
+          evidence-id: cache-verify
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/result.json
+          observations: |
+            --observe-steps steps=${{ runner.temp }}/steps.json
+            --observe-file verify-verdict=verify-verdict.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: fault-suite-cache-verify-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          path: evidence/result.json
+          if-no-files-found: error
+
+  # The service image below never resolves, so the pull fails fast on every
+  # lane. A services: probe would die in Initialize-containers, which
+  # job-level continue-on-error cannot contain (permanent red by design), so
+  # the fault is injected from a run step with step-level continue-on-error
+  # and asserted from the runner-computed step outcome.
+  service-failure:
+    name: service failure (${{ matrix.config.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"},{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'github') && format('{0}', '[{"lane":"GitHub","runner":"ubuntu-26.04"}]') || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'velnor') && format('{0}', '[{"lane":"Velnor","runner":{"group":"velnor-trusted","labels":"velnor-target-mvp"}}]')) }}
+    runs-on: ${{ matrix.config.runner }}
+    timeout-minutes: 15
+    concurrency:
+      group: fault-suite-${{ github.run_id }}-service-failure-${{ matrix.config.lane }}
+      cancel-in-progress: false
+    env:
+      # example.invalid never resolves: the pull fails deterministically on
+      # every lane and needs no network beyond the failed lookup itself.
+      ABSENT_SERVICE_IMAGE: example.invalid/fault-suite-absent:never
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - id: pull-service-image
+        name: Fail the unpullable service image pull
+        continue-on-error: true
+        run: docker pull "${ABSENT_SERVICE_IMAGE}"
+      - name: Assert the service image pull failed
+        env:
+          OUTCOME_PULL: ${{ steps.pull-service-image.outcome }}
+        run: |
+          set -euo pipefail
+          test "${OUTCOME_PULL}" = failure
+      - name: Dump runner-computed step outcomes
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > "${RUNNER_TEMP}/steps.json" <<'STEPS'
+          ${{ toJSON(steps) }}
+          STEPS
+      - name: Collect observed lane evidence
+        if: always()
+        uses: ./.github/actions/collect-evidence
+        with:
+          scenario: fault-suite
+          evidence-id: service-failure
+          lane: ${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          output: evidence/result.json
+          observations: |
+            --observe-steps steps=${{ runner.temp }}/steps.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: fault-suite-service-failure-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
+          path: evidence/result.json
+          if-no-files-found: error
+
+  # Cancellation races need a victim run to cancel, which only an API-driven
+  # dispatcher can provide. Each matrix leg races one lane: cancel mid-step
+  # (the sleep is provably executing first) and cancel-before-start, then
+  # asserts the runner-computed conclusions. gh workflow run by filename
+  # resolves the victim on main, so pre-merge dispatch 404s: this job runs
+  # post-merge only (main push/schedule behind the main-head gate) and
+  # dispatches --ref main like rejection-schedule.yml.
+  cancel-victim:
+    name: cancel race (${{ matrix.victim }} victim)
+    if: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && github.ref == 'refs/heads/main' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        victim: [github, velnor]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    concurrency:
+      group: fault-suite-${{ github.run_id }}-cancel-${{ matrix.victim }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VICTIM_LANE: ${{ matrix.victim }}
+    steps:
+      - name: Race cancellation against one lane victim
+        run: |
+          set -euo pipefail
+          # Both matrix legs dispatch to the same branch at once, so the
+          # newest fresh run is not necessarily ours: a candidate is ours
+          # only when its jobs name our victim lane.
+          find_mine() {
+            local floor="$1" exclude="${2:-}" ids id
+            ids="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow fault-cancel-target.yml --branch main --limit 20 --json databaseId,createdAt,event --jq "[.[] | select(.event == \"workflow_dispatch\") | select(.createdAt >= \"${floor}\")] | sort_by(.createdAt) | .[].databaseId")"
+            for id in ${ids}; do
+              if [[ "${id}" == "${exclude}" ]]; then continue; fi
+              if gh api --repo "${GITHUB_REPOSITORY}" "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=10" --jq -e "[.jobs[].name] | any(. == \"victim (${VICTIM_LANE})\")" >/dev/null 2>&1; then
+                echo "${id}"
+                return 0
+              fi
+            done
+            return 1
+          }
+          floor="$(date -u -d '2 minutes ago' +%FT%TZ)"
+          echo "dispatching in-progress victim on lane ${VICTIM_LANE}"
+          gh workflow run fault-cancel-target.yml --repo "${GITHUB_REPOSITORY}" --ref main -f lanes="${VICTIM_LANE}" >/dev/null
+          victim=""
+          deadline=$(( $(date +%s) + 180 ))
+          while [[ "$(date +%s)" -lt "${deadline}" ]]; do
+            if victim="$(find_mine "${floor}")"; then break; fi
+            sleep 10
+          done
+          if [[ -z "${victim}" ]]; then echo "victim run never appeared" >&2; exit 1; fi
+          echo "victim run: ${victim}"
+          # Wait until the sleep step itself is executing, then cancel: the
+          # cancel provably races a running step rather than job setup.
+          step_state="absent/none"
+          deadline=$(( $(date +%s) + 480 ))
+          while [[ "$(date +%s)" -lt "${deadline}" ]]; do
+            step_state="$(gh api --repo "${GITHUB_REPOSITORY}" "repos/${GITHUB_REPOSITORY}/actions/runs/${victim}/jobs?per_page=100" --jq '[.jobs[].steps[]? | select(.name == "long-sleep")][0] | "\(.status // "absent")/\(.conclusion // "none")"')"
+            echo "long-sleep: ${step_state}"
+            if [[ "${step_state}" == "in_progress/none" ]]; then break; fi
+            if [[ "${step_state}" == completed/* ]]; then echo "victim finished before cancel; a lost race is a bug" >&2; exit 1; fi
+            sleep 10
+          done
+          if [[ "${step_state}" != "in_progress/none" ]]; then echo "sleep step never started" >&2; exit 1; fi
+          gh api --repo "${GITHUB_REPOSITORY}" -X POST "repos/${GITHUB_REPOSITORY}/actions/runs/${victim}/cancel" >/dev/null
+          echo "cancel sent; waiting for the victim conclusion"
+          run_state="unknown"
+          deadline=$(( $(date +%s) + 180 ))
+          while [[ "$(date +%s)" -lt "${deadline}" ]]; do
+            run_state="$(gh api --repo "${GITHUB_REPOSITORY}" "repos/${GITHUB_REPOSITORY}/actions/runs/${victim}" --jq '"\(.status)/\(.conclusion // "none")"')"
+            if [[ "${run_state}" == completed/* ]]; then break; fi
+            sleep 10
+          done
+          test "${run_state}" = "completed/cancelled"
+          gh api --repo "${GITHUB_REPOSITORY}" "repos/${GITHUB_REPOSITORY}/actions/runs/${victim}/jobs?per_page=100" > victim-jobs.json
+          python3 - victim-jobs.json "${VICTIM_LANE}" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              jobs = json.load(handle)["jobs"]
+          name = f"victim ({sys.argv[2]})"
+          matches = [job for job in jobs if job["name"] == name]
+          assert len(matches) == 1, f"expected one {name}, found {len(matches)}"
+          job = matches[0]
+          assert job["conclusion"] == "cancelled", job["conclusion"]
+          steps = {step["name"]: step["conclusion"] for step in job.get("steps", [])}
+          assert steps.get("long-sleep") == "cancelled", steps
+          assert steps.get("cancelled-marker") == "success", steps
+          print(f"::notice::{name}: cancel-during-step contained, cancelled() held")
+          PY
+          artifacts="$(gh api --repo "${GITHUB_REPOSITORY}" "repos/${GITHUB_REPOSITORY}/actions/runs/${victim}/artifacts" --jq '.total_count')"
+          test "${artifacts}" = 0
+          echo "in-progress cancel race passed with zero victim artifacts"
+          # Second race: cancel before start. Whatever wins, no step may run.
+          echo "dispatching queued-victim on lane ${VICTIM_LANE}"
+          floor="$(date -u -d '2 minutes ago' +%FT%TZ)"
+          gh workflow run fault-cancel-target.yml --repo "${GITHUB_REPOSITORY}" --ref main -f lanes="${VICTIM_LANE}" >/dev/null
+          queued=""
+          deadline=$(( $(date +%s) + 180 ))
+          while [[ "$(date +%s)" -lt "${deadline}" ]]; do
+            if queued="$(find_mine "${floor}" "${victim}")"; then break; fi
+            sleep 10
+          done
+          if [[ -z "${queued}" ]]; then echo "queued victim never appeared" >&2; exit 1; fi
+          gh api --repo "${GITHUB_REPOSITORY}" -X POST "repos/${GITHUB_REPOSITORY}/actions/runs/${queued}/cancel" >/dev/null
+          run_state="unknown"
+          deadline=$(( $(date +%s) + 180 ))
+          while [[ "$(date +%s)" -lt "${deadline}" ]]; do
+            run_state="$(gh api --repo "${GITHUB_REPOSITORY}" "repos/${GITHUB_REPOSITORY}/actions/runs/${queued}" --jq '"\(.status)/\(.conclusion // "none")"')"
+            if [[ "${run_state}" == completed/* ]]; then break; fi
+            sleep 10
+          done
+          test "${run_state}" = "completed/cancelled"
+          gh api --repo "${GITHUB_REPOSITORY}" "repos/${GITHUB_REPOSITORY}/actions/runs/${queued}/jobs?per_page=100" > queued-jobs.json
+          # A queued cancellation passes only when no job or step started.
+          # In particular, a started step may have conclusion=cancelled, so
+          # filtering only success/failure would accept the wrong race.
+          python3 - queued-jobs.json <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              jobs = json.load(handle)["jobs"]
+          started_jobs = [
+              (job["name"], job.get("started_at"))
+              for job in jobs
+              if job.get("started_at") is not None
+          ]
+          started_steps = [
+              (job["name"], step["name"], step["conclusion"])
+              for job in jobs
+              for step in job.get("steps", [])
+              if step.get("started_at") is not None
+              or step.get("conclusion") not in (None, "skipped")
+          ]
+          assert not started_jobs, f"queued victim started jobs: {started_jobs}"
+          assert not started_steps, f"queued victim started steps: {started_steps}"
+          print("::notice::queued-victim: cancelled before any job or step started")
+          PY
+
+  compare-faults:
+    name: compare fault lanes
+    needs: [step-faults, docker-faults, cache-miss, cache-verify, service-failure]
+    # Fork PRs have no Velnor lane or artifacts and skip the evidence jobs
+    # that need write access, so they intentionally skip comparison.
+    if: ${{ always() && ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.lanes == 'both')) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: fault-suite-${{ github.run_id }}-compare
+      cancel-in-progress: false
+    steps:
+      - name: Require every evidence job to pass
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          python3 -c 'import json,sys; n=json.loads(sys.argv[1]); print("probe results:", n); sys.exit(any(v["result"] != "success" for v in n.values()))' "$NEEDS"
+      # Checkout first: it cleans the workspace, which would delete the
+      # downloaded lane artifacts if it ran after them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: fault-suite-*
+          path: artifacts
+      - uses: ./.github/actions/compare-evidence
+        with:
+          scenario: fault-suite
+          directory: artifacts

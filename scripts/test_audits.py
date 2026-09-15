@@ -232,6 +232,20 @@ class WorkflowPolicyTests(unittest.TestCase):
         failures = workflow_audit.pages_policy_failures({"pages.yml": text})
         self.assertIn("only push, GitHub dispatch", "\n".join(failures))
 
+    def test_config_matrix_fromjson_lines_contain_no_backslashes(self):
+        # GitHub expression strings treat backslash literally, so a
+        # backslash-escaped quote inside format() reaches fromJSON verbatim
+        # and the whole matrix evaluates to zero legs. The dual-lane config
+        # lines must carry raw JSON in single quotes instead.
+        checked = 0
+        for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+            for number, line in enumerate(path.read_text().splitlines(), 1):
+                if line.strip().startswith("config:") and "fromJSON" in line:
+                    checked += 1
+                    with self.subTest(workflow=path.name, line=number):
+                        self.assertNotIn("\\", line)
+        self.assertGreater(checked, 0)
+
 
 class SurfaceCoverageTests(unittest.TestCase):
     manifest_actions = {
@@ -893,6 +907,135 @@ class CompareEvidenceActionTests(unittest.TestCase):
         self.assertIn(
             '--expect-velnor-source-sha "${EVIDENCE_VELNOR_SOURCE_SHA}"', compare
         )
+
+
+class ResilienceCatalogueTests(unittest.TestCase):
+    GOAL_46_FAULTS = frozenset(
+        [
+            "github-5xx",
+            "github-429",
+            "expired-auth",
+            "registration-disappearance",
+            "broker-disconnect",
+            "run-service-disconnect",
+            "lease-renew-failure",
+            "completion-failure",
+            "publisher-failure",
+            "process-sigkill",
+            "daemon-restart",
+            "slot-restart",
+            "docker-daemon-disconnect",
+            "docker-command-hang",
+            "container-start-failure",
+            "service-readiness-failure",
+            "disk-full",
+            "low-disk",
+            "cache-corruption",
+            "malformed-archive",
+            "stale-lock",
+            "sqlite-busy",
+            "slow-filesystem",
+            "cancellation-race",
+            "completion-cancellation-race",
+            "cleanup-failure",
+        ]
+    )
+    ASSERTION_DIMENSIONS = frozenset(
+        [
+            "bounded",
+            "github_result",
+            "no_orphans",
+            "no_contamination",
+            "recoverable",
+            "diagnostics",
+        ]
+    )
+
+    def catalogue(self):
+        path = ROOT / "fixtures" / "resilience" / "catalogue.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_catalogue_covers_every_goal_46_fault(self):
+        catalogue = self.catalogue()
+        observed = {fault["id"] for fault in catalogue["faults"]}
+        self.assertEqual(observed, self.GOAL_46_FAULTS)
+
+    def test_every_fault_has_a_disposition_and_all_assertion_dimensions(self):
+        for fault in self.catalogue()["faults"]:
+            with self.subTest(fault=fault["id"]):
+                self.assertIn(fault["status"], ("measured", "declared", "declared-unrun"))
+                self.assertEqual(set(fault["assertions"]), self.ASSERTION_DIMENSIONS)
+                for dimension, text in fault["assertions"].items():
+                    self.assertTrue(text.strip(), dimension)
+                if fault["status"] == "measured":
+                    self.assertIn("probe", fault)
+                    self.assertNotIn("owner", fault)
+                else:
+                    self.assertIn("owner", fault)
+                    self.assertNotIn("probe", fault)
+
+    def test_every_measured_probe_exists_in_its_workflow(self):
+        for fault in self.catalogue()["faults"]:
+            probe = fault.get("probe")
+            if probe is None:
+                continue
+            with self.subTest(fault=fault["id"]):
+                text = (
+                    ROOT / ".github" / "workflows" / probe["workflow"]
+                ).read_text(encoding="utf-8")
+                self.assertIn(f"\n  {probe['job']}:", text)
+                for marker in probe["markers"]:
+                    self.assertIn(marker, text)
+
+    def test_soak_profiles_have_minimum_rounds_and_signals(self):
+        soak = self.catalogue()["soak"]
+        self.assertTrue(
+            (ROOT / ".github" / "workflows" / soak["workflow"]).is_file()
+        )
+        for name, profile in soak["profiles"].items():
+            with self.subTest(profile=name):
+                self.assertGreaterEqual(profile["rounds"], 3)
+        self.assertTrue(soak["signals"])
+
+    def test_soak_verdict_asserts_growth_and_drift_buckets(self):
+        soak = self.catalogue()["soak"]
+        text = (
+            ROOT / ".github" / "workflows" / soak["workflow"]
+        ).read_text(encoding="utf-8")
+        # The verdict must fail closed on growth/drift, never pass
+        # unconditionally: both the Python verdict logic and the shell
+        # greps must pin the flat/ok buckets.
+        self.assertIn("growth_bucket=flat", text)
+        self.assertIn("drift_bucket=ok", text)
+        self.assertIn("grep -q '^growth_bucket=flat$' soak/verdict.txt", text)
+        self.assertIn("grep -q '^drift_bucket=ok$' soak/verdict.txt", text)
+        self.assertIn("grep -q '^verdict=pass$' soak/verdict.txt", text)
+        self.assertNotIn('handle.write("verdict=pass\\n")', text)
+        self.assertIn("verdict={verdict}", text)
+        # Catalogue bounds must match the workflow constants they document.
+        self.assertEqual(soak["bounds"]["max_residue"], 0)
+        self.assertEqual(soak["bounds"]["growth_bytes_above_first_plus"], 10 * 1024 * 1024)
+        self.assertEqual(soak["bounds"]["drift_ratio_below"], 3.0)
+        self.assertIn("10 * 1024 * 1024", text)
+        self.assertIn(">= 3.0", text)
+        signals = "\n".join(soak["signals"])
+        self.assertIn("growth bucket", signals)
+        self.assertIn("drift bucket", signals)
+
+    def test_rejection_probe_dispositions_reference_real_workflows(self):
+        catalogue = self.catalogue()
+        for name, probe in catalogue["rejection_probes"].items():
+            with self.subTest(probe=name):
+                self.assertTrue(
+                    (ROOT / ".github" / "workflows" / probe["workflow"]).is_file()
+                )
+                self.assertIn(probe["disposition"], ("scheduled", "dispatch-only"))
+                self.assertTrue(probe["reason"].strip())
+                if probe["disposition"] == "scheduled":
+                    driver = (
+                        ROOT / ".github" / "workflows" / probe["scheduled_by"]
+                    ).read_text(encoding="utf-8")
+                    self.assertIn(probe["workflow"].removesuffix(".yml"), driver)
 
 
 if __name__ == "__main__":
