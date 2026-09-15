@@ -31,6 +31,44 @@ defaults:
     shell: bash
 
 jobs:
+  ci-negative-contract:
+    name: verify L2 rejection corpus
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: rejection-schedule-${{ github.run_id }}-ci-contract
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Mr. Boxington
+        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
+        with:
+          backend: github
+          version: 1.8.3
+          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
+          save-on-workflow-dispatch: true
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - name: Require every negative corpus case to fail before effect
+        run: |
+          set -euo pipefail
+          expect_rejection() {
+            local case_name="$1"
+            shift
+            if "$@"; then
+              echo "::error::L2 rejection case ${case_name} was accepted"
+              return 1
+            fi
+            echo "${case_name}: rejected before effect"
+          }
+          expect_rejection mutable-ref cargo run --locked -p l2-contract -- validate-file fixtures/l2/mutable-ref.json
+          expect_rejection unknown-repository cargo run --locked -p l2-contract -- validate-file fixtures/l2/unknown-repository.json
+          expect_rejection unknown-input cargo run --locked -p l2-contract -- validate-file fixtures/l2/unknown-input.json
+          expect_rejection unknown-subpath-input cargo run --locked -p l2-contract -- validate-file fixtures/l2/unknown-subpath.json
+          expect_rejection unresolved-expression cargo run --locked -p l2-contract -- validate-file fixtures/l2/unresolved-expression.json
+          expect_rejection invalid-lock cargo run --locked -p l2-contract -- validate-lock fixtures/l2/invalid-mise.lock
+
   drive-l2-negatives:
     name: drive L2 rejection probes
     runs-on: ubuntu-26.04
