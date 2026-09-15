@@ -958,3 +958,78 @@ hand-edit — back to source provenance `6e59b98d…` (capability identity
 unchanged). `just capability-audit` against the pinned checkout passes.
 Pin advancement belongs to a separate effort (`wp15-pin-advance` branch),
 never to this baseline fix.
+
+## Status — fixture queue 142–148 `2026-09-13`
+
+Base: `origin/main` = `efd569568d93a028810dac92155abc9ad5cd1edf` at fetch
+time. Head SHAs below resolved live via `gh pr view` on 2026-09-13; all
+seven PRs are OPEN against `main`.
+
+### Queue (review verdict: SOUND, corrections applied)
+
+- #142 baseline re-target to pin `6e59b98d` (`r0-refresh-converged-tip` @
+  `fd7b17442701513195b38b45ede7630aabeed0d4`): first refreshed to converged
+  tip `1d03c9d2` (`cb2bac1c`), then re-targeted to the pinned runner
+  `6e59b98d` (`8dc8d7ad`); final diff vs main is plan prose only.
+- #143 dual-lane recovery (`r0-duallane-recovery` @
+  `23e7cbfd1c01cf088f39cfc3bd77eeaae435a77e`): R1-cmd/R1-cond pins re-homed
+  as repo-owned workflows; correction `23e7cbfd` classifies them positive.
+- #144 env-first identity (`r0-collect-env` @
+  `e6e5fe0b06ff7e08d767bcfe1566a3140a2151cf`): single commit.
+- #145 ordinary-cargo default (`r0-rust-default-cargo` @
+  `90d86690a7456a0270b71fab2615402ec8587b4b`): single commit.
+- #146 audit naming (`r0-audit-ci` @
+  `e2aca93b4f400b21093d8cba2510b2cb5acaa386`): single commit; documents the
+  generator-side CI wiring block (see below).
+- #147 fault plus soak suites (`r0-fault-soak` @
+  `885a6c769c07b8852bcb5f1094b942e2f02117da`): three correction commits
+  (`8acefc20`, `cb26a616`, `885a6c76`) after review.
+- #148 sccache compare leg (`r0-sccache-compare-leg` @
+  `6e852206d3354c631dac84f4a62e2ce530a61984`): single commit.
+
+GitHub-side reviews are Codex COMMENTED bot reviews only (no approvals,
+none required — the ruleset wants 0 approving reviews); #147/#148 hit
+Codex usage limits with no bot review.
+
+CI readiness, uniform across the queue (`gh pr checks` 2026-09-13):
+GitHub lane plus audits green — every `(github)` leg and `contract and
+readiness audit` pass, DCO passes. Velnor lane pool-queued — every
+`(velnor)` leg pending. Exception: #143 `status branches (GitHub)` fails
+by design (the pin needs a real failure; `compare-status` is the verdict).
+
+### Merge blockers (all human/infra, none content)
+
+- `velnor-target-mvp` pool outage: velnor-lane jobs queued for hours (e.g.
+  run `34774477186` created 18:23:34Z still queued; main CI run
+  `34780709200` queued).
+- Ruleset `protect-main` id `19572977` (enforcement active) requires `DCO`
+  + `ci-required` with `bypass_actors: []` — zero bypass, even admins
+  denied. `ci-required` reports 0 check-runs on PR heads (gated behind the
+  queued velnor legs) and `completed/failure` on the main head itself.
+- `compat-required` pre-existing aggregation failure: fails in 3–5s on
+  every PR including plan-doc-only #142 (12:53:54Z→12:53:59Z); `compat`
+  and `compare-results` legs skip.
+- Pin lag vs velnor main: baseline binds `6e59b98d`, 106 commits behind
+  velnor `origin/main` `408e4262f4f0c1dc5203f4e2891182a1254f2f10`. Advance
+  is velnor WP-15, owned by the other effort.
+- Generator-side CI wiring blocked (#146 finding): `velnor-workflow` seeds
+  the fixture surface from crate assets and ignores repo template edits;
+  velnor `origin/main` generator hard-errors on this repo (requires
+  `rust-toolchain.toml`, fixture pins via mise). Per `.github/AGENTS.md`
+  generated files stay untouched; #143/#147 suites are repo-owned and not
+  wired into the `ci-required` aggregator.
+
+### Standing rule and audit
+
+- both/both dogfood rule stands: `.github/AGENTS.md` — `both` is the
+  automatic and manual default for positive paths, identical suites on both
+  lanes; velnor #765 — `runners = "both"`, `automatic = "both"` forever:
+  generate once, run both, fix generator or Velnor on divergence.
+- Audit outcome: all goal suite workflows dual-lane compliant
+  (`audit_workflow_surface.py` ok, re-verified locally at this base). The
+  velnor-main config violation (`runners = "velnor"`, no `automatic`)
+  belongs to the other effort via velnor #732 (merged 2026-09-13T15:07:17Z,
+  added the `runners = "velnor"` line); fix is user PR velnor #765
+  (`feat/workflow-both-both-compare` @ `7a8a5125`), open.
+
+No readiness claim is made by this status (queue record only).
