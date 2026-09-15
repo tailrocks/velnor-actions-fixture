@@ -189,6 +189,7 @@ jobs:
       # example.invalid never resolves: registry failures are deterministic
       # and need no network beyond the failed lookup itself.
       ABSENT_IMAGE: example.invalid/fault-suite-absent:never
+      FAULT_IMAGE: fault-suite:${{ github.run_id }}-${{ matrix.config.lane == 'GitHub' && 'github' || 'velnor' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Mr. Boxington
@@ -201,6 +202,12 @@ jobs:
             velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
           save-on-workflow-dispatch: true
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - name: Build image-labelled fault fixture
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'FROM busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662' | docker build --file - --label "fault-suite-run=${GITHUB_RUN_ID}" --tag "${FAULT_IMAGE}" .
+          image_id="$(docker image ls -q --filter "label=fault-suite-run=${GITHUB_RUN_ID}" | sort -u)"
+          test -n "${image_id}"
       - id: pull-absent
         name: Fail an absent image pull
         continue-on-error: true
@@ -215,7 +222,7 @@ jobs:
           set -euo pipefail
           lane_lower="$(printf '%s' "${LANE}" | tr '[:upper:]' '[:lower:]')"
           victim="fault-victim-${GITHUB_RUN_ID}-${lane_lower}"
-          docker run -d --label "fault-suite-run=${GITHUB_RUN_ID}" --name "${victim}" busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662 sleep 300
+          docker run -d --label "fault-suite-run=${GITHUB_RUN_ID}" --name "${victim}" "${FAULT_IMAGE}" sleep 300
           docker kill "${victim}" >/dev/null
           code="$(docker inspect --format '{{.State.ExitCode}}' "${victim}")"
           test "${code}" = 137
@@ -229,7 +236,7 @@ jobs:
           set -euo pipefail
           lane_lower="$(printf '%s' "${LANE}" | tr '[:upper:]' '[:lower:]')"
           victim="fault-cleanup-${GITHUB_RUN_ID}-${lane_lower}"
-          docker run -d --label "fault-suite-run=${GITHUB_RUN_ID}" --name "${victim}" busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662 sleep 300
+          docker run -d --label "fault-suite-run=${GITHUB_RUN_ID}" --name "${victim}" "${FAULT_IMAGE}" sleep 300
           cleanup_code=0
           docker rm "${victim}" >cleanup-stderr.txt 2>&1 || cleanup_code=$?
           test "${cleanup_code}" -ne 0
@@ -238,6 +245,10 @@ jobs:
           printf 'cleanup_failed=true\ncleanup_recovered=true\n' > cleanup-verdict.txt
           # Fail by design: the failed cleanup is the cross-lane signal.
           exit 3
+      - id: image-cleanup
+        name: Remove image-labelled fault fixture
+        continue-on-error: true
+        run: docker image rm "${FAULT_IMAGE}"
       - id: residue-census
         name: Prove zero run-labelled residue
         run: |
@@ -248,7 +259,10 @@ jobs:
           docker network rm "${net}" >/dev/null
           containers="$(docker ps -aq --filter "label=fault-suite-run=${GITHUB_RUN_ID}" | wc -l)"
           networks="$(docker network ls -q --filter "label=fault-suite-run=${GITHUB_RUN_ID}" | wc -l)"
-          images="$(docker image ls -q --filter "label=fault-suite-run=${GITHUB_RUN_ID}" | wc -l)"
+          # Image labels are independent from container labels. Include
+          # dangling/intermediate images and de-duplicate IDs so a leaked
+          # labelled image cannot hide behind a clean container census.
+          images="$(docker image ls -aq --filter "label=fault-suite-run=${GITHUB_RUN_ID}" | sort -u | sed '/^$/d' | wc -l | tr -d ' ')"
           total=$((containers + networks + images))
           printf 'containers=%d\nnetworks=%d\nimages=%d\nmax_residue=%d\n' "${containers}" "${networks}" "${images}" "${total}" > census-verdict.txt
           # Any residue fails closed here; a clean round records max_residue=0.

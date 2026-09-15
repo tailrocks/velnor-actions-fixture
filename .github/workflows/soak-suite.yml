@@ -85,10 +85,17 @@ jobs:
             round=$((round + 1))
             start_ms="$(date +%s%3N)"
             mbx run --quiet --locked -p fixture-harness --example cache_payload -- soak "${LANE}" > soak/iter.txt
-            docker run --rm --label "soak-run=${GITHUB_RUN_ID}" busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662 true
+            image="soak-suite:${GITHUB_RUN_ID}-${LANE,,}-${round}"
+            printf '%s\n' 'FROM busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662' | docker build --file - --label "soak-run=${GITHUB_RUN_ID}" --tag "${image}" .
+            image_id="$(docker image ls -q --filter "label=soak-run=${GITHUB_RUN_ID}" | sort -u)"
+            test -n "${image_id}"
+            docker run --rm --label "soak-run=${GITHUB_RUN_ID}" "${image}" true
+            docker image rm "${image}" >/dev/null
             containers="$(docker ps -aq --filter "label=soak-run=${GITHUB_RUN_ID}" | wc -l)"
             networks="$(docker network ls -q --filter "label=soak-run=${GITHUB_RUN_ID}" | wc -l)"
-            images="$(docker image ls -q --filter "label=soak-run=${GITHUB_RUN_ID}" | wc -l)"
+            # Filter image metadata, not container metadata; include dangling
+            # layers and de-duplicate IDs before counting residue.
+            images="$(docker image ls -aq --filter "label=soak-run=${GITHUB_RUN_ID}" | sort -u | sed '/^$/d' | wc -l | tr -d ' ')"
             residue=$((containers + networks + images))
             if [[ "${residue}" -ne 0 ]]; then
               echo "round ${round} left ${residue} owned object(s) behind" >&2

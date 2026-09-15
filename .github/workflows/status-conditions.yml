@@ -149,6 +149,39 @@ jobs:
         with:
           name: status-result-velnor
           path: artifacts/velnor
+      - name: Require runner-computed status branches
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              "real-failure": {"outcome": "failure", "conclusion": "failure"},
+              "on-failure": {"outcome": "success", "conclusion": "success"},
+              "on-success": {"outcome": "skipped", "conclusion": "skipped"},
+              "on-cancelled": {"outcome": "skipped", "conclusion": "skipped"},
+              "bad-if": {"outcome": "failure", "conclusion": "failure"},
+          }
+          for lane in ("github", "velnor"):
+              paths = sorted(Path("artifacts", lane).rglob("*.json"))
+              if len(paths) != 1:
+                  raise SystemExit(
+                      f"{lane}: expected one evidence record, found {len(paths)}"
+                  )
+              record = json.loads(paths[0].read_text(encoding="utf-8"))
+              try:
+                  steps = record["observed"]["steps"]["steps"]
+              except (KeyError, TypeError) as error:
+                  raise SystemExit(f"{lane}: missing observed steps: {error}") from error
+              for step, wanted in expected.items():
+                  actual = steps.get(step)
+                  if actual != wanted:
+                      raise SystemExit(
+                          f"{lane}: {step} outcome/conclusion {actual!r}, expected {wanted!r}"
+                      )
+          print("runner-computed status branches match the fail-closed contract")
+          PY
       - uses: ./.github/actions/compare-evidence
         with:
           scenario: status-result
