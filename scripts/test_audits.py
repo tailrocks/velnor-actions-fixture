@@ -293,9 +293,19 @@ class BaselineBindingTests(unittest.TestCase):
         self.assertEqual(self.bind(self.baseline()), [])
 
     def test_a_stale_manifest_version_is_rejected(self):
+        baseline_version = self.baseline()["version"]
         runner = self.baseline()
-        runner["version"] = runner["version"] + 1
-        self.assertIn("the baseline is stale", "\n".join(self.bind(runner)))
+        runner["version"] = baseline_version + 1
+        failures = "\n".join(self.bind(runner))
+        self.assertIn("the baseline is stale", failures)
+        # The drift error must name each side's own value: the checked-in
+        # value after "is", the runner's after "reports". Swapping them
+        # misattributes the drift.
+        self.assertIn(
+            f"coverage/velnor-capabilities.json version is {baseline_version!r}, "
+            f"but the Velnor build under test reports {baseline_version + 1!r}",
+            failures,
+        )
 
     def test_an_unrelated_source_commit_does_not_change_capability_identity(self):
         runner = self.baseline()
@@ -327,6 +337,18 @@ class BaselineBindingTests(unittest.TestCase):
         failures = "\n".join(self.bind(runner))
         self.assertIn("example/not-admitted-action", failures)
         self.assertIn(original, failures)
+        # Each direction must blame the right side: the runner admits the
+        # new identity, the baseline still lists the old one.
+        self.assertIn(
+            "capabilities.actions: the runner under test admits "
+            "example/not-admitted-action, but the baseline does not list it",
+            failures,
+        )
+        self.assertIn(
+            f"capabilities.actions: the baseline lists {original}, but the runner "
+            "under test does not admit it",
+            failures,
+        )
 
     def test_a_widened_allowed_ref_is_rejected(self):
         runner = self.baseline()
