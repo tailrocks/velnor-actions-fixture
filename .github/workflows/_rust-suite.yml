@@ -58,15 +58,9 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Mr. Boxington
-        uses: jdx/mr-boxington-action@7234d3dd1a6ca8f6c381eea8e4dfb03f18fcf777 # v1.3.0
-        with:
-          backend: github
-          version: 1.8.3
-          cache-key: velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', 'mise.toml', 'mise.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            velnor-static-mbx-1.8.3-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.job }}-
-          save-on-workflow-dispatch: true
+      # No Mr Boxington setup: this job measures what Velnor does for an
+      # ordinary cargo workflow. Any runner-provided acceleration stays
+      # transparent; the probe below only reports what the runner handed us.
       - uses: rui314/setup-mold@7e4f20ad28a2e8ca6fd0892ccf72e2abb706b9c3 # v1
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
@@ -107,7 +101,7 @@ jobs:
           PACKAGE: ${{ matrix.package }}
         run: |
           set -euo pipefail
-          mbx nextest run --color never --locked -p "${PACKAGE}" 2>&1 | tee nextest.log
+          cargo nextest run --color never --locked -p "${PACKAGE}" 2>&1 | tee nextest.log
           count="$(sed -n 's/.*Summary \[[^]]*\] *\([0-9][0-9]*\) test.*/\1/p' nextest.log | tail -1)"
           test -n "${count}"
           echo "count=${count}" >> "${GITHUB_OUTPUT}"
@@ -116,18 +110,18 @@ jobs:
           PACKAGE: ${{ matrix.package }}
         run: |
           set -euo pipefail
-          mbx nextest run --locked -p fixture-harness --all-targets
+          cargo nextest run --locked -p fixture-harness --all-targets
           mkdir -p probe
-          mbx run --quiet --locked -p fixture-harness --example command_files > probe/command-files.txt
+          cargo run --quiet --locked -p fixture-harness --example command_files > probe/command-files.txt
           tmp_dir="$(mktemp -d)"
           mkdir -p "${tmp_dir}/tree/nested"
           printf '%s\n' alpha > "${tmp_dir}/tree/nested/a.txt"
-          mbx run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > probe/tree.txt
+          cargo run --quiet --locked -p fixture-harness --example artifact_tree -- "${tmp_dir}/tree" > probe/tree.txt
           test -s probe/tree.txt
-          mbx run --quiet --locked -p fixture-harness --example cache_payload -- cargo "rust-default-${PACKAGE}" > probe/cache.txt
+          cargo run --quiet --locked -p fixture-harness --example cache_payload -- cargo "rust-default-${PACKAGE}" > probe/cache.txt
           grep -q '^velnor.fixture.cache.v1$' probe/cache.txt
           printf '%s\n' release > "${tmp_dir}/fixture.tar.gz"
-          mbx run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > probe/subject.json
+          cargo run --quiet --locked -p fixture-harness --example release_subject -- 0000000000000000000000000000000000000000 "${tmp_dir}/fixture.tar.gz" > probe/subject.json
           grep -q 'velnor.fixture.release-subject.v1' probe/subject.json
       - name: Capture default step outcomes
         env:
