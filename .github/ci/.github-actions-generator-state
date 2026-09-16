@@ -1,9 +1,9 @@
 # Generated ownership state; do not edit.
 schema = 2
 [inputs]
-config	62bc714ec0d91719
+config	2a63b6d6ecc28001
 scan	919202ba1e75c171
-generator	46
+generator	47
 [outputs]
 .github/actionlint.yaml	ac662d08ffc17121
 .github/actions/aggregate-needs/action.yml	ebcc5cc11afb2e43
@@ -13,7 +13,7 @@ generator	46
 .github/actions/compare-evidence/action.yml	33fd6e6510ddf9f7
 .github/actions/l2-nested/action.yml	6b6ba0d782b72768
 .github/actions/l2-root/action.yml	44f41b62809b2f5f
-.github/ci/project.toml	b088bf70650d4258
+.github/ci/project.toml	c45430b58b36f6f2
 .github/workflows/AGENTS.md	81c8ab9ea68cc549
 .github/workflows/_actions-suite.yml	2c7cc41540c62f84
 .github/workflows/_docker-suite.yml	ad15607a4279e07f
@@ -22,8 +22,11 @@ generator	46
 .github/workflows/app-token-probe.yml	2699fe0003d1e4a0
 .github/workflows/attestation-negative.yml	2c22a33f6cd7019c
 .github/workflows/backend-parity.yml	f9a606ff48296204
-.github/workflows/ci-unit-docker.yml	5054da593d3ae8a2
-.github/workflows/ci-unit-rust.yml	d7dc7f1073c202db
+.github/workflows/ci-main.yml	8f95b7f97b169683
+.github/workflows/ci-policy.yml	184afcf134e7104a
+.github/workflows/ci-pr.yml	a59ff795a3f61aa9
+.github/workflows/ci-unit-docker.yml	7c38926a7a8352c9
+.github/workflows/ci-unit-rust.yml	ec0c0ec4a4848608
 .github/workflows/ci.yml	ba94ce503845c1f0
 .github/workflows/compat-public-unmerged.yml	9060aaa95865c00f
 .github/workflows/compat.yml	3c189cd174f7b888
@@ -34,7 +37,9 @@ generator	46
 .github/workflows/l2-negative.yml	f02967165f49d07a
 .github/workflows/l2-provenance.yml	9141579200b01399
 .github/workflows/l2-runtime.yml	6666b8a4bbd83bc7
+.github/workflows/maintenance.yml	e53f849aaba1eff2
 .github/workflows/multi-arch.yml	5d2fd4a7d4303f90
+.github/workflows/nightly.yml	dad29397d25978e0
 .github/workflows/pages.yml	e26def73892cda08
 .github/workflows/renovate.yml	08ee723a9e5ae76a
 .github/workflows/reuse-caller.yml	0e24bed4e945a345

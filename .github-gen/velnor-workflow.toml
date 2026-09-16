@@ -2,7 +2,7 @@ schema = 1
 
 [generator]
 repository = "tailrocks/velnor-actions-fixture"
-revision = "03f9409b3f649a8973169dde0ebba3fe58a92ac9"
+revision = "e13bce4dba15ed5927effde5eb62e8ba453bf100"
 
 [workflow]
 runners = "both"
@@ -10,7 +10,6 @@ automatic = "both"
 github_runner = "ubuntu-26.04"
 velnor_labels = ["velnor-cp-queue-validation", "velnor-target-mvp"]
 default_branch = "main"
-files = ["_actions-suite.yml", "_docker-suite.yml", "_runtime-suite.yml", "_rust-suite.yml", "app-token-probe.yml", "attestation-negative.yml", "backend-parity.yml", "ci.yml", "compat-public-unmerged.yml", "compat.yml", "control-plane.yml", "docker-lease-probe.yml", "docker.yml", "fixture-rust-check.yml", "l2-negative.yml", "l2-provenance.yml", "l2-runtime.yml", "multi-arch.yml", "pages.yml", "renovate.yml", "reuse-caller.yml", "schedule.yml"]
 
 [policy]
 actionlint_config_variables_null = true
