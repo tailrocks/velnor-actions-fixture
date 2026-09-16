@@ -12,8 +12,8 @@ detected = ["cargo-lockfile", "mise-present", "renovate-configuration", "rust-bi
 limitations = ["Project code, build scripts, task runners, and commands are never executed during analysis.", "Release, signing, registry, deployment, branch-protection, and runner-capability contracts remain explicit manual inputs.", "Renovate credentials, runner placement, and write permissions cannot be inferred from repository files.", "Rust build scripts are watched but their system dependencies and generated outputs are not inferred."]
 
 [workflow]
-github_runner = "ubuntu-26.04"
-velnor_labels = ["velnor-cp-queue-validation", "velnor-target-mvp"]
+github_runner = "ubuntu-24.04"
+velnor_labels = ["self-hosted", "velnor-target-mvp"]
 files = ["ci-main.yml", "ci-policy.yml", "ci-pr.yml", "ci-unit-docker.yml", "ci-unit-rust.yml", "maintenance.yml", "nightly.yml"]
 notes = ["Rust verification uses Mr. Boxington 1.11.1 by default on both lanes. GitHub-hosted jobs use its GitHub cache backend with bounded snapshot keys (a key names the toolchain/image/linker compatibility class and the hashed source state, so a new source state saves a new snapshot and retention keeps generations bounded). Velnor jobs use an explicit local-backend setup step against the image/runner-provided local store."]
 

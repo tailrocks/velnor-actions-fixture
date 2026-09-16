@@ -41,7 +41,7 @@ permissions:
 jobs:
   plan:
     name: "Control / Planning"
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     outputs:
       scope: ${{ steps.plan.outputs.scope }}
       base_sha: ${{ steps.plan.outputs.base_sha }}
@@ -58,11 +58,11 @@ jobs:
           persist-credentials: false
       - name: Set up Velnor workflow runtime
         if: ${{ runner.environment == 'github-hosted' }}
-        uses: tailrocks/velnor/.github/actions/setup-velnor-workflow@e13bce4dba15ed5927effde5eb62e8ba453bf100
+        uses: tailrocks/velnor/.github/actions/setup-velnor-workflow@5bb97775e5fd7c9c1f8cb959a65369fd1aad2def
         with:
-          rev: e13bce4dba15ed5927effde5eb62e8ba453bf100
+          rev: 5bb97775e5fd7c9c1f8cb959a65369fd1aad2def
       - name: Set trusted workflow policy revision
-        run: echo "VELNOR_WORKFLOW_POLICY_REVISION=e13bce4dba15ed5927effde5eb62e8ba453bf100" >> "$GITHUB_ENV"
+        run: echo "VELNOR_WORKFLOW_POLICY_REVISION=5bb97775e5fd7c9c1f8cb959a65369fd1aad2def" >> "$GITHUB_ENV"
       - name: Select affected units
         id: plan
         env:
@@ -79,7 +79,7 @@ jobs:
       - name: Prepare Velnor workflow runtime
         shell: bash
         env:
-          EXPECTED_REVISION: e13bce4dba15ed5927effde5eb62e8ba453bf100
+          EXPECTED_REVISION: 5bb97775e5fd7c9c1f8cb959a65369fd1aad2def
         run: |
           set -euo pipefail
           stage="$RUNNER_TEMP/velnor-workflow-runtime"
@@ -97,14 +97,14 @@ jobs:
       - name: Publish Velnor workflow runtime
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: velnor-workflow-runtime-e13bce4dba15ed5927effde5eb62e8ba453bf100-${{ runner.os }}-${{ runner.arch }}
+          name: velnor-workflow-runtime-5bb97775e5fd7c9c1f8cb959a65369fd1aad2def-${{ runner.os }}-${{ runner.arch }}
           path: ${{ runner.temp }}/velnor-workflow-runtime
           if-no-files-found: error
           retention-days: 7
   velnor-lane-admission:
     name: "Control / Velnor admission"
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Velnor lane omitted for fork
@@ -162,7 +162,7 @@ jobs:
       full_units: ${{ needs.plan.outputs.full_units }}
       base_sha: ${{ needs.plan.outputs.base_sha }}
       head_sha: ${{ needs.plan.outputs.head_sha }}
-      mbx_compat: c639da9ed77a
+      mbx_compat: "96ee7fd95d0a"
       mbx_dependency_files: |
         .cargo/**
         Cargo.lock
@@ -218,7 +218,7 @@ jobs:
       full_units: ${{ needs.plan.outputs.full_units }}
       base_sha: ${{ needs.plan.outputs.base_sha }}
       head_sha: ${{ needs.plan.outputs.head_sha }}
-      mbx_compat: f85a9d6b4342
+      mbx_compat: "763514c6789c"
       mbx_dependency_files: |
         .cargo/**
         Cargo.lock
@@ -274,7 +274,7 @@ jobs:
       full_units: ${{ needs.plan.outputs.full_units }}
       base_sha: ${{ needs.plan.outputs.base_sha }}
       head_sha: ${{ needs.plan.outputs.head_sha }}
-      mbx_compat: af0dac64c5f9
+      mbx_compat: a565c5f6642e
       mbx_dependency_files: |
         .cargo/**
         Cargo.lock
@@ -326,7 +326,7 @@ jobs:
       full_units: ${{ needs.plan.outputs.full_units }}
       base_sha: ${{ needs.plan.outputs.base_sha }}
       head_sha: ${{ needs.plan.outputs.head_sha }}
-      mbx_compat: "4ca5133cc751"
+      mbx_compat: "98eb92332605"
       mbx_dependency_files: |
         .cargo/**
         Cargo.lock
@@ -384,7 +384,7 @@ jobs:
       full_units: ${{ needs.plan.outputs.full_units }}
       base_sha: ${{ needs.plan.outputs.base_sha }}
       head_sha: ${{ needs.plan.outputs.head_sha }}
-      mbx_compat: "2d09d90e9d01"
+      mbx_compat: "0196d440144d"
       mbx_dependency_files: |
         .cargo/**
         Cargo.lock
@@ -435,7 +435,7 @@ jobs:
       full_units: ${{ needs.plan.outputs.full_units }}
       base_sha: ${{ needs.plan.outputs.base_sha }}
       head_sha: ${{ needs.plan.outputs.head_sha }}
-      mbx_compat: "9e212b4c1d82"
+      mbx_compat: "62866a9b6f56"
       mbx_dependency_files: |
         .cargo/**
         Cargo.lock
@@ -477,7 +477,7 @@ jobs:
     name: ci-required
     if: ${{ always() }}
     needs: [plan, velnor-lane-admission, github-docker, velnor-docker, prepare-cargo, github-rust-app-a, velnor-rust-app-a, github-rust-app-b, velnor-rust-app-b, github-rust-fixture-harness, velnor-rust-fixture-harness, github-rust-l2-contract, velnor-rust-l2-contract, github-rust-shared, velnor-rust-shared, github-rust-verifier, velnor-rust-verifier]
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Validate generated stack results
@@ -750,7 +750,7 @@ jobs:
     name: "Control / Required"
     if: ${{ always() }}
     needs: [ci-required]
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Mirror CI / Required

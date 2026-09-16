@@ -16,7 +16,7 @@ permissions:
 jobs:
   policy:
     name: Policy
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Trust invariant: this job runs the base branch's validator against the
     # audited tree under pull_request_target. It holds `contents: read` only,
@@ -51,7 +51,7 @@ jobs:
         with:
           backend: github
           version: 1.11.1
-          cache-key: velnor-policy-mbx-1.11.1-${{ runner.os }}-${{ runner.arch }}-e13bce4dba15ed5927effde5eb62e8ba453bf100
+          cache-key: velnor-policy-mbx-1.11.1-${{ runner.os }}-${{ runner.arch }}-5bb97775e5fd7c9c1f8cb959a65369fd1aad2def
           restore-keys: |
             velnor-policy-mbx-1.11.1-${{ runner.os }}-${{ runner.arch }}-
       - name: Install pinned Velnor workflow runtime
@@ -71,7 +71,7 @@ jobs:
             cargo install \
             --locked \
             --git https://github.com/tailrocks/velnor \
-            --rev e13bce4dba15ed5927effde5eb62e8ba453bf100 \
+            --rev 5bb97775e5fd7c9c1f8cb959a65369fd1aad2def \
             --root "$VELNOR_WORKFLOW_ROOT" \
             velnor-workflow \
             --bin velnor-workflow
@@ -93,7 +93,7 @@ jobs:
           WORKFLOW_ROOT: ${{ github.workspace }}/policy-checkout
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
-          VELNOR_WORKFLOW_POLICY_REVISION: e13bce4dba15ed5927effde5eb62e8ba453bf100
+          VELNOR_WORKFLOW_POLICY_REVISION: 5bb97775e5fd7c9c1f8cb959a65369fd1aad2def
         run: |
           set -euo pipefail
           velnor-workflow policy \
