@@ -1,17 +1,17 @@
 # Generated ownership state; do not edit.
 schema = 2
 [inputs]
-config	a7fe8919af79d970
+config	5334065756f3731e
 scan	0cc02a770ccab234
 generator	49
 [outputs]
 .github/actionlint.yaml	ec35f48ae7e90e0e
 .github/ci/project.toml	35e5107c9a1c7548
-.github/workflows/ci-main.yml	f8a411014420d8dc
-.github/workflows/ci-policy.yml	f752614258757126
-.github/workflows/ci-pr.yml	e577a48a9b033bb0
-.github/workflows/ci-unit-docker.yml	9fdbdae3d94b03f9
-.github/workflows/ci-unit-rust.yml	35d10050cc39ea33
-.github/workflows/maintenance.yml	842c5547cdb8775e
+.github/workflows/ci-main.yml	445daa8d8f60aeb4
+.github/workflows/ci-policy.yml	1a186b93ae5c4798
+.github/workflows/ci-pr.yml	727e6175e2dbfa06
+.github/workflows/ci-unit-docker.yml	433eaac49cadf483
+.github/workflows/ci-unit-rust.yml	c9fa6709ddb40366
+.github/workflows/maintenance.yml	fdc9633c2f1d72b4
 .github/workflows/nightly.yml	c73d542eaf687a7e
 config/fleet/velnor-host.env	d14b419216449423
