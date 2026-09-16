@@ -4,8 +4,6 @@
 
 self-hosted-runner:
   labels:
-    - ubuntu-26.04
-    - velnor-cp-queue-validation
+    - self-hosted
+    - ubuntu-24.04
     - velnor-target-mvp
-
-config-variables: null

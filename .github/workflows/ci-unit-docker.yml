@@ -101,7 +101,7 @@ jobs:
   verify-github:
     name: GitHub
     if: ${{ inputs.lane == 'github' && contains(format(',{0},', inputs.selected_units), format(',{0},', inputs.unit)) && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) || (github.event_name == 'workflow_dispatch' && (github.event.inputs.runner == 'github' || github.event.inputs.runner == 'both' || github.event.inputs.runner == ''))) }}
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Mark CI job start
@@ -124,12 +124,12 @@ jobs:
       - name: Download Velnor workflow runtime
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: velnor-workflow-runtime-e13bce4dba15ed5927effde5eb62e8ba453bf100-${{ runner.os }}-${{ runner.arch }}
+          name: velnor-workflow-runtime-5bb97775e5fd7c9c1f8cb959a65369fd1aad2def-${{ runner.os }}-${{ runner.arch }}
           path: .velnor-workflow-runtime
       - name: Verify Velnor workflow runtime
         shell: bash
         env:
-          EXPECTED_REVISION: e13bce4dba15ed5927effde5eb62e8ba453bf100
+          EXPECTED_REVISION: 5bb97775e5fd7c9c1f8cb959a65369fd1aad2def
         run: |
           set -euo pipefail
           manifest=.velnor-workflow-runtime/manifest.json
@@ -143,16 +143,15 @@ jobs:
       - name: Add Velnor workflow runtime to PATH
         shell: bash
         env:
-          EXPECTED_REVISION: e13bce4dba15ed5927effde5eb62e8ba453bf100
+          EXPECTED_REVISION: 5bb97775e5fd7c9c1f8cb959a65369fd1aad2def
         run: |
           set -euo pipefail
-          home="$RUNNER_TEMP/velnor-workflow-runtime-artifact"
-          install -Dm0755 .velnor-workflow-runtime/velnor-workflow "$home/bin/velnor-workflow"
-          install -Dm0755 .velnor-workflow-runtime/velnor-workflow-policy "$home/bin/velnor-workflow-policy"
-          reported="$("$home/bin/velnor-workflow-policy" --revision)"
+          install -Dm0755 .velnor-workflow-runtime/velnor-workflow "$HOME/.cargo/bin/velnor-workflow"
+          install -Dm0755 .velnor-workflow-runtime/velnor-workflow-policy "$HOME/.cargo/bin/velnor-workflow-policy"
+          reported="$("$HOME/.cargo/bin/velnor-workflow-policy" --revision)"
           [[ "$reported" == "$EXPECTED_REVISION" ]] || { echo "::error::policy runtime reports revision $reported, expected $EXPECTED_REVISION" >&2; exit 1; }
-          echo "$home/bin" >> "$GITHUB_PATH"
-          echo "VELNOR_WORKFLOW_PINNED_BINARY=$home/bin/velnor-workflow-policy" >> "$GITHUB_ENV"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          echo "VELNOR_WORKFLOW_PINNED_BINARY=$HOME/.cargo/bin/velnor-workflow-policy" >> "$GITHUB_ENV"
       - name: Mark runner setup end
         if: always()
         run: |
@@ -293,7 +292,7 @@ jobs:
   verify-velnor:
     name: Velnor
     if: ${{ inputs.lane == 'velnor' && contains(format(',{0},', inputs.selected_units), format(',{0},', inputs.unit)) && (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.runner == 'velnor' || github.event.inputs.runner == 'both' || github.event.inputs.runner == '')))) }}
-    runs-on: [velnor-cp-queue-validation, velnor-target-mvp]
+    runs-on: [self-hosted, velnor-target-mvp]
     timeout-minutes: 45
     steps:
       - name: Mark CI job start
