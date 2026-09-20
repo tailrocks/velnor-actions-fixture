@@ -128,12 +128,12 @@ jobs:
       - name: Download Velnor workflow runtime
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: velnor-workflow-runtime-2773e123d8ea27d61d390e8862ffb87247ef9a13-${{ runner.os }}-${{ runner.arch }}
+          name: velnor-workflow-runtime-386ccc16d1f537ce7d4e467a294ed41074ecf38c-${{ runner.os }}-${{ runner.arch }}
           path: .velnor-workflow-runtime
       - name: Verify Velnor workflow runtime
         shell: bash
         env:
-          EXPECTED_REVISION: 2773e123d8ea27d61d390e8862ffb87247ef9a13
+          EXPECTED_REVISION: 386ccc16d1f537ce7d4e467a294ed41074ecf38c
         run: |
           set -euo pipefail
           manifest=.velnor-workflow-runtime/manifest.json
@@ -147,7 +147,7 @@ jobs:
       - name: Add Velnor workflow runtime to PATH
         shell: bash
         env:
-          EXPECTED_REVISION: 2773e123d8ea27d61d390e8862ffb87247ef9a13
+          EXPECTED_REVISION: 386ccc16d1f537ce7d4e467a294ed41074ecf38c
         run: |
           set -euo pipefail
           home="$RUNNER_TEMP/velnor-workflow-runtime-artifact"
@@ -289,7 +289,7 @@ jobs:
           fi
       - name: Report phase timings and cache outcomes
         if: always()
-        uses: tailrocks/velnor/.github/actions/report-velnor-ci-outcomes@2773e123d8ea27d61d390e8862ffb87247ef9a13
+        uses: tailrocks/velnor/.github/actions/report-velnor-ci-outcomes@386ccc16d1f537ce7d4e467a294ed41074ecf38c
         with:
           job_label: ${{ inputs.unit }}
           ci_lane: github
@@ -459,7 +459,7 @@ jobs:
           fi
       - name: Report phase timings and cache outcomes
         if: always()
-        uses: tailrocks/velnor/.github/actions/report-velnor-ci-outcomes@2773e123d8ea27d61d390e8862ffb87247ef9a13
+        uses: tailrocks/velnor/.github/actions/report-velnor-ci-outcomes@386ccc16d1f537ce7d4e467a294ed41074ecf38c
         with:
           job_label: ${{ inputs.unit }}
           ci_lane: velnor
