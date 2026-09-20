@@ -1,7 +1,7 @@
 schema = 1
 
 [generator]
-revision = "b9c3156cdb88e63c11b9e595a3e694b02238c09a"
+revision = "2773e123d8ea27d61d390e8862ffb87247ef9a13"
 repository = "tailrocks/velnor-actions-fixture"
 
 [workflow]
@@ -11,6 +11,7 @@ default_dispatch_runner = "github"
 github_runner = "ubuntu-24.04"
 velnor_labels = ["self-hosted", "velnor-target-mvp"]
 default_branch = "main"
+pull_request_on_velnor = true
 
 [policy]
 ruleset_required_status_checks = ["ci-required"]
