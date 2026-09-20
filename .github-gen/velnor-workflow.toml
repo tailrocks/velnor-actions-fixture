@@ -1,7 +1,7 @@
 schema = 1
 
 [generator]
-revision = "2773e123d8ea27d61d390e8862ffb87247ef9a13"
+revision = "386ccc16d1f537ce7d4e467a294ed41074ecf38c"
 repository = "tailrocks/velnor-actions-fixture"
 
 [workflow]
