@@ -1,18 +1,46 @@
-schema = 1
+schema = 2
 
 [generator]
-revision = "386ccc16d1f537ce7d4e467a294ed41074ecf38c"
 repository = "tailrocks/velnor-actions-fixture"
+revision = "be61acbbbfb71db6b51337e547e39de049d4fc15"
 
+# Public repository: GitHub-hosted singleton. The dual-lane shape was dropped
+# by the inc3 visibility cutover; the fixture's former `pull_request_on_velnor`
+# v1 key has no schema-2 successor.
 [workflow]
-runners = "both"
-automatic_lanes = "github"
-default_dispatch_runner = "github"
-github_runner = "ubuntu-24.04"
-velnor_labels = ["self-hosted", "velnor-target-mvp"]
+providers = ["github-hosted"]
+automatic_providers = ["github-hosted"]
 default_branch = "main"
-pull_request_on_velnor = true
+
+[workflow.selectors.github-hosted]
+runs_on = ["ubuntu-24.04"]
 
 [policy]
-ruleset_required_status_checks = ["ci-required"]
+ruleset_required_status_checks = ["ci-required", "Policy"]
+# Contexts the ruleset requires that GitHub Apps report, not workflows.
 ruleset_external_status_checks = ["DCO"]
+
+# Fixture corpus: 7 composite actions passed through verbatim. Sources live
+# outside the generated tree (generation inputs must not live under .github);
+# the whole tree moved so the l2-root -> l2-nested relative ref is preserved.
+[[static_files]]
+file = ".github/actions/aggregate-needs/action.yml"
+source = ".github-gen/static/actions/aggregate-needs/action.yml"
+[[static_files]]
+file = ".github/actions/check-deployed-docs/action.yml"
+source = ".github-gen/static/actions/check-deployed-docs/action.yml"
+[[static_files]]
+file = ".github/actions/check-fixture-output/action.yml"
+source = ".github-gen/static/actions/check-fixture-output/action.yml"
+[[static_files]]
+file = ".github/actions/collect-evidence/action.yml"
+source = ".github-gen/static/actions/collect-evidence/action.yml"
+[[static_files]]
+file = ".github/actions/compare-evidence/action.yml"
+source = ".github-gen/static/actions/compare-evidence/action.yml"
+[[static_files]]
+file = ".github/actions/l2-nested/action.yml"
+source = ".github-gen/static/actions/l2-nested/action.yml"
+[[static_files]]
+file = ".github/actions/l2-root/action.yml"
+source = ".github-gen/static/actions/l2-root/action.yml"
