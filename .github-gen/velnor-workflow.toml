@@ -2,7 +2,7 @@ schema = 2
 
 [generator]
 repository = "tailrocks/velnor-actions-fixture"
-revision = "be61acbbbfb71db6b51337e547e39de049d4fc15"
+revision = "eed474c4a1d9b071fd1b5de00c769c8997398e5a"
 
 # Public repository: GitHub-hosted singleton. The dual-lane shape was dropped
 # by the inc3 visibility cutover; the fixture's former `pull_request_on_velnor`
