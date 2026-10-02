@@ -11,3 +11,4 @@ path = "src/lib.rs"
 [[bin]]
 name = "l2-contract"
 path = "src/main.rs"
+test = false

@@ -11,3 +11,4 @@ path = "src/lib.rs"
 [[bin]]
 name = "verifier"
 path = "src/main.rs"
+test = false
